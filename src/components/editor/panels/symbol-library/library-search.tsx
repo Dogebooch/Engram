@@ -3,7 +3,6 @@
 import * as React from "react";
 import { SearchIcon, XIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 interface LibrarySearchProps {
   value: string;
@@ -34,7 +33,7 @@ export function LibrarySearch({ value, onChange }: LibrarySearchProps) {
   );
 
   return (
-    <div className="relative">
+    <div className="group relative">
       <SearchIcon
         aria-hidden
         className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/70"
@@ -48,19 +47,26 @@ export function LibrarySearch({ value, onChange }: LibrarySearchProps) {
         spellCheck={false}
         autoComplete="off"
         data-engram-library-search
-        className="h-8 pl-7 pr-7 text-xs"
+        className="h-8 pl-7 pr-8 text-xs font-medium tracking-tight placeholder:font-normal placeholder:tracking-normal"
       />
-      <button
-        type="button"
-        aria-label="Clear search"
-        onClick={() => onChange("")}
-        className={cn(
-          "absolute right-1.5 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground/70 transition-opacity hover:text-foreground",
-          value ? "opacity-100" : "pointer-events-none opacity-0",
-        )}
-      >
-        <XIcon className="size-3" />
-      </button>
+      {value === "" ? (
+        <kbd
+          data-slot="kbd"
+          aria-hidden
+          className="pointer-events-none absolute right-2 top-1/2 flex h-[18px] -translate-y-1/2 items-center rounded border border-border/60 bg-background/60 px-1.5 font-mono text-[10px] leading-none text-muted-foreground/70 transition-opacity duration-150 group-focus-within:opacity-0"
+        >
+          /
+        </kbd>
+      ) : (
+        <button
+          type="button"
+          aria-label="Clear search"
+          onClick={() => onChange("")}
+          className="absolute right-1.5 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-white/[0.06] hover:text-foreground"
+        >
+          <XIcon className="size-3" />
+        </button>
+      )}
     </div>
   );
 }

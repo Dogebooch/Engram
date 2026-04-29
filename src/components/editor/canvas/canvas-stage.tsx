@@ -118,7 +118,7 @@ export function CanvasStage() {
         <div
           data-engram-canvas-paper
           data-drag-hover={dragHover ? "" : undefined}
-          className="pointer-events-auto absolute rounded-[2px] shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_24px_60px_-30px_rgba(0,0,0,0.9)] ring-1 ring-black/40 transition-shadow duration-150 data-[drag-hover]:shadow-[0_0_0_2px_var(--accent),0_24px_60px_-30px_rgba(0,0,0,0.9)]"
+          className="pointer-events-auto absolute rounded-[2px] shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_24px_60px_-30px_rgba(0,0,0,0.9)] ring-1 ring-black/40 after:pointer-events-none after:absolute after:inset-0 after:rounded-[2px] after:opacity-0 after:transition-opacity after:duration-200 after:ease-out after:shadow-[inset_0_0_0_1px_var(--accent),inset_0_0_56px_-12px_var(--accent),0_0_0_1px_color-mix(in_oklch,var(--accent)_50%,transparent)] data-[drag-hover]:after:opacity-100"
           style={{
             left: box.offsetX,
             top: box.offsetY,
@@ -164,17 +164,24 @@ export function CanvasStage() {
           </Stage>
         </div>
       )}
-      <CornerReadout />
+      <CornerReadout scale={box.scale} />
     </div>
   );
 }
 
 const EMPTY_SYMBOLS = [] as const;
 
-function CornerReadout() {
+function CornerReadout({ scale }: { scale: number }) {
+  const pct = scale > 0 ? Math.round(scale * 100) : null;
   return (
-    <div className="pointer-events-none absolute bottom-2 right-3 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
-      1920 × 1080 · 16:9
+    <div className="pointer-events-none absolute bottom-2 right-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
+      <span>1920 × 1080 · 16:9</span>
+      {pct !== null && (
+        <>
+          <span className="text-muted-foreground/30">·</span>
+          <span className="text-muted-foreground/80">{pct}%</span>
+        </>
+      )}
     </div>
   );
 }

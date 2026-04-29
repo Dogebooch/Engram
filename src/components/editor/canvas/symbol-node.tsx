@@ -90,10 +90,10 @@ export const SymbolNode = React.memo(function SymbolNode({
         <Rect
           width={layer.width}
           height={layer.height}
-          stroke={selected ? "#f7c948" : "#a33"}
-          strokeWidth={selected ? 2 : 1.5}
+          stroke={selected ? "oklch(0.78 0.13 75)" : "rgba(255,255,255,0.18)"}
+          strokeWidth={selected ? 1.5 : 1}
           dash={[6, 6]}
-          fill="rgba(170, 51, 51, 0.08)"
+          fill="rgba(255,255,255,0.02)"
           cornerRadius={4}
         />
         <Text
@@ -104,8 +104,8 @@ export const SymbolNode = React.memo(function SymbolNode({
           height={layer.height}
           align="center"
           verticalAlign="middle"
-          fontSize={Math.min(layer.width, layer.height) * 0.5}
-          fill="#a33"
+          fontSize={Math.min(layer.width, layer.height) * 0.45}
+          fill="oklch(0.65 0.18 25)"
           listening={false}
         />
       </Group>

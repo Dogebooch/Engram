@@ -12,8 +12,8 @@ interface CanvasTransformerProps {
   getNode: (id: string) => Konva.Image | null;
 }
 
-const ANCHOR_SIZE = 8;
-const ROTATION_SNAPS = [0, 45, 90, 135, 180, 225, 270, 315];
+const ANCHOR_SIZE = 9;
+const ROTATION_SNAPS = [0, 90, 180, 270];
 
 export function CanvasTransformer({
   selectedIds,
@@ -59,15 +59,18 @@ export function CanvasTransformer({
     <Transformer
       ref={transformerRef}
       anchorSize={ANCHOR_SIZE}
-      anchorStroke="#1a1a1a"
-      anchorFill="#f5d77a"
-      anchorStrokeWidth={1.5}
-      anchorCornerRadius={2}
-      borderStroke="#f5d77a"
+      anchorFill="#0a0a0a"
+      anchorStroke="oklch(0.78 0.13 75)"
+      anchorStrokeWidth={1.25}
+      anchorCornerRadius={1.5}
+      borderStroke="oklch(0.78 0.13 75)"
       borderStrokeWidth={1}
-      borderDash={[4, 4]}
+      borderDash={[3, 3]}
+      padding={4}
+      rotateAnchorOffset={30}
+      rotateLineVisible={false}
       rotationSnaps={ROTATION_SNAPS}
-      rotationSnapTolerance={6}
+      rotationSnapTolerance={4}
       keepRatio={false}
       ignoreStroke
       shouldOverdrawWholeArea
