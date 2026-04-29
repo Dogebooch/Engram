@@ -56,10 +56,36 @@ export const SymbolNode = React.memo(function SymbolNode({
     [layer.id, setSelectedSymbolIds, toggleSymbolSelection],
   );
 
+  const handleMouseEnter = React.useCallback(
+    (e: KonvaEventObject<MouseEvent>) => {
+      const container = e.target.getStage()?.container();
+      if (container) container.style.cursor = "grab";
+    },
+    [],
+  );
+
+  const handleMouseLeave = React.useCallback(
+    (e: KonvaEventObject<MouseEvent>) => {
+      const container = e.target.getStage()?.container();
+      if (container) container.style.cursor = "";
+    },
+    [],
+  );
+
+  const handleDragStart = React.useCallback(
+    (e: KonvaEventObject<DragEvent>) => {
+      const container = e.target.getStage()?.container();
+      if (container) container.style.cursor = "grabbing";
+    },
+    [],
+  );
+
   const handleDragEnd = React.useCallback(
     (e: KonvaEventObject<DragEvent>) => {
       const node = e.target;
       updateSymbol(layer.id, { x: node.x(), y: node.y() });
+      const container = e.target.getStage()?.container();
+      if (container) container.style.cursor = "grab";
     },
     [layer.id, updateSymbol],
   );
@@ -86,6 +112,8 @@ export const SymbolNode = React.memo(function SymbolNode({
         y={layer.y}
         rotation={layer.rotation}
         onClick={handleClick}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
         <Rect
           width={layer.width}
@@ -125,6 +153,9 @@ export const SymbolNode = React.memo(function SymbolNode({
       draggable
       perfectDrawEnabled={false}
       onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     />
   );
