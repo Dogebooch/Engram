@@ -15,6 +15,21 @@ interface CanvasTransformerProps {
 const ANCHOR_SIZE = 9;
 const ROTATION_SNAPS = [0, 90, 180, 270];
 
+// Inline rotate icon (lucide rotate-cw paths) with a black halo + white stroke
+// so the cursor reads on any canvas background.
+const ROTATE_CURSOR_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24">' +
+  '<g stroke="black" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none">' +
+  '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>' +
+  '<path d="M21 3v5h-5"/>' +
+  '</g>' +
+  '<g stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">' +
+  '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>' +
+  '<path d="M21 3v5h-5"/>' +
+  '</g>' +
+  '</svg>';
+const ROTATE_CURSOR = `url("data:image/svg+xml;utf8,${encodeURIComponent(ROTATE_CURSOR_SVG)}") 16 16, crosshair`;
+
 export function CanvasTransformer({
   selectedIds,
   symbolsKey,
@@ -68,6 +83,7 @@ export function CanvasTransformer({
       borderDash={[3, 3]}
       padding={4}
       rotateAnchorOffset={30}
+      rotateAnchorCursor={ROTATE_CURSOR}
       rotateLineVisible={false}
       rotationSnaps={ROTATION_SNAPS}
       rotationSnapTolerance={4}

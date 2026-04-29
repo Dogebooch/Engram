@@ -106,6 +106,7 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
 - [ ] Keyboard shortcut help overlay (`?` key)
 - [ ] Storage quota warnings (80% / 95% thresholds)
 - [ ] Game-Icons integration if not done in Phase 2
+- [ ] Theme the Konva canvas chrome — the paper rect (`STAGE_PAPER_FILL = "#181818"` in [canvas-stage.tsx](src/components/editor/canvas/canvas-stage.tsx)) and dot grid colors (`DOT_FILL = "#3f3f3f"` in [dot-grid.tsx](src/components/editor/canvas/dot-grid.tsx)) are currently hardcoded. They should read `--stage` / `--stage-grid` from CSS variables (already defined in `globals.css`) so light theme (Phase 8) doesn't need a second pass. Approach: read tokens via `getComputedStyle(document.documentElement).getPropertyValue('--stage')` once and pass into the Konva fills, plus a MutationObserver on `documentElement` `class` attribute to re-pull on theme switch.
 
 ---
 
