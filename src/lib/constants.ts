@@ -28,3 +28,8 @@ export const PANEL_DEFAULTS = {
   rightMin: 18,
   rightMax: 40,
 } as const;
+
+export const SYMBOL_DEFAULT_SIZE = 220;
+export const SYMBOL_DUPLICATE_OFFSET = 24;
+export const RECENT_SYMBOLS_MAX = 16;
+export const SYMBOL_DRAG_MIME = "application/x-engram-symbol";

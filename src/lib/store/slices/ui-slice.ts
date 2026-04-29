@@ -1,5 +1,5 @@
 import type { StateCreator } from "zustand";
-import { PANEL_DEFAULTS } from "@/lib/constants";
+import { PANEL_DEFAULTS, RECENT_SYMBOLS_MAX } from "@/lib/constants";
 import type { RootState } from "../types";
 
 export interface UiState {
@@ -7,6 +7,7 @@ export interface UiState {
   rightPanelSize: number;
   leftCollapsed: boolean;
   rightCollapsed: boolean;
+  recentSymbolIds: string[];
 }
 
 export interface UiSlice {
@@ -17,6 +18,7 @@ export interface UiSlice {
   setRightCollapsed: (collapsed: boolean) => void;
   toggleLeftCollapsed: () => void;
   toggleRightCollapsed: () => void;
+  pushRecentSymbol: (ref: string) => void;
 }
 
 export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => ({
@@ -25,6 +27,7 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
     rightPanelSize: PANEL_DEFAULTS.rightSize,
     leftCollapsed: false,
     rightCollapsed: false,
+    recentSymbolIds: [],
   },
   setLeftPanelSize: (size) =>
     set((s) => ({ ui: { ...s.ui, leftPanelSize: size } })),
@@ -38,4 +41,14 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
     set((s) => ({ ui: { ...s.ui, leftCollapsed: !s.ui.leftCollapsed } })),
   toggleRightCollapsed: () =>
     set((s) => ({ ui: { ...s.ui, rightCollapsed: !s.ui.rightCollapsed } })),
+  pushRecentSymbol: (ref) =>
+    set((s) => ({
+      ui: {
+        ...s.ui,
+        recentSymbolIds: [
+          ref,
+          ...s.ui.recentSymbolIds.filter((r) => r !== ref),
+        ].slice(0, RECENT_SYMBOLS_MAX),
+      },
+    })),
 });
