@@ -20,13 +20,13 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
 
 ## Phase 1 — Foundations (1–2 days)
 
-- [ ] Add deps: `konva react-konva zustand idb-keyval @uiw/react-codemirror @codemirror/lang-markdown unified remark-parse @tanstack/react-virtual`
-- [ ] Add shadcn/ui: `npx shadcn@latest init`, install `button dialog command input scroll-area resizable tabs tooltip`
-- [ ] Build 3-panel resizable layout (`@/components/Layout.tsx`) — left/center/right with collapsible sides
-- [ ] Empty Konva `<Stage>` in center panel with placeholder backdrop
-- [ ] Zustand store skeleton with `idb-keyval` persist middleware
-- [ ] UUID helper using `crypto.randomUUID()`
-- [ ] Hello-world: load app, see 3 panels, see empty canvas, refresh — state survives
+- [x] Add deps: `konva react-konva zustand idb-keyval @uiw/react-codemirror @codemirror/lang-markdown unified remark-parse @tanstack/react-virtual`
+- [x] Add shadcn/ui: `npx shadcn@latest init`, install `button dialog command input scroll-area resizable tabs tooltip`
+- [x] Build 3-panel resizable layout (`@/components/Layout.tsx`) — left/center/right with collapsible sides
+- [x] Empty Konva `<Stage>` in center panel with placeholder backdrop
+- [x] Zustand store skeleton with `idb-keyval` persist middleware
+- [x] UUID helper using `crypto.randomUUID()`
+- [x] Hello-world: load app, see 3 panels, see empty canvas, refresh — state survives
 
 ---
 
@@ -109,12 +109,21 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
 - [ ] Keyboard shortcut help overlay (`?` key)
 - [ ] Storage quota warnings (80% / 95% thresholds)
 - [ ] Game-Icons integration if not done in Phase 2
+
+---
+
+## Phase 8 - Further Polish stated by Doug
+
+- [ ] Settings pane with editable keyboard shortcuts
+  - View all bound shortcuts in one place (currently scattered across `useEditorKeybindings`)
+  - Allow user to rebind any action; persist to IDB alongside ui prefs
+  - Detect conflicts (e.g. binding `Cmd+S` would override browser save)
+  - Reset-to-defaults action
+  - Suggested action ID schema: `{ id: string, label: string, defaultBinding: Keybinding, currentBinding: Keybinding }`
 - [ ] Theme toggle (light / dark / system) in topbar
   - `next-themes` + `<ThemeProvider>` already wired in Phase 1; defaults to dark
   - Light theme tokens already defined in `globals.css :root`
   - Remaining work: toggle UI in topbar, themed Konva colors (stage paper, dot grid, radial backdrop currently hardcoded for dark), themed save-status `success` shade, audit empty-state and panels for light-mode contrast
-
----
 
 ## v2+ (architected, not built — DO NOT touch in v1)
 
@@ -124,4 +133,3 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
 - Cloud sync (Supabase) — UUIDs already cloud-portable
 - AI symbol generation with reference styles
 - Public Picmonic library
-
