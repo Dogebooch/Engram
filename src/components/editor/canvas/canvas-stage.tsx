@@ -10,6 +10,7 @@ import { usePicmonic } from "@/lib/store/hooks";
 import { CanvasTransformer } from "./canvas-transformer";
 import { DotGrid } from "./dot-grid";
 import { SymbolNode } from "./symbol-node";
+import { useCanvasDrop } from "./use-canvas-drop";
 
 const STAGE_PAPER_FILL = "#181818";
 
@@ -34,6 +35,8 @@ export function CanvasStage() {
   const selectedIds = useStore((s) => s.selectedSymbolIds);
   const clearSelection = useStore((s) => s.clearSelection);
   const selectedSet = React.useMemo(() => new Set(selectedIds), [selectedIds]);
+
+  const { dragHover } = useCanvasDrop({ stageRef, containerRef });
 
   React.useEffect(() => {
     const el = containerRef.current;
@@ -113,7 +116,9 @@ export function CanvasStage() {
     >
       {box.scale > 0 && (
         <div
-          className="pointer-events-auto absolute rounded-[2px] shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_24px_60px_-30px_rgba(0,0,0,0.9)] ring-1 ring-black/40"
+          data-engram-canvas-paper
+          data-drag-hover={dragHover ? "" : undefined}
+          className="pointer-events-auto absolute rounded-[2px] shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_24px_60px_-30px_rgba(0,0,0,0.9)] ring-1 ring-black/40 transition-shadow duration-150 data-[drag-hover]:shadow-[0_0_0_2px_var(--accent),0_24px_60px_-30px_rgba(0,0,0,0.9)]"
           style={{
             left: box.offsetX,
             top: box.offsetY,
