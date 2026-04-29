@@ -1,9 +1,15 @@
 "use client";
 
 import * as React from "react";
+import type Konva from "konva";
+import type { KonvaEventObject } from "konva/lib/Node";
 import { Layer, Rect, Stage } from "react-konva";
 import { STAGE_HEIGHT, STAGE_WIDTH } from "@/lib/constants";
+import { useStore } from "@/lib/store";
+import { usePicmonic } from "@/lib/store/hooks";
+import { CanvasTransformer } from "./canvas-transformer";
 import { DotGrid } from "./dot-grid";
+import { SymbolNode } from "./symbol-node";
 
 const STAGE_PAPER_FILL = "#181818";
 
@@ -19,7 +25,15 @@ const ZERO_BOX: FitBox = { width: 0, height: 0, scale: 0, offsetX: 0, offsetY: 0
 
 export function CanvasStage() {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const stageRef = React.useRef<Konva.Stage | null>(null);
+  const symbolRefs = React.useRef<Map<string, Konva.Image>>(new Map());
   const [box, setBox] = React.useState<FitBox>(ZERO_BOX);
+
+  const picmonic = usePicmonic();
+  const symbols = picmonic?.canvas.symbols ?? EMPTY_SYMBOLS;
+  const selectedIds = useStore((s) => s.selectedSymbolIds);
+  const clearSelection = useStore((s) => s.clearSelection);
+  const selectedSet = React.useMemo(() => new Set(selectedIds), [selectedIds]);
 
   React.useEffect(() => {
     const el = containerRef.current;
@@ -62,6 +76,31 @@ export function CanvasStage() {
     return () => obs.disconnect();
   }, []);
 
+  const handleSymbolMount = React.useCallback(
+    (id: string, node: Konva.Image | null) => {
+      if (node) {
+        symbolRefs.current.set(id, node);
+      } else {
+        symbolRefs.current.delete(id);
+      }
+    },
+    [],
+  );
+
+  const handleStageMouseDown = React.useCallback(
+    (e: KonvaEventObject<MouseEvent>) => {
+      if (e.target === e.target.getStage()) {
+        clearSelection();
+      }
+    },
+    [clearSelection],
+  );
+
+  const symbolsKey = React.useMemo(
+    () => symbols.map((s) => s.id).join("|"),
+    [symbols],
+  );
+
   return (
     <div
       ref={containerRef}
@@ -83,10 +122,12 @@ export function CanvasStage() {
           }}
         >
           <Stage
+            ref={stageRef}
             width={box.width}
             height={box.height}
             scaleX={box.scale}
             scaleY={box.scale}
+            onMouseDown={handleStageMouseDown}
           >
             <Layer listening={false}>
               <Rect
@@ -98,6 +139,23 @@ export function CanvasStage() {
               />
               <DotGrid />
             </Layer>
+            <Layer>
+              {symbols.map((layer) => (
+                <SymbolNode
+                  key={layer.id}
+                  layer={layer}
+                  selected={selectedSet.has(layer.id)}
+                  onMount={handleSymbolMount}
+                />
+              ))}
+            </Layer>
+            <Layer>
+              <CanvasTransformer
+                selectedIds={selectedIds}
+                symbolsKey={symbolsKey}
+                getNode={(id) => symbolRefs.current.get(id) ?? null}
+              />
+            </Layer>
           </Stage>
         </div>
       )}
@@ -105,6 +163,8 @@ export function CanvasStage() {
     </div>
   );
 }
+
+const EMPTY_SYMBOLS = [] as const;
 
 function CornerReadout() {
   return (
