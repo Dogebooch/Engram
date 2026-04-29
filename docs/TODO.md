@@ -32,18 +32,15 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
 
 ## Phase 2 — Symbol library + canvas placement (2 days)
 
-- [ ] ⚠️ **Decide**: bundle OpenMoji locally vs CDN-fetch
-  - Bundling (~5MB gzipped) = offline-friendly, instant search
-  - CDN = smaller bundle, network dependency
-  - Recommendation: bundle locally for v1
-- [ ] Vendor OpenMoji SVGs into `/public/symbols/openmoji/`
-- [ ] Build symbol library index (`symbols.json`) with `{id, displayName, aliases, tags, source, qualityRank, imageUrl}`
-- [ ] Library search component (virtualized grid, fuzzy search via `fuse.js` or simple includes)
-- [ ] Drag from library → drop on canvas (use Konva's drop detection)
-- [ ] Konva `Transformer` for resize/rotate on selected symbol
-- [ ] Layer order management (reorder via `[` `]` shortcuts)
-- [ ] ⚠️ **Decide**: Game-Icons inclusion timing — Phase 2 or defer to Phase 7
-  - Recommendation: defer, OpenMoji alone gets you authoring fast
+- [x] ⚠️ **Decide**: bundle OpenMoji locally vs CDN-fetch — chose `openmoji@^17` devDep + build script that copies into `public/symbols/openmoji/` (gitignored) and emits `public/symbols.json` (committed). Postinstall runs `symbols:build`; failures exit 0 so `npm install` never breaks.
+- [x] Vendor OpenMoji SVGs into `/public/symbols/openmoji/` — curated to ~1640 entries (8 useful Unicode groups, no skin-tone variants, no flags/components).
+- [x] Build symbol library index (`symbols.json`) with `{id, displayName, aliases, tags, source, qualityRank, imageUrl}`
+- [x] Library search component (virtualized grid via `@tanstack/react-virtual`, token-aware substring + tiered ranking)
+- [x] Drag from library → drop on canvas (HTML5 native drag with custom mime + `useCanvasDrop` hook converting client coords via `stage.container().getBoundingClientRect()`)
+- [x] Konva `Transformer` for resize/rotate on selected symbol — refined Figma-precise styling, scale-reset on transformEnd, padding=4, cardinal-only rotation snaps
+- [x] Layer order management (reorder via `[` `]` for back/forward, `{` `}` for to-back/to-front; array-as-truth, `layerIndex` ignored)
+- [x] ⚠️ **Decide**: Game-Icons inclusion timing — deferred to Phase 7
+- [x] Bonus (TODO-adjacent, ship-ready): click-to-add-at-center, multi-select via Shift+click, Delete/Backspace, Cmd+D duplicate, Esc clear, recent-symbols strip (cap 16), drop affordance via amber inner-glow, search `/` kbd hint, loading skeleton, missing-index recovery state.
 
 ---
 
@@ -120,10 +117,25 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
   - Detect conflicts (e.g. binding `Cmd+S` would override browser save)
   - Reset-to-defaults action
   - Suggested action ID schema: `{ id: string, label: string, defaultBinding: Keybinding, currentBinding: Keybinding }`
+- [ ] Settings Pane Organized by categories, to easier find specific Settings (Ex: Editor, General, Customization, Accessibility Etc)
+- [ ] Ability to change the auto hide behavior of the right column in Settings Pane
+- [ ] "Reset to default" button in Settings
+  - Resets all Settings to the default settings
+  - Hard stop warning to ensure the user wants to confirm that action to avoid misclick
+  - Ask user if they'd like to backup settings before resetting
+- [ ] Add ability to backup user settings as a json file saved in the repository
 - [ ] Theme toggle (light / dark / system) in topbar
   - `next-themes` + `<ThemeProvider>` already wired in Phase 1; defaults to dark
   - Light theme tokens already defined in `globals.css :root`
   - Remaining work: toggle UI in topbar, themed Konva colors (stage paper, dot grid, radial backdrop currently hardcoded for dark), themed save-status `success` shade, audit empty-state and panels for light-mode contrast
+- [ ] Periodic Auto Saving
+  - User can change the auto save interval in the Settings pane
+  - Settings pane contains section for Scrolling through previous saves for a specific File (File Snapshots)
+  - User can define how many saves are saved, and when they are deleted (ex: every 30 days, max 50 backups etc.)
+  - Files delete to the Recycle Bin on Windows
+- [ ] "File", "Edit", "Export" and other high yield tools located at topbar position in the Editor
+- [ ] when User highlights over the "Rotate" on the canvas, it should show up the "recycle" symbol, instead of a cross, to let the user know they are rotating the symbol.
+- [ ] When draging a symbol, currently just the mouse cursor shows, it should show a hand to show that the symbol is grabbed.
 
 ## v2+ (architected, not built — DO NOT touch in v1)
 
