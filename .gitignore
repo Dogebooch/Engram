@@ -39,3 +39,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code working memory
+CLAUDE.md
+CLAUDE-*.md
+
+# Local env
+.env*.local
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
