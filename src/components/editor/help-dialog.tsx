@@ -37,6 +37,7 @@ const SECTIONS: ShortcutSection[] = [
     rows: [
       { label: "Select", hint: "click symbol", keys: [] },
       { label: "Multi-select", hint: "shift+click", keys: [] },
+      { label: "Select all", keys: ["⌘", "A"] },
       { label: "Bypass group", hint: "alt+click", keys: [] },
       { label: "Tag with Fact", hint: "select first", keys: ["F"] },
       { label: "Right-click", hint: "context menu", keys: [] },

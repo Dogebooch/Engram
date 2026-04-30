@@ -31,6 +31,11 @@ export interface SelectionSlice {
    *    current selection.
    */
   toggleGroupAware: (id: string) => void;
+  /**
+   * Select every symbol in the current picmonic. No-op when there is no
+   * active picmonic. Used by the Cmd/Ctrl+A keybinding outside typing fields.
+   */
+  selectAllSymbols: () => void;
   clearSelection: () => void;
   setHoveredFact: (id: string | null) => void;
   setCursorContext: (ctx: CursorContext) => void;
@@ -87,6 +92,15 @@ export const createSelectionSlice: StateCreator<RootState, [], [], SelectionSlic
         selectedSymbolIds: [...s.selectedSymbolIds, ...members],
       };
     });
+  },
+  selectAllSymbols: () => {
+    const state = get();
+    const cid = state.currentPicmonicId;
+    if (!cid) return;
+    const picmonic = state.picmonics[cid];
+    if (!picmonic) return;
+    const ids = picmonic.canvas.symbols.map((sy) => sy.id);
+    set({ selectedSymbolIds: ids });
   },
   clearSelection: () => set({ selectedSymbolIds: [], hoveredFactId: null }),
   setHoveredFact: (id) => set({ hoveredFactId: id }),

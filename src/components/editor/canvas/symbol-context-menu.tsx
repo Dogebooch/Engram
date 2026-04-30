@@ -43,6 +43,7 @@ function SymbolContextMenuInner({
   const reorderSymbol = useStore((s) => s.reorderSymbol);
   const duplicateSymbols = useStore((s) => s.duplicateSymbols);
   const deleteSymbols = useStore((s) => s.deleteSymbols);
+  const requestSymbolDelete = useStore((s) => s.requestSymbolDelete);
   const groupForSelection = useStore((s) => {
     const cid = s.currentPicmonicId;
     if (!cid) return false;
@@ -94,7 +95,11 @@ function SymbolContextMenuInner({
 
   const onDelete = () => {
     closeContextMenu();
-    deleteSymbols(targetIds);
+    if (useStore.getState().ui.confirmSymbolDelete) {
+      requestSymbolDelete(targetIds);
+    } else {
+      deleteSymbols(targetIds);
+    }
   };
 
   const canGroup = selectedSymbolIds.length >= 2;

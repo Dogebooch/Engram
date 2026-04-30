@@ -23,6 +23,11 @@ export interface UiState {
   lastPlayerMode: PlayerMode;
   /** Persisted so reload doesn't re-fire warnings the user already saw. */
   storageQuota: StorageQuotaState;
+  /**
+   * When true, deleting a canvas symbol opens a confirmation dialog. The
+   * user can opt out via the dialog's "Don't ask again" checkbox.
+   */
+  confirmSymbolDelete: boolean;
 }
 
 export interface UiSlice {
@@ -36,6 +41,7 @@ export interface UiSlice {
   pushRecentSymbol: (ref: string) => void;
   setLastPlayerMode: (mode: PlayerMode) => void;
   setStorageQuota: (next: StorageQuotaState) => void;
+  setConfirmSymbolDelete: (value: boolean) => void;
 }
 
 export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => ({
@@ -47,6 +53,7 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
     recentSymbolIds: [],
     lastPlayerMode: "hotspot",
     storageQuota: { percent: null, lastWarned: null },
+    confirmSymbolDelete: true,
   },
   setLeftPanelSize: (size) =>
     set((s) => ({ ui: { ...s.ui, leftPanelSize: size } })),
@@ -74,4 +81,6 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
     set((s) => ({ ui: { ...s.ui, lastPlayerMode: mode } })),
   setStorageQuota: (next) =>
     set((s) => ({ ui: { ...s.ui, storageQuota: next } })),
+  setConfirmSymbolDelete: (value) =>
+    set((s) => ({ ui: { ...s.ui, confirmSymbolDelete: value } })),
 });

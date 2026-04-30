@@ -16,6 +16,7 @@ import { useEditorKeybindings } from "@/lib/keybindings";
 import { useSaveFlowMonitor } from "@/lib/storage/use-save-flow-monitor";
 import { CanvasErrorBoundary } from "./error-boundary";
 import { FactPicker } from "./dialogs/fact-picker";
+import { SymbolDeleteConfirm } from "./dialogs/symbol-delete-confirm";
 import { HelpDialog } from "./help-dialog";
 import { Home } from "./home/home";
 import { LeftPanel } from "./panels/left-panel";
@@ -57,6 +58,7 @@ export function EditorShell() {
           <Home />
         </div>
         <FactPicker />
+        <SymbolDeleteConfirm />
         <PlayerOverlay />
         <HelpDialog />
       </div>
@@ -129,6 +131,7 @@ export function EditorShell() {
         </ResizablePanelGroup>
       </div>
       <FactPicker />
+      <SymbolDeleteConfirm />
       <PlayerOverlay />
       <HelpDialog />
     </div>

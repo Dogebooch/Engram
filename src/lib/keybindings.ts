@@ -67,6 +67,9 @@ export function useEditorKeybindings(): void {
   const openFactPicker = useStore((s) => s.openFactPicker);
   const closeFactPicker = useStore((s) => s.closeFactPicker);
   const closeContextMenu = useStore((s) => s.closeSymbolContextMenu);
+  const requestSymbolDelete = useStore((s) => s.requestSymbolDelete);
+  const cancelSymbolDelete = useStore((s) => s.cancelSymbolDelete);
+  const selectAllSymbols = useStore((s) => s.selectAllSymbols);
   const enterPlayer = useStore((s) => s.enterPlayer);
 
   const onNew = useCallback(
@@ -106,12 +109,29 @@ export function useEditorKeybindings(): void {
 
   const onDelete = useCallback(
     (e: KeyboardEvent) => {
-      const ids = useStore.getState().selectedSymbolIds;
+      const s = useStore.getState();
+      const ids = s.selectedSymbolIds;
       if (ids.length === 0) return;
       e.preventDefault();
-      deleteSymbols(ids);
+      if (s.ui.confirmSymbolDelete) {
+        requestSymbolDelete(ids);
+      } else {
+        deleteSymbols(ids);
+      }
     },
-    [deleteSymbols],
+    [deleteSymbols, requestSymbolDelete],
+  );
+
+  const onSelectAll = useCallback(
+    (e: KeyboardEvent) => {
+      const s = useStore.getState();
+      if (!s.currentPicmonicId) return;
+      const total = s.picmonics[s.currentPicmonicId]?.canvas.symbols.length ?? 0;
+      if (total === 0) return;
+      e.preventDefault();
+      selectAllSymbols();
+    },
+    [selectAllSymbols],
   );
 
   const onDuplicate = useCallback(
@@ -166,9 +186,13 @@ export function useEditorKeybindings(): void {
 
   const onEscape = useCallback(() => {
     const s = useStore.getState();
-    // Esc ladder: close help → close picker → close context menu → clear selection.
+    // Esc ladder: help → delete-confirm → picker → context menu → clear selection.
     if (s.helpOpen) {
       setHelpOpen(false);
+      return;
+    }
+    if (s.pendingSymbolDelete) {
+      cancelSymbolDelete();
       return;
     }
     if (s.factPicker?.open) {
@@ -182,7 +206,13 @@ export function useEditorKeybindings(): void {
     if (s.selectedSymbolIds.length > 0) {
       clearSelection();
     }
-  }, [clearSelection, closeContextMenu, closeFactPicker, setHelpOpen]);
+  }, [
+    cancelSymbolDelete,
+    clearSelection,
+    closeContextMenu,
+    closeFactPicker,
+    setHelpOpen,
+  ]);
 
   const onOpenFactPicker = useCallback(
     (e: KeyboardEvent) => {
@@ -245,6 +275,7 @@ export function useEditorKeybindings(): void {
   useKeybinding({ key: "/" }, onFocusSearch);
   useKeybinding({ key: "Delete" }, onDelete);
   useKeybinding({ key: "Backspace" }, onDelete);
+  useKeybinding({ key: "a", mod: true, shift: false }, onSelectAll);
   useKeybinding({ key: "d", mod: true }, onDuplicate);
   useKeybinding({ key: "[", mod: false, shift: false }, onSendBack);
   useKeybinding({ key: "]", mod: false, shift: false }, onBringForward);
