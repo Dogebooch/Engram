@@ -15,6 +15,7 @@ import { useCurrentPicmonicId, useUiPrefs } from "@/lib/store/hooks";
 import { useEditorKeybindings } from "@/lib/keybindings";
 import { CanvasErrorBoundary } from "./error-boundary";
 import { FactPicker } from "./dialogs/fact-picker";
+import { HelpDialog } from "./help-dialog";
 import { Home } from "./home/home";
 import { LeftPanel } from "./panels/left-panel";
 import { PlayerOverlay } from "./player/player-overlay";
@@ -55,6 +56,7 @@ export function EditorShell() {
         </div>
         <FactPicker />
         <PlayerOverlay />
+        <HelpDialog />
       </div>
     );
   }
@@ -126,6 +128,7 @@ export function EditorShell() {
       </div>
       <FactPicker />
       <PlayerOverlay />
+      <HelpDialog />
     </div>
   );
 }

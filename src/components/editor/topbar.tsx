@@ -1,6 +1,6 @@
 "use client";
 
-import { PanelLeftIcon, PanelRightIcon, PlayIcon, PlusIcon } from "lucide-react";
+import { CircleHelpIcon, PanelLeftIcon, PanelRightIcon, PlayIcon, PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ export function Topbar() {
   const createPicmonic = useStore((s) => s.createPicmonic);
   const setCurrentPicmonic = useStore((s) => s.setCurrentPicmonic);
   const enterPlayer = useStore((s) => s.enterPlayer);
+  const setHelpOpen = useStore((s) => s.setHelpOpen);
 
   const inEditor = Boolean(currentId);
 
@@ -93,6 +94,23 @@ export function Topbar() {
             <div className="mx-1 h-4 w-px bg-border/80" aria-hidden="true" />
           </>
         ) : null}
+
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setHelpOpen(true)}
+                aria-label="Keyboard shortcuts"
+                className="text-muted-foreground/70"
+              >
+                <CircleHelpIcon />
+              </Button>
+            }
+          />
+          <TooltipContent>Shortcuts (?)</TooltipContent>
+        </Tooltip>
 
         <Tooltip>
           <TooltipTrigger

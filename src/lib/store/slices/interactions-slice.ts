@@ -15,6 +15,8 @@ export interface SymbolContextMenuState {
 export interface InteractionsSlice {
   factPicker: FactPickerState | null;
   contextMenu: SymbolContextMenuState | null;
+  /** Ephemeral; intentionally outside `ui` so reload defaults to closed. */
+  helpOpen: boolean;
   openFactPicker: (symbolIds: readonly string[]) => void;
   closeFactPicker: () => void;
   openSymbolContextMenu: (
@@ -23,6 +25,7 @@ export interface InteractionsSlice {
     symbolId: string,
   ) => void;
   closeSymbolContextMenu: () => void;
+  setHelpOpen: (open: boolean) => void;
 }
 
 export const createInteractionsSlice: StateCreator<
@@ -33,6 +36,7 @@ export const createInteractionsSlice: StateCreator<
 > = (set) => ({
   factPicker: null,
   contextMenu: null,
+  helpOpen: false,
   openFactPicker: (symbolIds) => {
     if (symbolIds.length === 0) return;
     set({ factPicker: { open: true, symbolIds: [...symbolIds] } });
@@ -41,4 +45,5 @@ export const createInteractionsSlice: StateCreator<
   openSymbolContextMenu: (x, y, symbolId) =>
     set({ contextMenu: { x, y, symbolId } }),
   closeSymbolContextMenu: () => set({ contextMenu: null }),
+  setHelpOpen: (open) => set({ helpOpen: open }),
 });

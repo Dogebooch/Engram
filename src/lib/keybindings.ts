@@ -4,6 +4,9 @@ import { useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 
+// Help-overlay rendering moved to `<HelpDialog />`. Keep no inline copy here —
+// the dialog owns the reference.
+
 export function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return true;
@@ -45,28 +48,6 @@ export function useKeybinding(
     return () => document.removeEventListener("keydown", onKey);
   }, [key, mod, shift, alt, allowInTypingFields, handler]);
 }
-
-const HELP_LINES = [
-  "⌘/Ctrl+N — new Picmonic",
-  "⌘/Ctrl+B — toggle library",
-  "⌘/Ctrl+\\ — toggle notes",
-  "/ — focus library search",
-  "Click symbol — select (Shift+click for multi, Alt+click bypasses group)",
-  "F — tag selected with Fact (palette)",
-  "Right-click symbol — context menu",
-  "Drag symbol onto ## heading — tag",
-  "⌘/Ctrl+G — group selection",
-  "⇧⌘/⇧Ctrl+G — ungroup",
-  "Delete / Backspace — remove selected",
-  "⌘/Ctrl+D — duplicate selected",
-  "[ ] — send back / bring forward",
-  "{ } — to back / to front",
-  "M — study mode (cycles Hotspot ↔ Sequential)",
-  "← / → — prev / next fact (in Sequential)",
-  "1–9 — jump to fact N (in study mode)",
-  "Esc — close menu/picker, exit study, then clear selection",
-  "? — this menu",
-] as const;
 
 function focusLibrarySearch() {
   window.dispatchEvent(new CustomEvent("engram:focus-library-search"));
@@ -112,11 +93,10 @@ export function useEditorKeybindings(): void {
     [toggleRight],
   );
 
+  const setHelpOpen = useStore((s) => s.setHelpOpen);
   const onHelp = useCallback(() => {
-    toast("Shortcuts", {
-      description: HELP_LINES.join("\n"),
-    });
-  }, []);
+    setHelpOpen(true);
+  }, [setHelpOpen]);
 
   const onFocusSearch = useCallback((e: KeyboardEvent) => {
     e.preventDefault();
@@ -186,7 +166,11 @@ export function useEditorKeybindings(): void {
 
   const onEscape = useCallback(() => {
     const s = useStore.getState();
-    // Esc ladder: close picker → close context menu → clear selection.
+    // Esc ladder: close help → close picker → close context menu → clear selection.
+    if (s.helpOpen) {
+      setHelpOpen(false);
+      return;
+    }
     if (s.factPicker?.open) {
       closeFactPicker();
       return;
@@ -198,7 +182,7 @@ export function useEditorKeybindings(): void {
     if (s.selectedSymbolIds.length > 0) {
       clearSelection();
     }
-  }, [clearSelection, closeContextMenu, closeFactPicker]);
+  }, [clearSelection, closeContextMenu, closeFactPicker, setHelpOpen]);
 
   const onOpenFactPicker = useCallback(
     (e: KeyboardEvent) => {
