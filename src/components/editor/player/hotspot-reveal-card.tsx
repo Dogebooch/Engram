@@ -4,8 +4,7 @@ import * as React from "react";
 import { parseBullet } from "@/lib/notes/bullet";
 import type { ParsedFact, ParsedSymbolRef } from "@/lib/notes/types";
 import type { SymbolLayer } from "@/lib/types/canvas";
-import { getSymbolById } from "@/lib/symbols";
-import { useSymbolsReady } from "./use-symbols-ready";
+import { getSymbolById, useSymbolsReady } from "@/lib/symbols";
 
 const CARD_WIDTH = 320;
 const CARD_GAP = 18; // distance from hotspot center to card edge

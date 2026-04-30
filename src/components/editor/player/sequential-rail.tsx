@@ -4,8 +4,7 @@ import * as React from "react";
 import { parseBullet } from "@/lib/notes/bullet";
 import type { ParsedFact } from "@/lib/notes/types";
 import type { SymbolLayer } from "@/lib/types/canvas";
-import { getSymbolById } from "@/lib/symbols";
-import { useSymbolsReady } from "./use-symbols-ready";
+import { getSymbolById, useSymbolsReady } from "@/lib/symbols";
 
 interface SequentialRailProps {
   fact: ParsedFact | null;

@@ -1,15 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { getCachedSymbols, loadSymbols } from "@/lib/symbols";
+import { getCachedSymbols, loadSymbols } from "./load";
 
 /**
  * Triggers `loadSymbols()` if the cache is empty, and re-renders once it
  * resolves. Returns true when the library cache is populated and lookups
  * via `getSymbolById` will succeed.
- *
- * The Player view doesn't share state with the editor's symbol library or
- * notes panel, so we can't rely on those having been mounted already.
  */
 export function useSymbolsReady(): boolean {
   const [ready, setReady] = React.useState<boolean>(

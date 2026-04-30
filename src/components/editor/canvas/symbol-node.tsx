@@ -6,7 +6,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { Group, Image as KonvaImage, Rect, Text } from "react-konva";
 import { useImage } from "@/lib/image-cache";
 import { useStore } from "@/lib/store";
-import { getSymbolById } from "@/lib/symbols";
+import { getSymbolById, useSymbolsReady } from "@/lib/symbols";
 import type { SymbolLayer } from "@/lib/types/canvas";
 import { useCanvasTagDrag } from "./use-canvas-tag-drag";
 
@@ -35,6 +35,7 @@ export const SymbolNode = React.memo(function SymbolNode({
   interactive = true,
   dimFactor = 1,
 }: SymbolNodeProps) {
+  const symbolsReady = useSymbolsReady();
   const entry = getSymbolById(layer.ref);
   const url = entry?.imageUrl ?? null;
   const state = useImage(url);
@@ -107,6 +108,25 @@ export const SymbolNode = React.memo(function SymbolNode({
     },
     [],
   );
+
+  // Library cache hasn't populated yet — hold rendering as a neutral
+  // placeholder rather than flashing the destructive "broken" state.
+  // Once `useSymbolsReady` flips to true, the component re-renders and
+  // `getSymbolById` will resolve.
+  if (!entry && !symbolsReady) {
+    return (
+      <Rect
+        x={layer.x}
+        y={layer.y}
+        width={layer.width}
+        height={layer.height}
+        rotation={layer.rotation}
+        fill="rgba(255,255,255,0.04)"
+        cornerRadius={4}
+        listening={false}
+      />
+    );
+  }
 
   if (state.status === "loading") {
     return (
