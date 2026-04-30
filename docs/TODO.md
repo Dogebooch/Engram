@@ -83,6 +83,7 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
 - [x] `M` toggles between modes — `M` enters player from editor (default last-used display, persisted in `ui.lastPlayerMode`), then cycles Hotspot ↔ Sequential within. Topbar Play button mirrors keyboard for discoverability.
 - [x] Esc returns to editor — Esc ladder: closes reveal card first if open, then exits player.
 - [x] Bonus polish: arrow-key prev/next in Sequential, number-key 1-9 jump to fact N (both modes), "FACT 03 / 07" zero-padded counter, dimmed-symbol fade transitions, segmented mode toggle pill, study-mode dot signal in topbar, persisted last-used mode, opaque vignette overlay (no editor bleed-through), comprehensive Help overlay update with new bindings.
+
 ---
 
 ## Phase 6 — Persistence + Export (1 day)
@@ -110,15 +111,15 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
 - [x] Storage quota warnings (80% / 95% thresholds) — [use-save-flow-monitor.ts](src/lib/storage/use-save-flow-monitor.ts) subscribes to `saveStatus` and fires threshold-crossing toasts; topbar `<QuotaBadge>` at >= 95%; `ui.storageQuota.lastWarned` persisted so reload doesn't re-fire warnings.
 - [x] **Bundle Import (.zip)** — [import.ts](src/lib/export/import.ts) closes the round-trip from Phase 6 export. Validates schemaVersion + UUIDs, regenerates root id, **reconciles factHotspots** against re-parsed notes (drops orphans with warn), soft-warns on broken `{sym:UUID}` cross-refs. Wired into home grid header + EmptyHero via [import-button.tsx](src/components/editor/home/import-button.tsx).
 - [x] Theme the Konva canvas chrome — [use-themed-css-var.ts](src/lib/theme/use-themed-css-var.ts) (`useSyncExternalStore` + `MutationObserver`) so paper rect, dot grid, and radial backdrop track `--stage` / `--stage-grid` / `--stage-vignette-*`. Light-theme foundation in place for Phase 8 toggle UI; `useEffect([stageFill])` calls `stage.draw()` since react-konva does not auto-redraw on Rect/Circle `fill` prop change.
-- [ ] **Game-Icons** — DEFERRED to Phase 8. Doubles the symbol pipeline (build script, source ranking, dedup, source filter UI) for a feature orthogonal to "polish + tests." OpenMoji's ~1640 entries already exceed dogfood need; Game-Icons should be a focused one-day Phase 8 ticket.
-- [ ] **Playwright E2E** — DEFERRED to Phase 8 (revisit only if visual-regression need surfaces). Engram is desktop-only, single-user, local-first; the data-layer round-trip (`buildBundleZip` → `parseBundleZip` → `hydratePicmonic`) is 95% of the test value at <1% the cost via vitest. What the vitest test does NOT cover: (a) Konva→DOM stage attach in `exportPng` (the `bundle.ts` PNG-skip swallow), (b) CodeMirror keystroke→debounced-save races, (c) HTML5 native drag-drop. Day-1 dogfood is the practical equivalent for solo desktop use.
 
 ---
 
-## Before you move on to Phase 8
-- [ ] Have Claude Generate a Manual Checklist for Each Phase to this point, and manually run through the checks to ensure the program is behaving as expected. 
+## Before you move on to Phase 8: MANUAL CHECK
 
---- 
+- [ ] Have Claude Generate a Manual Checklist for Each Phase to this point, and manually run through the checks to ensure the program is behaving as expected.
+- [ ] Manual Checklist complete (Keyboard Shortcut rollcall finished)
+
+---
 
 ## Phase 8 - Further Polish and ideas stated by Doug
 
@@ -135,6 +136,8 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
   - Hard stop warning to ensure the user wants to confirm that action to avoid misclick
   - Ask user if they'd like to backup settings before resetting
 - [ ] Add ability to backup user settings as a json file saved in the repository
+- [ ] Brand emblem to replace amber accent dot in topbar
+  - Replace `bg-accent` round dot in `topbar.tsx` with an SVG glyph (brain? mnemonic mark?)
 - [ ] Theme toggle (light / dark / system) in topbar
   - `next-themes` + `<ThemeProvider>` already wired in Phase 1; defaults to dark
   - Light theme tokens already defined in `globals.css :root`
@@ -146,7 +149,7 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
   - Files delete to the Recycle Bin on Windows
 - [ ] "File", "Edit" and other high yield tools located at topbar position in the Editor
   - File Menu: Export, Save, Save As, Import, Open, Preferences (Settings), Account
-  - Edit Menu: Undo, Redo, Insert, 
+  - Edit Menu: Undo, Redo, Insert,
   - Help Menu: Docs (See below)
 - [ ] Create a built in tutorial so the user can Quickly get up and running with the program with minimal effort
   - A basic Walkthrough tutorial with highlighted sections and popups that walks the user through the key actions that the program offers
@@ -156,19 +159,37 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
   - Make it so that it's easier to add symbols via the Notes tab etc. (idea: Have the user write out a fact first -> Add Symbol button -> Add description)
   - Add option to easily add Section Headers (automatically vs. manual) - Should be one click (<1 second to add)
   - Ensure a clean visual hierarchy in the right panel to show what's a Section Header (Group), base fact, a symbol, and a description (See Below)
-      |Group (Section header)
-      ||-Fact(s)
-      |||-Symbol(s) + Description
+    |Group (Section header)
+    ||-Fact(s)
+    |||-Symbol(s) + Description
   - User can drag parents and children to other Groups (Section Headers)
   - Add keyboard hotkeys for adding symbols to facts and adding descriptions to facts
   - Smart visualization of canvas symbols based on Groups (Section Headers); aids in visual grouping of symbols based on the section header (Ex: Risk Factors grouped in one area of the scene) -> User Clicks to edit a symbol that is under a Group (Section header) -> Slight emphasis/highlight of all symbols in the group -> only actual selection of symbol being edited
-  - Groups (Section Headers) can be visually collapsed in the right panel 
+  - Groups (Section Headers) can be visually collapsed in the right panel
 - [ ] Fix the weird disconnect between the Notes (right panel) and the canvas - For example, when I go back to the home screen, how does the user pick a picture they were previously working on/search through the library of picture mnemonics
   - On the home screen, the Left Panel shows the different pictures + search via tags/folders
   - The Symbol Library only pops up when a picture scene is selected and the editor comes up
   - The user can always go back to the picture scene collection with max 1-2 clicks (when in canvas - easy to go back and select a new scene to work on)
   - The home screen says "Create your first Picmonic" only when there are no picture scenes in the library. Otherwise, it shows the tags and picture scene collection
 - [ ] Any updates to the end user "Markdown" experience should also hold true for the review screen (popups, errors, representations and visualizations in the review pane)
+- [ ] User should be able to left click (hold) and drag the cursor across the canvas to select multiple symbols
+- [ ] **Undo/redo (Ctrl+Z / Ctrl+Shift+Z) across canvas + notes**
+  - Needs a single coherent undo stack: canvas-slice mutations + notes-slice setNotes
+  - Coalesce typing bursts in notes (CodeMirror already groups its own history but the wrapping store update needs a windowed flush)
+  - Decide what counts as one "step": a duplicate, a multi-delete, a drag-tag (canvas + notes both change)
+- [ ] **Multi-select rotation/resize polish**
+  - Konva Transformer multi-node interaction is choppy at non-cardinal rotations and pivot-around-bbox-center can feel wrong for far-apart selections
+  - Investigate per-node rotation vs. group-wrap pivoting; possibly disable rotate handle for multi when it's not useful
+- [ ] **Visual selection / layer indicator**
+  - "Deck of cards" mini-stack mockup near a selected symbol that shows its position in the Z-stack and previews what `[`/`]`/`{`/`}` will do
+  - Strictly non-invasive (auto-fades on idle); decide whether it appears for any selection or only on layer-key press
+- [ ] **`Replace symbol…` action on canvas symbols**
+  - Right-click → Replace, or double-click while a symbol is selected → opens a constrained library picker that swaps the symbol's `ref` in place
+  - Replaces the awkward delete-then-add-then-clean-up-`[missing]`-chip workflow without changing the chip's location in notes
+- [ ] **Double-click a `{sym:UUID}` chip in notes to inline-edit its description**
+  - CodeMirror widget interaction; opens a small inline input over the chip
+  - Decide: edit the per-chip description text (after the `:`) only, or override the display name too
+- [ ] Add the ability to update the timezone in the settings, with default being what the local machine time is
 - [x] when User highlights over the "Rotate" on the canvas, it should show up the "recycle" symbol, instead of a cross, to let the user know they are rotating the symbol.
 - [x] When draging a symbol, currently just the mouse cursor shows, it should show a hand to show that the symbol is grabbed.
 - [x] Hitting the delete key deletes the selected item
