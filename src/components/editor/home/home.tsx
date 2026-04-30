@@ -11,6 +11,7 @@ import { DeleteConfirm } from "@/components/editor/dialogs/delete-confirm";
 import { RenameDialog } from "@/components/editor/dialogs/rename-dialog";
 import { TagEditor } from "@/components/editor/dialogs/tag-editor";
 import { HomeExportDialog } from "./export-menu";
+import { ImportButton } from "./import-button";
 import { PicmonicCard } from "./picmonic-card";
 import { TagFilter } from "./tag-filter";
 
@@ -121,8 +122,11 @@ export function Home() {
               Picmonics
             </h1>
           </div>
-          <div className="font-mono text-[11px] tabular-nums tracking-tight text-muted-foreground">
-            {(index?.length ?? 0)} total
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-[11px] tabular-nums tracking-tight text-muted-foreground">
+              {(index?.length ?? 0)} total
+            </span>
+            <ImportButton />
           </div>
         </header>
 
@@ -240,14 +244,20 @@ function EmptyHero({ onCreate }: { onCreate: () => void }) {
             Nothing leaves your machine. Refresh-safe. Markdown is the source of truth.
           </p>
         </div>
-        <Button
-          size="lg"
-          onClick={onCreate}
-          className="group bg-accent text-accent-foreground hover:bg-accent/90"
-        >
-          Create your first Picmonic
-          <ArrowRightIcon className="transition-transform group-hover:translate-x-0.5" />
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            size="lg"
+            onClick={onCreate}
+            className="group bg-accent text-accent-foreground hover:bg-accent/90"
+          >
+            Create your first Picmonic
+            <ArrowRightIcon className="transition-transform group-hover:translate-x-0.5" />
+          </Button>
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
+            or
+          </span>
+          <ImportButton variant="ghost" />
+        </div>
         <div className="grid w-full gap-4 sm:grid-cols-3">
           {POINTS.map(({ icon: Icon, title, body }) => (
             <div
