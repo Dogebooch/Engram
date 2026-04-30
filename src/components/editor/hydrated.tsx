@@ -4,6 +4,7 @@ import * as React from "react";
 import { get as idbGet } from "idb-keyval";
 import { picmonicKey } from "@/lib/constants";
 import { useStore } from "@/lib/store";
+import { useIndexStore } from "@/lib/store/index-store";
 import type { Picmonic } from "@/lib/types/picmonic";
 
 interface HydratedProps {
@@ -38,6 +39,7 @@ export function Hydrated({ fallback, children }: HydratedProps) {
     loadStartedRef.current = true;
 
     let cancelled = false;
+    void useIndexStore.getState().loadIndex();
     void (async () => {
       const id = useStore.getState().currentPicmonicId;
       if (!id) {

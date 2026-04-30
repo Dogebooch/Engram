@@ -7,13 +7,18 @@ import { Layer, Rect, Stage } from "react-konva";
 import { STAGE_HEIGHT, STAGE_WIDTH } from "@/lib/constants";
 import { useStore } from "@/lib/store";
 import { usePicmonic } from "@/lib/store/hooks";
+import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
 import { CanvasTransformer } from "./canvas-transformer";
+import { setCurrentStage } from "./canvas-stage-ref";
 import { DotGrid } from "./dot-grid";
 import { SymbolContextMenu } from "./symbol-context-menu";
 import { SymbolNode } from "./symbol-node";
 import { useCanvasDrop } from "./use-canvas-drop";
+import { useThumbnailCapture } from "./use-thumbnail-capture";
 
-const STAGE_PAPER_FILL = "#181818";
+// Konva fallback for SSR / first-paint before CSS variables resolve. Matches the
+// dark-mode `--stage` token so the unflashed render is indistinguishable.
+const STAGE_PAPER_FALLBACK = "oklch(0.105 0 0)";
 
 interface FitBox {
   width: number;
@@ -33,6 +38,7 @@ export function CanvasStage() {
 
   const picmonic = usePicmonic();
   const symbols = picmonic?.canvas.symbols ?? EMPTY_SYMBOLS;
+  const stageFill = useThemedCssVar("--stage", STAGE_PAPER_FALLBACK) ?? STAGE_PAPER_FALLBACK;
   const selectedIds = useStore((s) => s.selectedSymbolIds);
   const cursorSymbolIds = useStore((s) => s.cursorSymbolIds);
   const clearSelection = useStore((s) => s.clearSelection);
@@ -56,6 +62,25 @@ export function CanvasStage() {
   }, [selectedIds, symbols]);
 
   const { dragHover } = useCanvasDrop({ stageRef, containerRef });
+  useThumbnailCapture(stageRef);
+
+  React.useEffect(() => {
+    return () => {
+      setCurrentStage(null);
+    };
+  }, []);
+
+  // react-konva does not auto-redraw the layer bitmap when only Rect/Circle
+  // `fill` props change (no other geometry diff). When the theme flips, force
+  // a synchronous draw so the paper + dot grid pick up the new tokens.
+  React.useEffect(() => {
+    stageRef.current?.draw();
+  }, [stageFill]);
+
+  const handleStageRef = React.useCallback((node: Konva.Stage | null) => {
+    stageRef.current = node;
+    setCurrentStage(node);
+  }, []);
 
   React.useEffect(() => {
     const el = containerRef.current;
@@ -130,7 +155,7 @@ export function CanvasStage() {
       className="relative h-full w-full overflow-hidden bg-stage"
       style={{
         backgroundImage:
-          "radial-gradient(ellipse at center, oklch(0.13 0 0) 0%, oklch(0.105 0 0) 70%)",
+          "radial-gradient(ellipse at center, var(--stage-vignette-inner) 0%, var(--stage-vignette-outer) 70%)",
       }}
       onContextMenu={(e) => {
         // Suppress browser default context menu over the canvas area; the
@@ -151,7 +176,7 @@ export function CanvasStage() {
           }}
         >
           <Stage
-            ref={stageRef}
+            ref={handleStageRef}
             width={box.width}
             height={box.height}
             scaleX={box.scale}
@@ -164,7 +189,7 @@ export function CanvasStage() {
                 y={0}
                 width={STAGE_WIDTH}
                 height={STAGE_HEIGHT}
-                fill={STAGE_PAPER_FILL}
+                fill={stageFill}
               />
               <DotGrid />
             </Layer>

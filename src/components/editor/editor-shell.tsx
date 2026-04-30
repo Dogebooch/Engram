@@ -15,7 +15,7 @@ import { useCurrentPicmonicId, useUiPrefs } from "@/lib/store/hooks";
 import { useEditorKeybindings } from "@/lib/keybindings";
 import { CanvasErrorBoundary } from "./error-boundary";
 import { FactPicker } from "./dialogs/fact-picker";
-import { EmptyState } from "./empty-state";
+import { Home } from "./home/home";
 import { LeftPanel } from "./panels/left-panel";
 import { PlayerOverlay } from "./player/player-overlay";
 import { RightPanel } from "./panels/right-panel";
@@ -45,6 +45,19 @@ export function EditorShell() {
 
   useSyncCollapse(leftRef, ui.leftCollapsed);
   useSyncCollapse(rightRef, ui.rightCollapsed);
+
+  if (!currentId) {
+    return (
+      <div className="flex h-screen w-screen flex-col bg-background">
+        <Topbar />
+        <div className="flex flex-1 overflow-hidden">
+          <Home />
+        </div>
+        <FactPicker />
+        <PlayerOverlay />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-screen flex-col bg-background">
@@ -81,7 +94,7 @@ export function EditorShell() {
             minSize={`${PANEL_DEFAULTS.centerMin}%`}
           >
             <CanvasErrorBoundary>
-              {currentId ? <CanvasStage /> : <EmptyState />}
+              <CanvasStage />
             </CanvasErrorBoundary>
           </ResizablePanel>
 

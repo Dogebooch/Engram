@@ -1,4 +1,6 @@
 import type { StateCreator } from "zustand";
+import { del as idbDel, get as idbGet } from "idb-keyval";
+import { picmonicKey } from "@/lib/constants";
 import { newId } from "@/lib/id";
 import { emptyCanvas } from "@/lib/types/canvas";
 import type { CanvasState } from "@/lib/types/canvas";
@@ -7,6 +9,7 @@ import type {
   Picmonic,
   SaveStatus,
 } from "@/lib/types/picmonic";
+import { entryFromPicmonic, useIndexStore } from "../index-store";
 import type { RootState } from "../types";
 
 export interface PicmonicSlice {
@@ -16,7 +19,10 @@ export interface PicmonicSlice {
   createPicmonic: (initialName?: string) => string;
   setCurrentPicmonic: (id: string | null) => void;
   renamePicmonic: (id: string, name: string) => void;
-  deletePicmonic: (id: string) => void;
+  setPicmonicTags: (id: string, tags: string[]) => void;
+  deletePicmonic: (id: string) => Promise<void>;
+  duplicatePicmonic: (id: string) => Promise<string | null>;
+  loadPicmonicById: (id: string) => Promise<boolean>;
   setSaveStatus: (status: SaveStatus) => void;
   hydratePicmonic: (picmonic: Picmonic) => void;
   setNotes: (id: string, notes: NotesDoc) => void;
@@ -33,7 +39,21 @@ function makePicmonic(name: string): Picmonic {
   };
 }
 
-export const createPicmonicSlice: StateCreator<RootState, [], [], PicmonicSlice> = (set) => ({
+function dedupTags(tags: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of tags) {
+    const trimmed = t.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+  }
+  return out;
+}
+
+export const createPicmonicSlice: StateCreator<RootState, [], [], PicmonicSlice> = (set, get) => ({
   picmonics: {},
   currentPicmonicId: null,
   saveStatus: "idle",
@@ -44,6 +64,7 @@ export const createPicmonicSlice: StateCreator<RootState, [], [], PicmonicSlice>
       currentPicmonicId: p.id,
       ui: { ...s.ui, rightCollapsed: true },
     }));
+    useIndexStore.getState().upsertIndexEntry(entryFromPicmonic(p, null));
     return p.id;
   },
   setCurrentPicmonic: (id) => set({ currentPicmonicId: id }),
@@ -61,16 +82,91 @@ export const createPicmonicSlice: StateCreator<RootState, [], [], PicmonicSlice>
         },
       };
     }),
-  deletePicmonic: (id) =>
+  setPicmonicTags: (id, tags) =>
     set((s) => {
-      if (!s.picmonics[id]) return s;
+      const existing = s.picmonics[id];
+      if (!existing) return s;
+      const next = dedupTags(tags);
+      return {
+        picmonics: {
+          ...s.picmonics,
+          [id]: {
+            ...existing,
+            meta: { ...existing.meta, tags: next, updatedAt: Date.now() },
+          },
+        },
+      };
+    }),
+  deletePicmonic: async (id) => {
+    const existed = Boolean(get().picmonics[id]);
+    set((s) => {
       const { [id]: _removed, ...rest } = s.picmonics;
       void _removed;
       return {
         picmonics: rest,
         currentPicmonicId: s.currentPicmonicId === id ? null : s.currentPicmonicId,
       };
-    }),
+    });
+    useIndexStore.getState().removeIndexEntry(id);
+    if (existed) {
+      try {
+        await idbDel(picmonicKey(id));
+      } catch (err) {
+        console.error("[engram] delete idb failed", err);
+      }
+    } else {
+      // Index-only entries (never opened) — still purge IDB record if present.
+      try {
+        await idbDel(picmonicKey(id));
+      } catch {
+        /* noop */
+      }
+    }
+  },
+  duplicatePicmonic: async (id) => {
+    let source: Picmonic | undefined = get().picmonics[id];
+    if (!source) {
+      try {
+        source = (await idbGet<Picmonic>(picmonicKey(id))) ?? undefined;
+      } catch {
+        source = undefined;
+      }
+    }
+    if (!source) return null;
+    const now = Date.now();
+    const copy: Picmonic = {
+      id: newId(),
+      meta: {
+        name: `${source.meta.name} (copy)`,
+        tags: [...(source.meta.tags ?? [])],
+        createdAt: now,
+        updatedAt: now,
+      },
+      notes: source.notes,
+      canvas: source.canvas,
+    };
+    set((s) => ({ picmonics: { ...s.picmonics, [copy.id]: copy } }));
+    useIndexStore.getState().upsertIndexEntry(entryFromPicmonic(copy, null));
+    return copy.id;
+  },
+  loadPicmonicById: async (id) => {
+    if (get().picmonics[id]) {
+      set({ currentPicmonicId: id });
+      return true;
+    }
+    try {
+      const data = await idbGet<Picmonic>(picmonicKey(id));
+      if (!data) return false;
+      set((s) => ({
+        picmonics: { ...s.picmonics, [data.id]: data },
+        currentPicmonicId: data.id,
+      }));
+      return true;
+    } catch (err) {
+      console.error("[engram] load picmonic failed", err);
+      return false;
+    }
+  },
   setSaveStatus: (status) => set({ saveStatus: status }),
   hydratePicmonic: (picmonic) =>
     set((s) => ({

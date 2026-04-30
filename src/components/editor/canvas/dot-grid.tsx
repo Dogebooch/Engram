@@ -8,10 +8,13 @@ import {
   STAGE_HEIGHT,
   STAGE_WIDTH,
 } from "@/lib/constants";
+import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
 
-const DOT_FILL = "#3f3f3f";
+const DOT_FALLBACK = "oklch(0.32 0 0)";
 
 export const DotGrid = React.memo(function DotGrid() {
+  const fill = useThemedCssVar("--stage-grid", DOT_FALLBACK) ?? DOT_FALLBACK;
+
   const dots = React.useMemo(() => {
     const cols = Math.floor(STAGE_WIDTH / GRID_SPACING);
     const rows = Math.floor(STAGE_HEIGHT / GRID_SPACING);
@@ -24,7 +27,7 @@ export const DotGrid = React.memo(function DotGrid() {
             x={c * GRID_SPACING}
             y={r * GRID_SPACING}
             radius={GRID_DOT_RADIUS}
-            fill={DOT_FILL}
+            fill={fill}
             perfectDrawEnabled={false}
             listening={false}
           />,
@@ -32,7 +35,7 @@ export const DotGrid = React.memo(function DotGrid() {
       }
     }
     return out;
-  }, []);
+  }, [fill]);
 
   return <Group listening={false}>{dots}</Group>;
 });

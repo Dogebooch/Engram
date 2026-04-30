@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import { useCurrentPicmonicId, useUiPrefs } from "@/lib/store/hooks";
+import { EditorExportMenu } from "./editor-export-menu";
 import { PicmonicName } from "./picmonic-name";
 import { SaveStatus } from "./save-status";
 
@@ -18,6 +19,8 @@ export function Topbar() {
   const setCurrentPicmonic = useStore((s) => s.setCurrentPicmonic);
   const enterPlayer = useStore((s) => s.enterPlayer);
 
+  const inEditor = Boolean(currentId);
+
   return (
     <header
       role="banner"
@@ -26,53 +29,71 @@ export function Topbar() {
         "backdrop-blur supports-[backdrop-filter]:bg-card/30",
       )}
     >
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={toggleLeft}
-              aria-label={ui.leftCollapsed ? "Show library" : "Hide library"}
-              aria-pressed={!ui.leftCollapsed}
-              className={cn(ui.leftCollapsed && "text-muted-foreground/60")}
-            >
-              <PanelLeftIcon />
-            </Button>
-          }
-        />
-        <TooltipContent>{ui.leftCollapsed ? "Show library" : "Hide library"}</TooltipContent>
-      </Tooltip>
-
-      <Brand
-        canGoHome={Boolean(currentId)}
-        onHome={() => setCurrentPicmonic(null)}
-      />
-
-      <div className="mx-1 h-4 w-px bg-border/80" aria-hidden="true" />
-
-      <PicmonicName />
-
-      <div className="ml-auto flex items-center gap-2">
-        <SaveStatus />
+      {inEditor ? (
         <Tooltip>
           <TooltipTrigger
             render={
               <Button
                 variant="ghost"
-                size="sm"
-                onClick={enterPlayer}
-                disabled={!currentId}
-                aria-label="Study mode"
+                size="icon-sm"
+                onClick={toggleLeft}
+                aria-label={ui.leftCollapsed ? "Show library" : "Hide library"}
+                aria-pressed={!ui.leftCollapsed}
+                className={cn(ui.leftCollapsed && "text-muted-foreground/60")}
               >
-                <PlayIcon />
-                <span className="hidden md:inline">Study</span>
+                <PanelLeftIcon />
               </Button>
             }
           />
-          <TooltipContent>Study mode (M)</TooltipContent>
+          <TooltipContent>{ui.leftCollapsed ? "Show library" : "Hide library"}</TooltipContent>
         </Tooltip>
-        <div className="mx-1 h-4 w-px bg-border/80" aria-hidden="true" />
+      ) : null}
+
+      <Brand
+        canGoHome={inEditor}
+        onHome={() => setCurrentPicmonic(null)}
+      />
+
+      {inEditor ? (
+        <>
+          <div className="mx-1 h-4 w-px bg-border/80" aria-hidden="true" />
+          <PicmonicName />
+        </>
+      ) : (
+        <span
+          aria-hidden
+          className="ml-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70"
+        >
+          library
+        </span>
+      )}
+
+      <div className="ml-auto flex items-center gap-2">
+        {inEditor ? (
+          <>
+            <SaveStatus />
+            <EditorExportMenu />
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={enterPlayer}
+                    disabled={!currentId}
+                    aria-label="Study mode"
+                  >
+                    <PlayIcon />
+                    <span className="hidden md:inline">Study</span>
+                  </Button>
+                }
+              />
+              <TooltipContent>Study mode (M)</TooltipContent>
+            </Tooltip>
+            <div className="mx-1 h-4 w-px bg-border/80" aria-hidden="true" />
+          </>
+        ) : null}
+
         <Tooltip>
           <TooltipTrigger
             render={
@@ -89,24 +110,29 @@ export function Topbar() {
           />
           <TooltipContent>Create a new Picmonic</TooltipContent>
         </Tooltip>
-        <div className="mx-1 h-4 w-px bg-border/80" aria-hidden="true" />
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={toggleRight}
-                aria-label={ui.rightCollapsed ? "Show notes" : "Hide notes"}
-                aria-pressed={!ui.rightCollapsed}
-                className={cn(ui.rightCollapsed && "text-muted-foreground/60")}
-              >
-                <PanelRightIcon />
-              </Button>
-            }
-          />
-          <TooltipContent>{ui.rightCollapsed ? "Show notes" : "Hide notes"}</TooltipContent>
-        </Tooltip>
+
+        {inEditor ? (
+          <>
+            <div className="mx-1 h-4 w-px bg-border/80" aria-hidden="true" />
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={toggleRight}
+                    aria-label={ui.rightCollapsed ? "Show notes" : "Hide notes"}
+                    aria-pressed={!ui.rightCollapsed}
+                    className={cn(ui.rightCollapsed && "text-muted-foreground/60")}
+                  >
+                    <PanelRightIcon />
+                  </Button>
+                }
+              />
+              <TooltipContent>{ui.rightCollapsed ? "Show notes" : "Hide notes"}</TooltipContent>
+            </Tooltip>
+          </>
+        ) : null}
       </div>
     </header>
   );

@@ -86,6 +86,8 @@
   --sidebar-ring: oklch(0.708 0 0);
   --stage: oklch(0.97 0 0);
   --stage-grid: oklch(0.84 0 0);
+  --stage-vignette-inner: oklch(0.97 0 0);
+  --stage-vignette-outer: oklch(0.94 0 0);
   --success: oklch(0.62 0.13 145);
 }
 
@@ -123,6 +125,8 @@
   --sidebar-ring: oklch(0.78 0.13 75);
   --stage: oklch(0.105 0 0);
   --stage-grid: oklch(0.32 0 0);
+  --stage-vignette-inner: oklch(0.130 0 0);
+  --stage-vignette-outer: oklch(0.105 0 0);
   --success: oklch(0.72 0.15 150);
 }
 

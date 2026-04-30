@@ -87,14 +87,14 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
 
 ## Phase 6 — Persistence + Export (1 day)
 
-- [ ] Picmonic list view (root route): grid of saved Picmonics with thumbnails, tag filter
-- [ ] Create / open / delete Picmonic
-- [ ] Tag assignment on Picmonic (lightweight, no nesting)
-- [ ] Export PNG: `stage.toDataURL({ pixelRatio: 2 })` → download
-- [ ] Export Markdown: download `notes.md`
-- [ ] Export Anki CSV: parse → emit rows
-- [ ] ⚠️ **Decide**: bundle export as single .zip (notes.md + canvas.json + assets) — yes/no for v1
-  - Recommendation: yes — round-trip import becomes trivial later
+- [x] Picmonic list view (home, single-page; topbar swaps on `currentId`): grid of cards w/ 16:9 thumbnails, search input, AND-multi-tag filter
+- [x] Create / open / delete / duplicate / rename Picmonic — bug-fix: `deletePicmonic` now purges IDB record + index entry (previous version leaked)
+- [x] Tag assignment on Picmonic (lightweight, no nesting) — chip-on-Enter editor with autocomplete from union of all index tags
+- [x] Export PNG: `stage.toDataURL({ pixelRatio: 2 })` → download (editor topbar dropdown)
+- [x] Export Markdown: download `notes.md`
+- [x] Export Anki CSV: parse → emit rows (`picmonic_name, section, fact_name, symbol_descriptions, image_path`); excludes Unassigned + zero-symbol facts; multi-symbol facts joined with `¶`
+- [x] ⚠️ **Decide**: bundle export as single .zip — **yes**. `<slug>/notes.md + canvas.json + meta.json + scene.png`. Layout matches SPEC `docs/SPEC.md:28` so Phase 7 import is a 20-line parse.
+- [x] Bonus: separate `engram:picmonic-index:v1` IDB record (slim entries with thumbDataUrl/symbolCount/factCount); one-time migration from raw `engram:picmonic:*` keys; thumbnail captured on `saving → saved` transition via `useThumbnailCapture(stageRef)` hook (no extra renders); 16-test vitest coverage (Anki CSV + index store).
 
 ---
 
@@ -115,6 +115,8 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
 
 ## Before you move on to Phase 8
 - [ ] Have Claude Generate a Manual Checklist for Each Phase to this point, and manually run through the checks to ensure the program is behaving as expected. 
+
+--- 
 
 ## Phase 8 - Further Polish and ideas stated by Doug
 
