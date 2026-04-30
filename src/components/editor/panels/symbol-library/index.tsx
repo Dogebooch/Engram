@@ -123,8 +123,17 @@ export function SymbolLibrary() {
           {filtered.length === 0 ? (
             <LibraryNoResultsState query={query} />
           ) : (
-            <div className="flex-1 min-h-0">
-              <LibraryGrid entries={filtered} onActivate={handleActivate} />
+            <div className="flex flex-1 min-h-0 flex-col">
+              {recents.length > 0 && (
+                <div className="px-3 pb-1 pt-2.5">
+                  <span className="font-mono text-[9px] font-medium uppercase tracking-[0.18em] text-muted-foreground/60">
+                    All
+                  </span>
+                </div>
+              )}
+              <div className="flex-1 min-h-0">
+                <LibraryGrid entries={filtered} onActivate={handleActivate} />
+              </div>
             </div>
           )}
         </>
