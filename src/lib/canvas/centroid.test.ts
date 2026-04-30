@@ -164,3 +164,78 @@ describe("getFactAnchor", () => {
     expect(getFactAnchor("nonexistent::fact#0", parsed, [], {})).toBeNull();
   });
 });
+
+describe("hotspot recompute integration", () => {
+  const NOTES_TWO = `## A\n* {sym:11111111-1111-1111-1111-111111111111} a\n* {sym:22222222-2222-2222-2222-222222222222} b\n`;
+
+  it("recomputes anchor when a tagged symbol is moved (no override)", () => {
+    const parsed = parseNotes(NOTES_TWO);
+    const factId = parsed.rootFacts[0].factId;
+
+    const before = [
+      symbol({ id: "11111111-1111-1111-1111-111111111111", x: 0, y: 0, width: 100, height: 100 }),
+      symbol({ id: "22222222-2222-2222-2222-222222222222", x: 1000, y: 0, width: 100, height: 100 }),
+    ];
+    const after = [
+      before[0],
+      symbol({ id: "22222222-2222-2222-2222-222222222222", x: 2000, y: 0, width: 100, height: 100 }),
+    ];
+
+    const anchorBefore = getFactAnchor(factId, parsed, before, {});
+    const anchorAfter = getFactAnchor(factId, parsed, after, {});
+    expect(anchorBefore).not.toBeNull();
+    expect(anchorAfter).not.toBeNull();
+    expect(anchorAfter!.x).toBeGreaterThan(anchorBefore!.x);
+  });
+
+  it("override is sticky — moving symbols does not change anchor", () => {
+    const parsed = parseNotes(NOTES_TWO);
+    const factId = parsed.rootFacts[0].factId;
+    const hotspots: FactHotspots = {
+      [factId]: { x: 555, y: 777, userOverride: true },
+    };
+    const before = [
+      symbol({ id: "11111111-1111-1111-1111-111111111111", x: 0, y: 0, width: 100, height: 100 }),
+      symbol({ id: "22222222-2222-2222-2222-222222222222", x: 1000, y: 0, width: 100, height: 100 }),
+    ];
+    const after = [
+      symbol({ id: "11111111-1111-1111-1111-111111111111", x: 5000, y: 5000, width: 100, height: 100 }),
+      symbol({ id: "22222222-2222-2222-2222-222222222222", x: 9999, y: 9999, width: 100, height: 100 }),
+    ];
+
+    const anchorBefore = getFactAnchor(factId, parsed, before, hotspots);
+    const anchorAfter = getFactAnchor(factId, parsed, after, hotspots);
+    expect(anchorBefore).toEqual({ x: 555, y: 777 });
+    expect(anchorAfter).toEqual({ x: 555, y: 777 });
+  });
+
+  it("clearing the override resumes recompute", () => {
+    const parsed = parseNotes(NOTES_TWO);
+    const factId = parsed.rootFacts[0].factId;
+    const symbols = [
+      symbol({ id: "11111111-1111-1111-1111-111111111111", x: 0, y: 0, width: 100, height: 100 }),
+      symbol({ id: "22222222-2222-2222-2222-222222222222", x: 1000, y: 0, width: 100, height: 100 }),
+    ];
+
+    const overridden = getFactAnchor(
+      factId,
+      parsed,
+      symbols,
+      { [factId]: { x: 1, y: 2, userOverride: true } },
+    );
+    const cleared = getFactAnchor(factId, parsed, symbols, {});
+    expect(overridden).toEqual({ x: 1, y: 2 });
+    expect(cleared).not.toBeNull();
+    expect(cleared!.x).not.toBe(1);
+  });
+
+  it("factHotspots with userOverride: true survive a JSON round-trip", () => {
+    const original: FactHotspots = {
+      "section::fact#0": { x: 123.456, y: -78.9, userOverride: true },
+      "section::other#0": { x: 50, y: 50, userOverride: false },
+    };
+    const restored: FactHotspots = JSON.parse(JSON.stringify(original));
+    expect(restored).toEqual(original);
+    expect(restored["section::fact#0"].userOverride).toBe(true);
+  });
+});

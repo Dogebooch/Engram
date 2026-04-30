@@ -138,3 +138,60 @@ describe("tagSymbolWithNewFact (creating heading)", () => {
     expect(parsed.factsBySymbolId.get(UUID_A)).toEqual([r.factId]);
   });
 });
+
+describe("tag integration — bulk + cross-section", () => {
+  const UUID_C = "12345678-1234-1234-1234-123456789abc";
+  const UUID_D = "ffffffff-ffff-ffff-ffff-ffffffffffff";
+  const UUID_E = "00000000-0000-0000-0000-000000000001";
+
+  it("bulk: 5 sequential tags to same fact produce 5 unique bullets, no dupes", () => {
+    let notes = `## Bulk\n`;
+    const ids = [UUID_A, UUID_B, UUID_C, UUID_D, UUID_E];
+    for (const id of ids) {
+      const parsed = parseNotes(notes);
+      const factId = parsed.rootFacts[0].factId;
+      const r = tagSymbolWithFact(notes, parsed, id, factId);
+      notes = r.newNotes;
+    }
+    const finalParsed = parseNotes(notes);
+    const fact = finalParsed.rootFacts[0];
+    expect(fact.symbolRefs).toHaveLength(5);
+    expect(fact.symbolRefs.map((r) => r.symbolId)).toEqual(ids);
+    // Re-tagging any of them is a no-op
+    const reTagged = tagSymbolWithFact(notes, finalParsed, UUID_A, fact.factId);
+    expect(reTagged.alreadyTagged).toBe(true);
+    expect(reTagged.newNotes).toBe(notes);
+  });
+
+  it("mixed bulk: existing-fact + new-fact tagging in one sequence", () => {
+    // Start with one fact, add to it, then create a new fact for two more.
+    let notes = `## A\n`;
+    let r1 = tagId(notes, UUID_A, parseNotes(notes).rootFacts[0].factId);
+    notes = r1.newNotes;
+    let r2 = tagId(notes, UUID_B, parseNotes(notes).rootFacts[0].factId);
+    notes = r2.newNotes;
+    let r3 = tagNew(notes, UUID_C, "B");
+    notes = r3.newNotes;
+    let r4 = tagId(notes, UUID_D, parseNotes(notes).factsById.get(r3.factId)!.factId);
+    notes = r4.newNotes;
+
+    const final = parseNotes(notes);
+    expect(final.rootFacts).toHaveLength(2);
+    expect(final.rootFacts[0].symbolRefs.map((r) => r.symbolId)).toEqual([UUID_A, UUID_B]);
+    expect(final.rootFacts[1].symbolRefs.map((r) => r.symbolId)).toEqual([UUID_C, UUID_D]);
+  });
+
+  it("respects factId — same fact name across sections produces distinct factIds", () => {
+    const initial = `# Sec A\n## Foo\n# Sec B\n## Foo\n`;
+    const parsed = parseNotes(initial);
+    const facts = Array.from(parsed.factsById.values());
+    expect(facts).toHaveLength(2);
+    const [factA, factB] = facts;
+    expect(factA.factId).not.toBe(factB.factId);
+    // Tag UUID_A to factA only; verify factB doesn't pick it up
+    const r = tagSymbolWithFact(initial, parsed, UUID_A, factA.factId);
+    const reparsed = parseNotes(r.newNotes);
+    const factsBySymbol = reparsed.factsBySymbolId.get(UUID_A);
+    expect(factsBySymbol).toEqual([factA.factId]);
+  });
+});

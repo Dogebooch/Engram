@@ -122,4 +122,85 @@ describe("parseNotes", () => {
     const r = parseNotes(md);
     expect(r.rootFacts[0].symbolRefs[0].symbolId).toBe(UUID_A);
   });
+
+  it("disambiguates same fact name across different sections", () => {
+    const md = `# Sec A\n## Foo\n* {sym:${UUID_A}} a\n# Sec B\n## Foo\n* {sym:${UUID_B}} b\n`;
+    const r = parseNotes(md);
+    expect(r.sections).toHaveLength(2);
+    const factA = r.sections[0].facts[0];
+    const factB = r.sections[1].facts[0];
+    expect(factA.factId).not.toBe(factB.factId);
+    expect(factA.name).toBe("Foo");
+    expect(factB.name).toBe("Foo");
+  });
+
+  it("handles re-entered section names with occurrence-disambiguated factIds", () => {
+    const md = `# A\n## F\n* {sym:${UUID_A}} a\n# A\n## F\n* {sym:${UUID_B}} b\n`;
+    const r = parseNotes(md);
+    expect(r.sections).toHaveLength(2);
+    const f1 = r.sections[0].facts[0];
+    const f2 = r.sections[1].facts[0];
+    expect(f1.factId).not.toBe(f2.factId);
+  });
+
+  it("ignores malformed UUID variants (missing hyphens, wrong segments)", () => {
+    const malformedSamples = [
+      "11111111222233334444555555555555", // no hyphens
+      "1111-1111-2222-3333-4444-5555-5555-5555", // wrong shape
+      "g1111111-2222-3333-4444-555555555555", // non-hex char
+      "11111111-2222-3333-4444-55555555555", // short last segment
+    ];
+    for (const bad of malformedSamples) {
+      const md = `## F\n* {sym:${bad}} junk\n* {sym:${UUID_A}} good\n`;
+      const r = parseNotes(md);
+      const refs = r.rootFacts[0].symbolRefs.map((s) => s.symbolId);
+      expect(refs).toEqual([UUID_A]);
+    }
+  });
+
+  it("round-trips through a serialize/parse cycle (factsById equal)", () => {
+    const original = `# Section One\n## Fact A\n* {sym:${UUID_A}} desc\n* {sym:${UUID_B}} other\n# Section Two\n## Fact B\n* {sym:${UUID_C}} more\n## Same Name\n* {sym:${UUID_A}} dup1\n## Same Name\n* {sym:${UUID_B}} dup2\n`;
+    const parsed1 = parseNotes(original);
+    const rebuilt = serializeForRoundtrip(parsed1);
+    const parsed2 = parseNotes(rebuilt);
+
+    expect(parsed2.factsById.size).toBe(parsed1.factsById.size);
+    for (const [factId, fact1] of parsed1.factsById) {
+      const fact2 = parsed2.factsById.get(factId);
+      expect(fact2, `factId ${factId} preserved`).toBeDefined();
+      expect(fact2!.name).toBe(fact1.name);
+      expect(fact2!.sectionName).toBe(fact1.sectionName);
+      expect(fact2!.symbolRefs.map((r) => r.symbolId)).toEqual(
+        fact1.symbolRefs.map((r) => r.symbolId),
+      );
+    }
+  });
 });
+
+/**
+ * Reconstructs a minimal markdown doc from a ParsedNotes tree. Used only in
+ * round-trip tests — not a full serializer (drops bullet text, code blocks,
+ * paragraphs). Validates that synthetic factIds are stable across parse cycles.
+ */
+function serializeForRoundtrip(parsed: ReturnType<typeof parseNotes>): string {
+  const out: string[] = [];
+  const seenSection = new Set<string>();
+
+  const emitFact = (fact: typeof parsed.rootFacts[number]) => {
+    out.push(`## ${fact.name}`);
+    for (const ref of fact.symbolRefs) {
+      out.push(`* {sym:${ref.symbolId}}`);
+    }
+  };
+
+  for (const section of parsed.sections) {
+    const key = `${section.sectionId}`;
+    if (!seenSection.has(key)) {
+      out.push(`# ${section.name}`);
+      seenSection.add(key);
+    }
+    for (const fact of section.facts) emitFact(fact);
+  }
+  for (const fact of parsed.rootFacts) emitFact(fact);
+  return out.join("\n") + "\n";
+}

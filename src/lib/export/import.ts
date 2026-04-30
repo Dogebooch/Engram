@@ -65,7 +65,9 @@ interface BundleMeta {
  * Throws `BundleImportError` for fatal cases (corrupt zip, missing required
  * files, schema mismatch, invalid UUIDs).
  */
-export async function importBundle(file: File | Blob): Promise<Picmonic> {
+export async function importBundle(
+  file: File | Blob | ArrayBuffer | Uint8Array,
+): Promise<Picmonic> {
   let zip: JSZip;
   try {
     zip = await JSZip.loadAsync(file);
