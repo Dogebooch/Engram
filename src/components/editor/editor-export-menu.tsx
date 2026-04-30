@@ -21,6 +21,24 @@ import {
 } from "@/lib/export";
 import { useCurrentStage } from "./canvas/canvas-stage-ref";
 
+function isQuotaExceeded(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  return (
+    err.name === "QuotaExceededError" ||
+    /quota/i.test(err.message)
+  );
+}
+
+function messageForExportError(err: unknown, label: string): string {
+  if (isQuotaExceeded(err)) {
+    return `${label} export failed — storage full. Free space and retry.`;
+  }
+  if (err instanceof Error && err.message) {
+    return `${label} export failed: ${err.message}`;
+  }
+  return `${label} export failed`;
+}
+
 export function EditorExportMenu() {
   const currentId = useCurrentPicmonicId();
   const stage = useCurrentStage();
@@ -38,7 +56,7 @@ export function EditorExportMenu() {
       toast(`Exported ${label}`, { duration: 1400 });
     } catch (err) {
       console.error(err);
-      toast.error("Export failed");
+      toast.error(messageForExportError(err, label));
     } finally {
       setBusy(false);
     }

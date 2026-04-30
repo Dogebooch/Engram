@@ -70,6 +70,7 @@ export function Topbar() {
       )}
 
       <div className="ml-auto flex items-center gap-2">
+        <QuotaBadge onJumpHome={() => setCurrentPicmonic(null)} />
         {inEditor ? (
           <>
             <SaveStatus />
@@ -192,6 +193,34 @@ function Brand({ canGoHome, onHome }: { canGoHome: boolean; onHome: () => void }
         {inner}
       </TooltipTrigger>
       <TooltipContent>Back to home</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function QuotaBadge({ onJumpHome }: { onJumpHome: () => void }) {
+  const percent = useStore((s) => s.ui.storageQuota.percent);
+  if (percent == null || percent < 95) return null;
+  const rounded = Math.min(99, Math.round(percent));
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            onClick={onJumpHome}
+            aria-label="Storage almost full — jump to home"
+            className={cn(
+              "inline-flex h-6 items-center rounded-md px-2 -mr-0.5",
+              "border border-destructive/55 bg-destructive/10 text-destructive",
+              "font-mono text-[10px] uppercase tracking-[0.18em]",
+              "transition-colors hover:bg-destructive/20",
+            )}
+          >
+            {rounded}%
+          </button>
+        }
+      />
+      <TooltipContent>Storage {rounded}% full · click to free space</TooltipContent>
     </Tooltip>
   );
 }

@@ -13,6 +13,7 @@ import { useStore } from "@/lib/store";
 import { useDebouncedPicmonicSave } from "@/lib/store/debounced-save";
 import { useCurrentPicmonicId, useUiPrefs } from "@/lib/store/hooks";
 import { useEditorKeybindings } from "@/lib/keybindings";
+import { useSaveFlowMonitor } from "@/lib/storage/use-save-flow-monitor";
 import { CanvasErrorBoundary } from "./error-boundary";
 import { FactPicker } from "./dialogs/fact-picker";
 import { HelpDialog } from "./help-dialog";
@@ -33,6 +34,7 @@ const CanvasStage = dynamic(
 export function EditorShell() {
   useDebouncedPicmonicSave();
   useEditorKeybindings();
+  useSaveFlowMonitor();
 
   const ui = useUiPrefs();
   const currentId = useCurrentPicmonicId();

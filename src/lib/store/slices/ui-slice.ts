@@ -4,6 +4,15 @@ import type { RootState } from "../types";
 
 export type PlayerMode = "hotspot" | "sequential";
 
+export type QuotaThreshold = "80" | "95";
+
+export interface StorageQuotaState {
+  /** Last measured percent of origin quota used (0-100), or null if unknown. */
+  percent: number | null;
+  /** Highest threshold the user has been warned for; cleared when % drops below 80. */
+  lastWarned: QuotaThreshold | null;
+}
+
 export interface UiState {
   leftPanelSize: number;
   rightPanelSize: number;
@@ -12,6 +21,8 @@ export interface UiState {
   recentSymbolIds: string[];
   /** Last study-mode display the user used. Persisted across sessions. */
   lastPlayerMode: PlayerMode;
+  /** Persisted so reload doesn't re-fire warnings the user already saw. */
+  storageQuota: StorageQuotaState;
 }
 
 export interface UiSlice {
@@ -24,6 +35,7 @@ export interface UiSlice {
   toggleRightCollapsed: () => void;
   pushRecentSymbol: (ref: string) => void;
   setLastPlayerMode: (mode: PlayerMode) => void;
+  setStorageQuota: (next: StorageQuotaState) => void;
 }
 
 export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => ({
@@ -34,6 +46,7 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
     rightCollapsed: false,
     recentSymbolIds: [],
     lastPlayerMode: "hotspot",
+    storageQuota: { percent: null, lastWarned: null },
   },
   setLeftPanelSize: (size) =>
     set((s) => ({ ui: { ...s.ui, leftPanelSize: size } })),
@@ -59,4 +72,6 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
     })),
   setLastPlayerMode: (mode) =>
     set((s) => ({ ui: { ...s.ui, lastPlayerMode: mode } })),
+  setStorageQuota: (next) =>
+    set((s) => ({ ui: { ...s.ui, storageQuota: next } })),
 });

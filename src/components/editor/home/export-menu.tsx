@@ -69,7 +69,16 @@ export function HomeExportDialog({
       onOpenChange(false);
     } catch (err) {
       console.error(err);
-      toast.error("Export failed");
+      const isQuota =
+        err instanceof Error &&
+        (err.name === "QuotaExceededError" || /quota/i.test(err.message));
+      toast.error(
+        isQuota
+          ? `${label} export failed — storage full. Free space and retry.`
+          : err instanceof Error && err.message
+            ? `${label} export failed: ${err.message}`
+            : `${label} export failed`,
+      );
     } finally {
       setBusy(false);
     }
