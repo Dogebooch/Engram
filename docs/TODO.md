@@ -173,6 +173,25 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
 - [x] When draging a symbol, currently just the mouse cursor shows, it should show a hand to show that the symbol is grabbed.
 - [x] Hitting the delete key deletes the selected item
 
+---
+
+## After Phase 8
+
+- [ ] **Game-Icons integration (curated subset)** — deferred from Phase 7. Add ~800–1200 medically-relevant B&W icons from the Game-Icons set to complement OpenMoji. Direct PRD alignment ("Pixorize-class output") — color emoji fights the editorial dark-mode aesthetic for medical mnemonics; B&W stylized icons for organs, syringes, microscopes, skulls, weapons (toxin/poison encoding) match the Sketchy voice. **Approach:**
+  - Vendor Game-Icons SVGs into `public/symbols/game-icons/` (gitignored, build-script driven like OpenMoji per [build-symbol-index.mjs](scripts/build-symbol-index.mjs))
+  - Curate to a medical-relevant subset before merge — full 4000+ would bury good matches
+  - Extend `symbols.json` index with `source: "game-icons"`, `qualityRank: 2` (per [SPEC.md](docs/SPEC.md) ranking)
+  - Source filter UI in library (toggle openmoji vs game-icons) — or merged with badge so users can scan
+  - Verify search ranking discipline so good matches surface; one-day standalone ticket
+
+- [ ] **Non-modal help cheatsheet sheet (optional Phase 8 polish)** — current [help-dialog.tsx](src/components/editor/help-dialog.tsx) is modal: user can't reference a shortcut while typing in notes. Phase 8 nice-to-have: a non-modal Sheet variant pinned to the right side that the user toggles with `?` and leaves open while working. Best-of-both-worlds vs. the modal Dialog. ~Half day.
+
+- [ ] **Playwright E2E (only if sharing engram)** — skipped in Phase 7 because solo-desktop dogfood is the practical equivalent. Revisit only if engram gets shared (open-source, given to a colleague) — at that point contributors need a smoke-test that doesn't require each of them to dogfood. Specifically catches what vitest can't: HTML5 drag-drop, CodeMirror keystroke→debounced-save races, Konva→DOM stage attach in `exportPng`. Do not add for solo use — maintenance burden outweighs catch rate.
+
+- [ ] **Typed `ExportError` class hierarchy (only when 3rd export format lands)** — current one-line `QuotaExceededError` switch is sufficient for solo-desktop with two formats. Add the typed reason enum (`stage-not-ready` / `quota-exceeded` / `no-canvas` / `zip-build-failed` / etc.) when a third export format ships (cloud upload? share link?) and there are real error patterns to encode. Premature abstraction today.
+
+---
+
 ## v2+ (architected, not built — DO NOT touch in v1)
 
 - Audio per Fact (data slot exists, no UI)
