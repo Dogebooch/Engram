@@ -9,6 +9,7 @@ import { useStore } from "@/lib/store";
 import { usePicmonic } from "@/lib/store/hooks";
 import { CanvasTransformer } from "./canvas-transformer";
 import { DotGrid } from "./dot-grid";
+import { SymbolContextMenu } from "./symbol-context-menu";
 import { SymbolNode } from "./symbol-node";
 import { useCanvasDrop } from "./use-canvas-drop";
 
@@ -33,8 +34,26 @@ export function CanvasStage() {
   const picmonic = usePicmonic();
   const symbols = picmonic?.canvas.symbols ?? EMPTY_SYMBOLS;
   const selectedIds = useStore((s) => s.selectedSymbolIds);
+  const cursorSymbolIds = useStore((s) => s.cursorSymbolIds);
   const clearSelection = useStore((s) => s.clearSelection);
   const selectedSet = React.useMemo(() => new Set(selectedIds), [selectedIds]);
+  const glowSet = React.useMemo(
+    () => new Set(cursorSymbolIds),
+    [cursorSymbolIds],
+  );
+
+  // For any selected symbol that's grouped, paint a subtle dashed outline on
+  // every member of that group — the visual decode for "these are linked".
+  const groupOutlineSymbols = React.useMemo(() => {
+    if (selectedIds.length === 0 || symbols.length === 0) return EMPTY_SYMBOLS;
+    const selSet = new Set(selectedIds);
+    const activeGroupIds = new Set<string>();
+    for (const sy of symbols) {
+      if (selSet.has(sy.id) && sy.groupId) activeGroupIds.add(sy.groupId);
+    }
+    if (activeGroupIds.size === 0) return EMPTY_SYMBOLS;
+    return symbols.filter((sy) => sy.groupId && activeGroupIds.has(sy.groupId));
+  }, [selectedIds, symbols]);
 
   const { dragHover } = useCanvasDrop({ stageRef, containerRef });
 
@@ -113,6 +132,11 @@ export function CanvasStage() {
         backgroundImage:
           "radial-gradient(ellipse at center, oklch(0.13 0 0) 0%, oklch(0.105 0 0) 70%)",
       }}
+      onContextMenu={(e) => {
+        // Suppress browser default context menu over the canvas area; the
+        // SymbolContextMenu (per-symbol) handles right-click.
+        e.preventDefault();
+      }}
     >
       {box.scale > 0 && (
         <div
@@ -150,7 +174,26 @@ export function CanvasStage() {
                   key={layer.id}
                   layer={layer}
                   selected={selectedSet.has(layer.id)}
+                  glowing={glowSet.has(layer.id)}
                   onMount={handleSymbolMount}
+                />
+              ))}
+            </Layer>
+            <Layer listening={false}>
+              {groupOutlineSymbols.map((sy) => (
+                <Rect
+                  key={`group-outline-${sy.id}`}
+                  x={sy.x - 4}
+                  y={sy.y - 4}
+                  width={sy.width + 8}
+                  height={sy.height + 8}
+                  rotation={sy.rotation}
+                  stroke="oklch(0.78 0.13 75)"
+                  strokeWidth={1}
+                  dash={[4, 4]}
+                  opacity={0.45}
+                  cornerRadius={4}
+                  fill={undefined}
                 />
               ))}
             </Layer>
@@ -165,6 +208,7 @@ export function CanvasStage() {
         </div>
       )}
       <CornerReadout scale={box.scale} />
+      <SymbolContextMenu />
     </div>
   );
 }

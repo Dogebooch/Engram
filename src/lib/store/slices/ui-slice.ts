@@ -2,12 +2,16 @@ import type { StateCreator } from "zustand";
 import { PANEL_DEFAULTS, RECENT_SYMBOLS_MAX } from "@/lib/constants";
 import type { RootState } from "../types";
 
+export type PlayerMode = "hotspot" | "sequential";
+
 export interface UiState {
   leftPanelSize: number;
   rightPanelSize: number;
   leftCollapsed: boolean;
   rightCollapsed: boolean;
   recentSymbolIds: string[];
+  /** Last study-mode display the user used. Persisted across sessions. */
+  lastPlayerMode: PlayerMode;
 }
 
 export interface UiSlice {
@@ -19,6 +23,7 @@ export interface UiSlice {
   toggleLeftCollapsed: () => void;
   toggleRightCollapsed: () => void;
   pushRecentSymbol: (ref: string) => void;
+  setLastPlayerMode: (mode: PlayerMode) => void;
 }
 
 export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => ({
@@ -28,6 +33,7 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
     leftCollapsed: false,
     rightCollapsed: false,
     recentSymbolIds: [],
+    lastPlayerMode: "hotspot",
   },
   setLeftPanelSize: (size) =>
     set((s) => ({ ui: { ...s.ui, leftPanelSize: size } })),
@@ -51,4 +57,6 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
         ].slice(0, RECENT_SYMBOLS_MAX),
       },
     })),
+  setLastPlayerMode: (mode) =>
+    set((s) => ({ ui: { ...s.ui, lastPlayerMode: mode } })),
 });

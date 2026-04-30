@@ -9,6 +9,8 @@ import {
   SYMBOL_DRAG_MIME,
 } from "@/lib/constants";
 import { useStore } from "@/lib/store";
+import { parseNotes } from "@/lib/notes/parse";
+import { insertSymbolBullet } from "@/lib/notes/insert";
 
 interface Args {
   stageRef: React.RefObject<Konva.Stage | null>;
@@ -78,7 +80,28 @@ export function useCanvasDrop({
       const x = clamp(localX - half, 0, STAGE_WIDTH - SYMBOL_DEFAULT_SIZE);
       const y = clamp(localY - half, 0, STAGE_HEIGHT - SYMBOL_DEFAULT_SIZE);
 
-      addSymbol({ ref: symbolId, x, y });
+      const layerId = addSymbol({ ref: symbolId, x, y });
+      if (!layerId) return;
+
+      const state = useStore.getState();
+      const cid = state.currentPicmonicId;
+      if (!cid) return;
+      const picmonic = state.picmonics[cid];
+      if (!picmonic) return;
+      const parsed = parseNotes(picmonic.notes);
+      const targetFactId =
+        state.lastActiveFactId &&
+        parsed.factsById.has(state.lastActiveFactId)
+          ? state.lastActiveFactId
+          : null;
+      const result = insertSymbolBullet(
+        picmonic.notes,
+        parsed,
+        targetFactId,
+        layerId,
+      );
+      state.setNotes(cid, result.newNotes);
+      state.setLastSyncSource("canvas");
     };
 
     el.addEventListener("dragenter", onDragEnter);

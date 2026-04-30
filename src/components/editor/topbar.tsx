@@ -1,6 +1,6 @@
 "use client";
 
-import { PanelLeftIcon, PanelRightIcon, PlusIcon } from "lucide-react";
+import { PanelLeftIcon, PanelRightIcon, PlayIcon, PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ export function Topbar() {
   const toggleRight = useStore((s) => s.toggleRightCollapsed);
   const createPicmonic = useStore((s) => s.createPicmonic);
   const setCurrentPicmonic = useStore((s) => s.setCurrentPicmonic);
+  const enterPlayer = useStore((s) => s.enterPlayer);
 
   return (
     <header
@@ -54,6 +55,24 @@ export function Topbar() {
 
       <div className="ml-auto flex items-center gap-2">
         <SaveStatus />
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={enterPlayer}
+                disabled={!currentId}
+                aria-label="Study mode"
+              >
+                <PlayIcon />
+                <span className="hidden md:inline">Study</span>
+              </Button>
+            }
+          />
+          <TooltipContent>Study mode (M)</TooltipContent>
+        </Tooltip>
+        <div className="mx-1 h-4 w-px bg-border/80" aria-hidden="true" />
         <Tooltip>
           <TooltipTrigger
             render={

@@ -51,12 +51,20 @@ const HELP_LINES = [
   "⌘/Ctrl+B — toggle library",
   "⌘/Ctrl+\\ — toggle notes",
   "/ — focus library search",
-  "Click symbol — select (Shift+click for multi)",
+  "Click symbol — select (Shift+click for multi, Alt+click bypasses group)",
+  "F — tag selected with Fact (palette)",
+  "Right-click symbol — context menu",
+  "Drag symbol onto ## heading — tag",
+  "⌘/Ctrl+G — group selection",
+  "⇧⌘/⇧Ctrl+G — ungroup",
   "Delete / Backspace — remove selected",
   "⌘/Ctrl+D — duplicate selected",
   "[ ] — send back / bring forward",
   "{ } — to back / to front",
-  "Esc — clear selection",
+  "M — study mode (cycles Hotspot ↔ Sequential)",
+  "← / → — prev / next fact (in Sequential)",
+  "1–9 — jump to fact N (in study mode)",
+  "Esc — close menu/picker, exit study, then clear selection",
   "? — this menu",
 ] as const;
 
@@ -73,6 +81,12 @@ export function useEditorKeybindings(): void {
   const duplicateSymbols = useStore((s) => s.duplicateSymbols);
   const reorderSymbol = useStore((s) => s.reorderSymbol);
   const clearSelection = useStore((s) => s.clearSelection);
+  const groupSymbols = useStore((s) => s.groupSymbols);
+  const ungroupSymbols = useStore((s) => s.ungroupSymbols);
+  const openFactPicker = useStore((s) => s.openFactPicker);
+  const closeFactPicker = useStore((s) => s.closeFactPicker);
+  const closeContextMenu = useStore((s) => s.closeSymbolContextMenu);
+  const enterPlayer = useStore((s) => s.enterPlayer);
 
   const onNew = useCallback(
     (e: KeyboardEvent) => {
@@ -171,10 +185,74 @@ export function useEditorKeybindings(): void {
   );
 
   const onEscape = useCallback(() => {
-    if (useStore.getState().selectedSymbolIds.length > 0) {
+    const s = useStore.getState();
+    // Esc ladder: close picker → close context menu → clear selection.
+    if (s.factPicker?.open) {
+      closeFactPicker();
+      return;
+    }
+    if (s.contextMenu) {
+      closeContextMenu();
+      return;
+    }
+    if (s.selectedSymbolIds.length > 0) {
       clearSelection();
     }
-  }, [clearSelection]);
+  }, [clearSelection, closeContextMenu, closeFactPicker]);
+
+  const onOpenFactPicker = useCallback(
+    (e: KeyboardEvent) => {
+      const ids = useStore.getState().selectedSymbolIds;
+      if (ids.length === 0) {
+        toast("Select a symbol first", {
+          description: "Then press F to tag with a Fact.",
+          duration: 1800,
+        });
+        e.preventDefault();
+        return;
+      }
+      e.preventDefault();
+      openFactPicker(ids);
+    },
+    [openFactPicker],
+  );
+
+  const onGroup = useCallback(
+    (e: KeyboardEvent) => {
+      e.preventDefault();
+      const ids = useStore.getState().selectedSymbolIds;
+      if (ids.length < 2) {
+        toast("Select 2+ symbols to group", { duration: 1500 });
+        return;
+      }
+      const groupId = groupSymbols(ids);
+      if (groupId) {
+        toast(`Grouped ${ids.length} symbols`, { duration: 1200 });
+      }
+    },
+    [groupSymbols],
+  );
+
+  const onUngroup = useCallback(
+    (e: KeyboardEvent) => {
+      e.preventDefault();
+      const ids = useStore.getState().selectedSymbolIds;
+      if (ids.length === 0) return;
+      ungroupSymbols(ids);
+    },
+    [ungroupSymbols],
+  );
+
+  const onEnterStudy = useCallback(
+    (e: KeyboardEvent) => {
+      const s = useStore.getState();
+      if (s.player.open) return; // player has its own M handler
+      if (!s.currentPicmonicId) return;
+      e.preventDefault();
+      enterPlayer();
+    },
+    [enterPlayer],
+  );
 
   useKeybinding({ key: "n", mod: true }, onNew);
   useKeybinding({ key: "b", mod: true }, onToggleLeft);
@@ -189,4 +267,8 @@ export function useEditorKeybindings(): void {
   useKeybinding({ key: "{", shift: true }, onSendToBack);
   useKeybinding({ key: "}", shift: true }, onBringToFront);
   useKeybinding({ key: "Escape" }, onEscape);
+  useKeybinding({ key: "f", mod: false, shift: false }, onOpenFactPicker);
+  useKeybinding({ key: "g", mod: true, shift: false }, onGroup);
+  useKeybinding({ key: "g", mod: true, shift: true }, onUngroup);
+  useKeybinding({ key: "m", mod: false, shift: false, alt: false }, onEnterStudy);
 }

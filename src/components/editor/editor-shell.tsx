@@ -14,8 +14,10 @@ import { useDebouncedPicmonicSave } from "@/lib/store/debounced-save";
 import { useCurrentPicmonicId, useUiPrefs } from "@/lib/store/hooks";
 import { useEditorKeybindings } from "@/lib/keybindings";
 import { CanvasErrorBoundary } from "./error-boundary";
+import { FactPicker } from "./dialogs/fact-picker";
 import { EmptyState } from "./empty-state";
 import { LeftPanel } from "./panels/left-panel";
+import { PlayerOverlay } from "./player/player-overlay";
 import { RightPanel } from "./panels/right-panel";
 import { Topbar } from "./topbar";
 
@@ -109,6 +111,8 @@ export function EditorShell() {
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
+      <FactPicker />
+      <PlayerOverlay />
     </div>
   );
 }

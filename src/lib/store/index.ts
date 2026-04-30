@@ -5,7 +5,9 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { IDB_KEYS } from "@/lib/constants";
 import { idbStateStorage } from "./persist";
 import { createCanvasSlice } from "./slices/canvas-slice";
+import { createInteractionsSlice } from "./slices/interactions-slice";
 import { createPicmonicSlice } from "./slices/picmonic-slice";
+import { createPlayerSlice } from "./slices/player-slice";
 import { createSelectionSlice } from "./slices/selection-slice";
 import { createUiSlice } from "./slices/ui-slice";
 import type { RootState } from "./types";
@@ -24,6 +26,8 @@ export const useStore = create<RootState>()(
       ...createUiSlice(...a),
       ...createSelectionSlice(...a),
       ...createCanvasSlice(...a),
+      ...createInteractionsSlice(...a),
+      ...createPlayerSlice(...a),
     }),
     {
       name: IDB_KEYS.uiPrefs,
@@ -47,5 +51,13 @@ export const useStore = create<RootState>()(
     },
   ),
 );
+
+if (
+  typeof window !== "undefined" &&
+  process.env.NODE_ENV !== "production"
+) {
+  (window as unknown as { __engramStore?: typeof useStore }).__engramStore =
+    useStore;
+}
 
 export type { RootState };

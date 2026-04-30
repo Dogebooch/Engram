@@ -46,40 +46,43 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
 
 ## Phase 3 — Markdown notes panel + bidirectional sync (3 days)
 
-- [ ] CodeMirror with markdown mode, dark theme
-- [ ] Custom syntax highlighting for `{sym:UUID}` tokens
-- [ ] Markdown parser using `unified` + `remark-parse`
-- [ ] Custom remark plugin: extract `{sym:UUID}` references → array of `{factName, sectionName, symbolIds}` mappings
-- [ ] Selection sync: `useEffect` on canvas selection → CodeMirror `dispatch` to highlight bullet line
-- [ ] Selection sync: CodeMirror cursor position → Zustand store → canvas highlight
-- [ ] Edit `##` heading → debounced rename (no full rebuild)
-- [ ] Drop symbol on canvas → auto-insert `* {sym:UUID} ` bullet under active Fact in notes
-- [ ] Save debounce (500ms) → IndexedDB
+- [x] CodeMirror with markdown mode, dark theme — custom oklch theme reading CSS tokens, h1/h2 hierarchy distinct via Geist Sans + tracking, dimmed `#`/`##` markers via `t.processingInstruction`
+- [x] Custom syntax highlighting for `{sym:UUID}` tokens — `Decoration.replace` widget with image + display name; broken refs render mono `[missing]` with destructive dashed border; atomic ranges so cursor traverses chip as one unit
+- [x] Markdown parser using `unified` + `remark-parse` — `src/lib/notes/parse.ts` with synthetic fact IDs (`slug(section)::slug(name)#occurrence`), char offsets via mdast `position.start.offset`, code-block exclusion via `syntaxTree.resolve` so `{sym:...}` literals in fenced code are not chipped
+- [x] Custom remark plugin: extract `{sym:UUID}` references → nested `ParsedNotes` tree (sections → facts → symbolRefs) plus flat `factsById` and `factsBySymbolId` indices for O(1) sync lookups
+- [x] Selection sync: `useEffect` on canvas selection → CodeMirror `dispatch` to highlight bullet line — uses `EditorView.scrollIntoView` + transient line decoration via custom `StateField` + `StateEffect`, 850ms cubic-bezier pulse-down
+- [x] Selection sync: CodeMirror cursor position → Zustand store → canvas highlight — `cursorFactId`/`cursorSymbolIds`/`lastActiveFactId` added to `selection-slice`; canvas-stage derives `glowSet`, `symbol-node` applies Konva shadow when glowing-and-not-selected
+- [x] Edit `##` heading → debounced rename (no full rebuild) — name-based fact identity for Phase 3 (synthetic ID retrofit deferred to Phase 4 per [decision in plan](../../C:/Users/drumm/.claude/plans/we-are-continuing-to-misty-fountain.md)); parser is pure + memoized on notes string, no re-init churn
+- [x] Drop symbol on canvas → auto-insert `* {sym:UUID} ` bullet under active Fact in notes — `use-canvas-drop` reads `lastActiveFactId`, calls `insertSymbolBullet` (handles existing-fact append, `## Unassigned` reuse, blank-doc creation); idempotent
+- [x] Save debounce (500ms) → IndexedDB — already wired pre-Phase 3, `setNotes` flows through existing `debounced-save.ts` subscription
+- [x] Bonus: cursor breadcrumb (Section › Fact, monospace tracking + amber tick), click-chip-to-select-canvas-symbol, library-load-triggers-chip-refresh, code-block exclusion, vitest suite (23 tests covering parser + insert), dev-only `window.__engramStore` exposure for debugging
+- [x] Frontend-design polish pass — editorial command-line aesthetic: 4px chip radius (was pill), keyframe `eng-bullet-pulse` glow, breadcrumb amber-tick gutter marker, typewriter-prompt empty state with kbd hints
 
 ---
 
 ## Phase 4 — Tagging UX + grouping (1 day)
 
-- [ ] Implement underlying action: `tagSymbolWithFact(symbolId, factNameOrId)`
-- [ ] Drag-tag: drag symbol onto `##` line → tag (use Konva → DOM drag bridge or HTML5 DnD)
-- [ ] Keyboard-tag: `F` opens shadcn Command palette filtered to existing Facts + "Create new"
-- [ ] Right-click → context menu (shadcn ContextMenu) → "Tag with Fact..."
-- [ ] `Cmd+G` group selection (Konva Group node)
-- [ ] `Cmd+Shift+G` ungroup (preserve world coordinates)
+- [x] Implement underlying action: `tagSymbolWithFact(symbolId, factNameOrId)` — `src/lib/notes/tag.ts` (idempotent, name-collision reuse, 13 unit tests). Slice wrappers `tagSymbolsWithFact` / `tagSymbolsWithNewFact` in `canvas-slice.ts` for batch tagging.
+- [x] Drag-tag: drag symbol onto `##` line → tag — pointer-based bridge in `use-canvas-tag-drag.ts`; CodeMirror line decoration in `fact-heading-extension.ts` adds `data-fact-id`. Position reverts on drop. ::after pseudo-element drives the drop affordance (CM 6 blocks direct `.cm-line` background/box-shadow/outline-width — pseudo-element sidesteps it).
+- [x] Keyboard-tag: `F` opens shadcn Command palette filtered to existing Facts + "Create new" — `dialogs/fact-picker.tsx`. Multi-select aware. Editorial mono aesthetic matching breadcrumb.
+- [x] Right-click → context menu (shadcn DropdownMenu controlled with 1×1 fixed-positioned trigger) → "Tag with Fact..." plus Group/Ungroup/Z-order/Duplicate/Delete with platform-appropriate kbd hints. Mounted only when active to avoid Base UI nativeButton warnings flooding the console.
+- [x] `Cmd+G` group selection — logical grouping (groupId + Group records, no Konva.Group transform). Selection auto-expands via `selectGroupAware` / `toggleGroupAware`. Alt+click bypasses group expansion. Subtle dashed amber outline on each member when any group member is selected.
+- [x] `Cmd+Shift+G` ungroup (preserves world coordinates) — verified via `canvas-slice.group.test.ts` (8 tests cover regroup-of-pre-grouped, mixed selections, world-coord preservation).
+- [x] Bonus: Esc ladder closes picker → menu → clears selection. Help overlay updated with new bindings. shadcn `command dialog dropdown-menu separator` installed via CLI. fake-indexeddb wired for vitest persist sanity.
 
 ---
 
 ## Phase 5 — Hotspots + Study mode (2 days)
 
-- [ ] Compute Fact centroid from linked symbol bounding boxes
-- [ ] Render numbered circle on canvas per Fact (numbered by Section → Fact order)
-- [ ] User-draggable hotspot (sets `userOverride: true`, blocks recompute)
-- [ ] Player view component (route or modal)
-- [ ] Hotspot mode: click circle → reveal Fact name + meaning + symbol glow
-- [ ] Sequential mode: Prev/Next buttons, current Fact symbols highlighted, others dimmed
-- [ ] `M` toggles between modes
-- [ ] Esc returns to editor
-
+- [x] Compute Fact centroid from linked symbol bounding boxes — `src/lib/canvas/centroid.ts` (mean of post-rotation centers; userOverride wins). Single-symbol facts anchor at the upper-right of the symbol so the hotspot reads as a tag instead of an occlusion; multi-symbol centroids that fall inside any linked symbol are nudged just past its boundary. 12 unit tests.
+- [x] Render numbered circle on canvas per Fact (numbered by Section → Fact order) — `hotspot-circle.tsx` Konva primitive, ordering via `getOrderedFacts(parsed)` in `src/lib/notes/fact-order.ts` (excludes Unassigned + zero-symbol facts so numbering stays gapless).
+- [x] User-draggable hotspot (sets `userOverride: true`, blocks recompute) — Konva `draggable` on hotspot Group → `setHotspotOverride(factId, x, y)`. Override indicator: dashed inner ring. Right-click → "Reset position" via `clearHotspotOverride`.
+- [x] Player view component — fullscreen overlay (`player-overlay.tsx`), single-shell architecture (no new route). Editor stays mounted underneath; opaque player background fully obscures it.
+- [x] Hotspot mode: click circle → reveal Fact name + meaning + symbol glow — `hotspot-reveal-card.tsx` with smart-flip placement; per-symbol description / meaning / encoding parsed at reveal time via `src/lib/notes/bullet.ts` (12 unit tests). Linked symbols glow via existing Konva-shadow infra.
+- [x] Sequential mode: Prev/Next buttons, current Fact symbols highlighted, others dimmed — `sequential-rail.tsx` (right rail with Section › Fact ordinal, fact name, symbol thumbnails, per-symbol meaning + encoding) + `sequential-controls.tsx` (centered prev/counter/next pill). Non-linked symbols dimmed via new `dimFactor` prop on `SymbolNode`.
+- [x] `M` toggles between modes — `M` enters player from editor (default last-used display, persisted in `ui.lastPlayerMode`), then cycles Hotspot ↔ Sequential within. Topbar Play button mirrors keyboard for discoverability.
+- [x] Esc returns to editor — Esc ladder: closes reveal card first if open, then exits player.
+- [x] Bonus polish: arrow-key prev/next in Sequential, number-key 1-9 jump to fact N (both modes), "FACT 03 / 07" zero-padded counter, dimmed-symbol fade transitions, segmented mode toggle pill, study-mode dot signal in topbar, persisted last-used mode, opaque vignette overlay (no editor bleed-through), comprehensive Help overlay update with new bindings.
 ---
 
 ## Phase 6 — Persistence + Export (1 day)
@@ -110,7 +113,10 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
 
 ---
 
-## Phase 8 - Further Polish stated by Doug
+## Before you move on to Phase 8
+- [ ] Have Claude Generate a Manual Checklist for Each Phase to this point, and manually run through the checks to ensure the program is behaving as expected. 
+
+## Phase 8 - Further Polish and ideas stated by Doug
 
 - [ ] Settings pane with editable keyboard shortcuts
   - View all bound shortcuts in one place (currently scattered across `useEditorKeybindings`)
@@ -134,9 +140,34 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
   - Settings pane contains section for Scrolling through previous saves for a specific File (File Snapshots)
   - User can define how many saves are saved, and when they are deleted (ex: every 30 days, max 50 backups etc.)
   - Files delete to the Recycle Bin on Windows
-- [ ] "File", "Edit", "Export" and other high yield tools located at topbar position in the Editor
-- [ ] when User highlights over the "Rotate" on the canvas, it should show up the "recycle" symbol, instead of a cross, to let the user know they are rotating the symbol.
-- [ ] When draging a symbol, currently just the mouse cursor shows, it should show a hand to show that the symbol is grabbed.
+- [ ] "File", "Edit" and other high yield tools located at topbar position in the Editor
+  - File Menu: Export, Save, Save As, Import, Open, Preferences (Settings), Account
+  - Edit Menu: Undo, Redo, Insert, 
+  - Help Menu: Docs (See below)
+- [ ] Create a built in tutorial so the user can Quickly get up and running with the program with minimal effort
+  - A basic Walkthrough tutorial with highlighted sections and popups that walks the user through the key actions that the program offers
+  - A comprehensive Docs under the "Help Menu"
+- [ ] Improve the end user experience of the "Markdown Notes" (So it looks prettier)
+  - Keep the Intuitive click on buttons
+  - Make it so that it's easier to add symbols via the Notes tab etc. (idea: Have the user write out a fact first -> Add Symbol button -> Add description)
+  - Add option to easily add Section Headers (automatically vs. manual) - Should be one click (<1 second to add)
+  - Ensure a clean visual hierarchy in the right panel to show what's a Section Header (Group), base fact, a symbol, and a description (See Below)
+      |Group (Section header)
+      ||-Fact(s)
+      |||-Symbol(s) + Description
+  - User can drag parents and children to other Groups (Section Headers)
+  - Add keyboard hotkeys for adding symbols to facts and adding descriptions to facts
+  - Smart visualization of canvas symbols based on Groups (Section Headers); aids in visual grouping of symbols based on the section header (Ex: Risk Factors grouped in one area of the scene) -> User Clicks to edit a symbol that is under a Group (Section header) -> Slight emphasis/highlight of all symbols in the group -> only actual selection of symbol being edited
+  - Groups (Section Headers) can be visually collapsed in the right panel 
+- [ ] Fix the weird disconnect between the Notes (right panel) and the canvas - For example, when I go back to the home screen, how does the user pick a picture they were previously working on/search through the library of picture mnemonics
+  - On the home screen, the Left Panel shows the different pictures + search via tags/folders
+  - The Symbol Library only pops up when a picture scene is selected and the editor comes up
+  - The user can always go back to the picture scene collection with max 1-2 clicks (when in canvas - easy to go back and select a new scene to work on)
+  - The home screen says "Create your first Picmonic" only when there are no picture scenes in the library. Otherwise, it shows the tags and picture scene collection
+- [ ] Any updates to the end user "Markdown" experience should also hold true for the review screen (popups, errors, representations and visualizations in the review pane)
+- [x] when User highlights over the "Rotate" on the canvas, it should show up the "recycle" symbol, instead of a cross, to let the user know they are rotating the symbol.
+- [x] When draging a symbol, currently just the mouse cursor shows, it should show a hand to show that the symbol is grabbed.
+- [x] Hitting the delete key deletes the selected item
 
 ## v2+ (architected, not built — DO NOT touch in v1)
 
@@ -146,3 +177,4 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
 - Cloud sync (Supabase) — UUIDs already cloud-portable
 - AI symbol generation with reference styles
 - Public Picmonic library
+- Expand the tools in the canvas but ensure hard cap on when to stop adding tools; keep it relevant to tools that help blend the scene to make it unified. Avoid Scope Creep; this is not Photoshop (Background Remover from imported symbols, Basic painting tools, blending tools, eraser etc.)

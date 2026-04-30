@@ -8,25 +8,43 @@ import { useImage } from "@/lib/image-cache";
 import { useStore } from "@/lib/store";
 import { getSymbolById } from "@/lib/symbols";
 import type { SymbolLayer } from "@/lib/types/canvas";
+import { useCanvasTagDrag } from "./use-canvas-tag-drag";
 
 interface SymbolNodeProps {
   layer: SymbolLayer;
   selected: boolean;
+  glowing: boolean;
   onMount: (id: string, node: Konva.Image | null) => void;
+  /**
+   * When false, disables drag/click/contextMenu/tagDrag handlers. Used by the
+   * Player view to render symbols read-only.
+   */
+  interactive?: boolean;
+  /**
+   * Multiplier applied to the rendered image opacity. Used by Player's
+   * Sequential mode to dim symbols not linked to the current fact.
+   */
+  dimFactor?: number;
 }
 
 export const SymbolNode = React.memo(function SymbolNode({
   layer,
   selected,
+  glowing,
   onMount,
+  interactive = true,
+  dimFactor = 1,
 }: SymbolNodeProps) {
   const entry = getSymbolById(layer.ref);
   const url = entry?.imageUrl ?? null;
   const state = useImage(url);
 
-  const updateSymbol = useStore((s) => s.updateSymbol);
   const setSelectedSymbolIds = useStore((s) => s.setSelectedSymbolIds);
-  const toggleSymbolSelection = useStore((s) => s.toggleSymbolSelection);
+  const selectGroupAware = useStore((s) => s.selectGroupAware);
+  const toggleGroupAware = useStore((s) => s.toggleGroupAware);
+  const openSymbolContextMenu = useStore((s) => s.openSymbolContextMenu);
+
+  const tagDrag = useCanvasTagDrag(layer.id);
 
   const imageRef = React.useRef<Konva.Image | null>(null);
 
@@ -48,12 +66,30 @@ export const SymbolNode = React.memo(function SymbolNode({
     (e: KonvaEventObject<MouseEvent>) => {
       e.cancelBubble = true;
       if (e.evt.shiftKey) {
-        toggleSymbolSelection(layer.id);
-      } else {
+        toggleGroupAware(layer.id);
+      } else if (e.evt.altKey) {
+        // Alt-click bypasses group expansion (single-symbol select).
         setSelectedSymbolIds([layer.id]);
+      } else {
+        selectGroupAware(layer.id);
       }
     },
-    [layer.id, setSelectedSymbolIds, toggleSymbolSelection],
+    [layer.id, selectGroupAware, setSelectedSymbolIds, toggleGroupAware],
+  );
+
+  const handleContextMenu = React.useCallback(
+    (e: KonvaEventObject<PointerEvent>) => {
+      e.evt.preventDefault();
+      e.cancelBubble = true;
+      const sel = useStore.getState().selectedSymbolIds;
+      // If the right-clicked symbol isn't already selected, select it
+      // (group-aware) so menu actions target the visually-active set.
+      if (!sel.includes(layer.id)) {
+        selectGroupAware(layer.id);
+      }
+      openSymbolContextMenu(e.evt.clientX, e.evt.clientY, layer.id);
+    },
+    [layer.id, openSymbolContextMenu, selectGroupAware],
   );
 
   const handleMouseEnter = React.useCallback(
@@ -70,24 +106,6 @@ export const SymbolNode = React.memo(function SymbolNode({
       if (container) container.style.cursor = "";
     },
     [],
-  );
-
-  const handleDragStart = React.useCallback(
-    (e: KonvaEventObject<DragEvent>) => {
-      const container = e.target.getStage()?.container();
-      if (container) container.style.cursor = "grabbing";
-    },
-    [],
-  );
-
-  const handleDragEnd = React.useCallback(
-    (e: KonvaEventObject<DragEvent>) => {
-      const node = e.target;
-      updateSymbol(layer.id, { x: node.x(), y: node.y() });
-      const container = e.target.getStage()?.container();
-      if (container) container.style.cursor = "grab";
-    },
-    [layer.id, updateSymbol],
   );
 
   if (state.status === "loading") {
@@ -112,6 +130,7 @@ export const SymbolNode = React.memo(function SymbolNode({
         y={layer.y}
         rotation={layer.rotation}
         onClick={handleClick}
+        onContextMenu={handleContextMenu}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -140,6 +159,8 @@ export const SymbolNode = React.memo(function SymbolNode({
     );
   }
 
+  const showGlow = glowing && !selected;
+
   return (
     <KonvaImage
       ref={handleRef}
@@ -150,13 +171,22 @@ export const SymbolNode = React.memo(function SymbolNode({
       width={layer.width}
       height={layer.height}
       rotation={layer.rotation}
-      draggable
+      opacity={dimFactor}
+      draggable={interactive}
+      listening={interactive}
       perfectDrawEnabled={false}
-      onClick={handleClick}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
+      shadowEnabled={showGlow}
+      shadowColor="oklch(0.78 0.13 75)"
+      shadowBlur={28}
+      shadowOpacity={showGlow ? 1 : 0}
+      shadowOffsetX={0}
+      shadowOffsetY={0}
+      onClick={interactive ? handleClick : undefined}
+      onContextMenu={interactive ? handleContextMenu : undefined}
+      onMouseEnter={interactive ? handleMouseEnter : undefined}
+      onMouseLeave={interactive ? handleMouseLeave : undefined}
+      onDragStart={interactive ? tagDrag.onDragStart : undefined}
+      onDragEnd={interactive ? tagDrag.onDragEnd : undefined}
     />
   );
 });
