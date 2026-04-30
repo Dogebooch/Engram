@@ -100,16 +100,18 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
 
 ## Phase 7 — Polish + tests (2–3 days)
 
-- [ ] Unit tests: markdown parser (round-trip, edge cases: malformed, empty, deeply nested)
-- [ ] Unit tests: canvas state serialization
-- [ ] Integration tests: `tagSymbolWithFact` atomicity
-- [ ] Integration tests: hotspot recompute logic (with and without override)
-- [ ] E2E (Playwright): author → export → re-import → identical render
-- [ ] Empty / error states (no Picmonics yet, broken `{sym:UUID}` ref, etc.)
-- [ ] Keyboard shortcut help overlay (`?` key)
-- [ ] Storage quota warnings (80% / 95% thresholds)
-- [ ] Game-Icons integration if not done in Phase 2
-- [ ] Theme the Konva canvas chrome — the paper rect (`STAGE_PAPER_FILL = "#181818"` in [canvas-stage.tsx](src/components/editor/canvas/canvas-stage.tsx)) and dot grid colors (`DOT_FILL = "#3f3f3f"` in [dot-grid.tsx](src/components/editor/canvas/dot-grid.tsx)) are currently hardcoded. They should read `--stage` / `--stage-grid` from CSS variables (already defined in `globals.css`) so light theme (Phase 8) doesn't need a second pass. Approach: read tokens via `getComputedStyle(document.documentElement).getPropertyValue('--stage')` once and pass into the Konva fills, plus a MutationObserver on `documentElement` `class` attribute to re-pull on theme switch.
+- [x] Unit tests: markdown parser — added round-trip + cross-section duplicates + re-entered sections + malformed UUID variants ([parse.test.ts](src/lib/notes/parse.test.ts))
+- [x] Unit tests: canvas state serialization ([serialize.test.ts](src/lib/canvas/serialize.test.ts), 7 tests; round-trip empty + populated + override + animation slots + forward-compat)
+- [x] Integration tests: `tagSymbolWithFact` atomicity — bulk + mixed + cross-section ([tag.test.ts](src/lib/notes/tag.test.ts))
+- [x] Integration tests: hotspot recompute logic — recompute on move, override sticky, clear-then-recompute, JSON round-trip ([centroid.test.ts](src/lib/canvas/centroid.test.ts))
+- [x] **Round-trip integration test (Playwright deferred — see Phase 8 note below):** author → export → re-import → state-equal verified via vitest in [import.test.ts](src/lib/export/import.test.ts) (11 tests including round-trip + every typed `BundleImportError.reason` + factHotspots orphan reconciliation + `{sym:UUID}` cross-ref warning)
+- [x] Empty / error states — broken `{sym:UUID}` chip + zero-symbol facts excluded from study + library missing-index recovery + home no-results — all already shipped through Phase 3–6; Phase 7 added save-error recovery toast (the actual day-1 dogfood gap) with "Export bundle" action button
+- [x] Keyboard shortcut help overlay (`?` key) — [help-dialog.tsx](src/components/editor/help-dialog.tsx) replaces the toast with a categorized shadcn Dialog (Editor / Canvas & Symbols / Player / Picmonic), monospace kbd chips, "manpage stamp" header. Discreet `?` icon button in topbar for discoverability.
+- [x] Storage quota warnings (80% / 95% thresholds) — [use-save-flow-monitor.ts](src/lib/storage/use-save-flow-monitor.ts) subscribes to `saveStatus` and fires threshold-crossing toasts; topbar `<QuotaBadge>` at >= 95%; `ui.storageQuota.lastWarned` persisted so reload doesn't re-fire warnings.
+- [x] **Bundle Import (.zip)** — [import.ts](src/lib/export/import.ts) closes the round-trip from Phase 6 export. Validates schemaVersion + UUIDs, regenerates root id, **reconciles factHotspots** against re-parsed notes (drops orphans with warn), soft-warns on broken `{sym:UUID}` cross-refs. Wired into home grid header + EmptyHero via [import-button.tsx](src/components/editor/home/import-button.tsx).
+- [x] Theme the Konva canvas chrome — [use-themed-css-var.ts](src/lib/theme/use-themed-css-var.ts) (`useSyncExternalStore` + `MutationObserver`) so paper rect, dot grid, and radial backdrop track `--stage` / `--stage-grid` / `--stage-vignette-*`. Light-theme foundation in place for Phase 8 toggle UI; `useEffect([stageFill])` calls `stage.draw()` since react-konva does not auto-redraw on Rect/Circle `fill` prop change.
+- [ ] **Game-Icons** — DEFERRED to Phase 8. Doubles the symbol pipeline (build script, source ranking, dedup, source filter UI) for a feature orthogonal to "polish + tests." OpenMoji's ~1640 entries already exceed dogfood need; Game-Icons should be a focused one-day Phase 8 ticket.
+- [ ] **Playwright E2E** — DEFERRED to Phase 8 (revisit only if visual-regression need surfaces). Engram is desktop-only, single-user, local-first; the data-layer round-trip (`buildBundleZip` → `parseBundleZip` → `hydratePicmonic`) is 95% of the test value at <1% the cost via vitest. What the vitest test does NOT cover: (a) Konva→DOM stage attach in `exportPng` (the `bundle.ts` PNG-skip swallow), (b) CodeMirror keystroke→debounced-save races, (c) HTML5 native drag-drop. Day-1 dogfood is the practical equivalent for solo desktop use.
 
 ---
 
