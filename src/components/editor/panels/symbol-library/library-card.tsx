@@ -65,7 +65,7 @@ export const LibraryCard = React.memo(function LibraryCard({
             data-engram-library-card
             data-symbol-id={entry.id}
             className={cn(
-              "group relative flex flex-col items-center justify-center rounded-md outline-none cursor-grab active:cursor-grabbing",
+              "group relative flex flex-col items-center justify-center rounded-md outline-none cursor-pointer",
               "border border-white/[0.04] bg-white/[0.02]",
               "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]",
               "transition-[background-color,border-color,box-shadow,transform] duration-150 ease-out",
