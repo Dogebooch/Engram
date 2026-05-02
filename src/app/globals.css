@@ -503,50 +503,114 @@
 }
 
 /* ============================================================
- * Tag-drag affordance — when a Konva symbol is being dragged off the canvas,
- * `data-engram-tag-dragging` lights up every ## heading line so the user can
- * see where to drop. The line currently under the cursor gets the strong
- * amber inset glow (mirrors the canvas paper's drop affordance).
+ * Tag-drag affordance — "margin rail".
+ *
+ * Principle: candidates whisper, the target speaks. Every fact block gets a
+ * thin amber rail on its left edge during a drag so the user can see WHICH
+ * blocks are valid drop targets, but nothing more. The block under the
+ * cursor lights up with a full unified amber box; everyone else stays a
+ * proof-mark on the margin. Empty-fact ghosts only expand for the active
+ * fact, so the layout doesn't flutter open under every empty heading.
  * ============================================================ */
 
 body[data-engram-tag-dragging] {
   cursor: alias !important;
 }
 
-/* CodeMirror's themed `.cm-line` rules block direct background changes, so the
- * drop affordance uses `outline` (which CM doesn't shadow) plus a coloured
- * left bar via outline-offset. */
-body[data-engram-tag-dragging] .cm-line[data-fact-heading] {
+body[data-engram-tag-dragging] .cm-line[data-fact-block] {
   cursor: alias;
 }
 
-/* CM 6 fights direct .cm-line styling. Render the drop affordance as an
- * absolutely-positioned ::after that hugs the line — pseudo-elements bypass
- * CM's theme. The .cm-line's `position: relative` is set elsewhere in this
- * file, so the absolute positioning anchors correctly. */
-body[data-engram-tag-dragging] .cm-line[data-fact-heading]::after {
+/* INACTIVE candidate — left rail only, no fill, no outline.
+ * Drawn via inset box-shadow on the .cm-line's ::after (which hugs `inset: 0`)
+ * so the rail is continuous across stacked lines without any per-line seam. */
+body[data-engram-tag-dragging] .cm-line[data-fact-block]::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  border: 1px dashed
-    color-mix(in oklch, var(--accent) 30%, transparent);
-  background: color-mix(in oklch, var(--accent) 5%, transparent);
-  border-radius: 2px;
+  border: 0 solid transparent;
+  background: transparent;
+  box-shadow: inset 2px 0 0 0
+    color-mix(in oklch, var(--accent) 22%, transparent);
   transition:
-    border-color 140ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-width 140ms cubic-bezier(0.22, 1, 0.36, 1),
-    background 140ms cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-width 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ACTIVE block — full unified amber box. Border + fill return; rail thickens
+ * to a solid 3px lead-in. Outer corners round; internal seams suppressed via
+ * position attribute so first/middle/last read as one box. */
+body[data-engram-tag-dragging]
+  .cm-line[data-fact-block][data-fact-block-active]::after {
+  border: 1.5px solid var(--accent);
+  background: color-mix(in oklch, var(--accent) 12%, transparent);
+  box-shadow: inset 3px 0 0 0 var(--accent);
 }
 
 body[data-engram-tag-dragging]
-  .cm-line[data-fact-heading][data-fact-heading-active]::after {
-  border-style: solid;
-  border-width: 1.5px;
-  border-color: var(--accent);
-  background: color-mix(in oklch, var(--accent) 14%, transparent);
-  box-shadow:
-    inset 0 0 22px -8px color-mix(in oklch, var(--accent) 70%, transparent);
+  .cm-line[data-fact-block][data-fact-block-active][data-fact-block-position="only"]::after {
+  border-radius: 4px;
+}
+body[data-engram-tag-dragging]
+  .cm-line[data-fact-block][data-fact-block-active][data-fact-block-position="first"]::after {
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+}
+body[data-engram-tag-dragging]
+  .cm-line[data-fact-block][data-fact-block-active][data-fact-block-position="middle"]::after {
+  border-top: none;
+  border-bottom: none;
+  border-radius: 0;
+}
+body[data-engram-tag-dragging]
+  .cm-line[data-fact-block][data-fact-block-active][data-fact-block-position="last"]::after {
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+}
+
+/* Empty-fact ghost slot. Block widget injected directly under an empty
+ * fact's heading. Collapses to 0 by default; expands ONLY when its fact is
+ * the hover target, so non-active empty facts don't open ghost rows during
+ * the drag (the heading's left rail signals candidacy on its own). */
+.eng-empty-fact-ghost {
+  display: block;
+  position: relative;
+  height: 0;
+  overflow: hidden;
+  pointer-events: auto;
+  transition: height 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+body[data-engram-tag-dragging]
+  .eng-empty-fact-ghost[data-fact-block-active] {
+  height: 28px;
+}
+
+body[data-engram-tag-dragging]
+  .eng-empty-fact-ghost[data-fact-block-active]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 1.5px solid var(--accent);
+  border-top: none;
+  background: color-mix(in oklch, var(--accent) 12%, transparent);
+  border-radius: 0 0 4px 4px;
+  box-shadow: inset 3px 0 0 0 var(--accent);
+}
+
+/* When the ghost is active, the heading line above it is the "first" of the
+ * combined block — strip its bottom border so they read as one continuous
+ * box, and let the heading's rail flow into the ghost's rail. */
+body[data-engram-tag-dragging]
+  .cm-line[data-fact-block][data-fact-block-active][data-fact-block-position="only"]:has(
+    + .eng-empty-fact-ghost[data-fact-block-active]
+  )::after {
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
 }
 
 /* ============================================================

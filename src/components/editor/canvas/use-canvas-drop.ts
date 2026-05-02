@@ -2,23 +2,13 @@
 
 import * as React from "react";
 import type Konva from "konva";
-import {
-  STAGE_HEIGHT,
-  STAGE_WIDTH,
-  SYMBOL_DEFAULT_SIZE,
-  SYMBOL_DRAG_MIME,
-} from "@/lib/constants";
-import { useStore } from "@/lib/store";
-import { parseNotes } from "@/lib/notes/parse";
-import { insertSymbolBullet } from "@/lib/notes/insert";
+import { SYMBOL_DEFAULT_SIZE, SYMBOL_DRAG_MIME } from "@/lib/constants";
+import { addSymbolWithNoteSync } from "@/lib/canvas/add-symbol-with-note-sync";
+import { clampToStage } from "@/lib/canvas/clamp-stage";
 
 interface Args {
   stageRef: React.RefObject<Konva.Stage | null>;
   containerRef: React.RefObject<HTMLDivElement | null>;
-}
-
-function clamp(v: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, v));
 }
 
 export function useCanvasDrop({
@@ -26,7 +16,6 @@ export function useCanvasDrop({
   containerRef,
 }: Args): { dragHover: boolean } {
   const [dragHover, setDragHover] = React.useState(false);
-  const addSymbol = useStore((s) => s.addSymbol);
 
   React.useEffect(() => {
     const el = containerRef.current;
@@ -77,31 +66,9 @@ export function useCanvasDrop({
       const localY = (e.clientY - rect.top) / scale;
 
       const half = SYMBOL_DEFAULT_SIZE / 2;
-      const x = clamp(localX - half, 0, STAGE_WIDTH - SYMBOL_DEFAULT_SIZE);
-      const y = clamp(localY - half, 0, STAGE_HEIGHT - SYMBOL_DEFAULT_SIZE);
+      const { x, y } = clampToStage(localX - half, localY - half);
 
-      const layerId = addSymbol({ ref: symbolId, x, y });
-      if (!layerId) return;
-
-      const state = useStore.getState();
-      const cid = state.currentPicmonicId;
-      if (!cid) return;
-      const picmonic = state.picmonics[cid];
-      if (!picmonic) return;
-      const parsed = parseNotes(picmonic.notes);
-      const targetFactId =
-        state.lastActiveFactId &&
-        parsed.factsById.has(state.lastActiveFactId)
-          ? state.lastActiveFactId
-          : null;
-      const result = insertSymbolBullet(
-        picmonic.notes,
-        parsed,
-        targetFactId,
-        layerId,
-      );
-      state.setNotes(cid, result.newNotes);
-      state.setLastSyncSource("canvas");
+      addSymbolWithNoteSync({ ref: symbolId, x, y });
     };
 
     el.addEventListener("dragenter", onDragEnter);
@@ -115,7 +82,7 @@ export function useCanvasDrop({
       el.removeEventListener("dragleave", onDragLeave);
       el.removeEventListener("drop", onDrop);
     };
-  }, [stageRef, containerRef, addSymbol]);
+  }, [stageRef, containerRef]);
 
   return { dragHover };
 }

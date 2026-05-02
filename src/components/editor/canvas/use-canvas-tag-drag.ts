@@ -5,36 +5,67 @@ import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
+import { clampToStage } from "@/lib/canvas/clamp-stage";
 
 /**
- * Bridges a Konva symbol drag to DOM `## Fact` heading drop targets in the
+ * Bridges a Konva symbol drag to DOM `## Fact` block drop targets in the
  * notes panel. While dragging, listens to `pointermove` globally and
- * highlights the heading under the cursor (via data-attributes the CSS
- * watches). On release over a heading, reverts the symbol's position
- * (Konva mutated it during drag) and tags the symbol against that fact.
+ * highlights the fact block under the cursor (heading + bullets share
+ * `data-fact-block`). On release over a block, reverts the symbol's
+ * position (Konva mutated it during drag) and tags the symbol.
  *
- * Heading decorations are emitted by `fact-heading-extension.ts`; this hook
- * has no React dependency on parsed notes — it reads the DOM at drag time.
+ * Heading/body decorations are emitted by `fact-heading-extension.ts`;
+ * this hook reads the DOM at drag time only.
+ *
+ * If the drop misses every fact block AND the pointer is released
+ * outside the canvas container, the position update is canceled (the
+ * symbol snaps back to where the drag started). Drops inside the canvas
+ * but missing all blocks fall through to a normal positional update,
+ * clamped to the stage bounds.
  */
 export interface CanvasTagDragHandlers {
   onDragStart: (e: KonvaEventObject<DragEvent>) => void;
   onDragEnd: (e: KonvaEventObject<DragEvent>) => void;
 }
 
-const ACTIVE_HEADING_ATTR = "data-fact-heading-active";
+const ACTIVE_BLOCK_ATTR = "data-fact-block-active";
 const BODY_DRAGGING_ATTR = "data-engram-tag-dragging";
-const HEADING_SELECTOR = "[data-fact-heading]";
+const BLOCK_SELECTOR = "[data-fact-block]";
 
 interface DragState {
   origX: number;
   origY: number;
   dropFactId: string | null;
-  activeEl: HTMLElement | null;
+  activeFactId: string | null;
   cleanup: () => void;
 }
 
-function clearActive(el: HTMLElement | null) {
-  if (el) el.removeAttribute(ACTIVE_HEADING_ATTR);
+function setBlockActive(factId: string | null, prev: string | null) {
+  if (factId === prev) return;
+  if (prev) {
+    const old = document.querySelectorAll(
+      `[data-fact-block="${cssEscape(prev)}"]`,
+    );
+    old.forEach((n) => (n as HTMLElement).removeAttribute(ACTIVE_BLOCK_ATTR));
+  }
+  if (factId) {
+    const next = document.querySelectorAll(
+      `[data-fact-block="${cssEscape(factId)}"]`,
+    );
+    next.forEach((n) => (n as HTMLElement).setAttribute(ACTIVE_BLOCK_ATTR, ""));
+  }
+}
+
+function cssEscape(value: string): string {
+  // factIds are URL-safe (synthesized hashes), so no escaping is required;
+  // CSS.escape is browser-only and we want to keep this trivially testable.
+  return value.replace(/"/g, '\\"');
+}
+
+function isPointInRect(x: number, y: number, rect: DOMRect): boolean {
+  return (
+    x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
+  );
 }
 
 export function useCanvasTagDrag(symbolId: string): CanvasTagDragHandlers {
@@ -51,22 +82,21 @@ export function useCanvasTagDrag(symbolId: string): CanvasTagDragHandlers {
         origX,
         origY,
         dropFactId: null,
-        activeEl: null,
+        activeFactId: null,
         cleanup: () => {},
       };
 
       const onPointerMove = (ev: PointerEvent) => {
         const el = document.elementFromPoint(ev.clientX, ev.clientY);
-        const heading =
+        const block =
           el instanceof Element
-            ? (el.closest(HEADING_SELECTOR) as HTMLElement | null)
+            ? (el.closest(BLOCK_SELECTOR) as HTMLElement | null)
             : null;
-        if (heading === state.activeEl) return;
-        clearActive(state.activeEl);
-        state.activeEl = heading;
-        state.dropFactId =
-          (heading?.getAttribute("data-fact-id") as string | null) ?? null;
-        if (heading) heading.setAttribute(ACTIVE_HEADING_ATTR, "");
+        const factId = block?.getAttribute("data-fact-block") ?? null;
+        if (factId === state.activeFactId) return;
+        setBlockActive(factId, state.activeFactId);
+        state.activeFactId = factId;
+        state.dropFactId = factId;
       };
 
       const onPointerUp = () => {
@@ -82,13 +112,12 @@ export function useCanvasTagDrag(symbolId: string): CanvasTagDragHandlers {
         document.removeEventListener("pointermove", onPointerMove);
         document.removeEventListener("pointerup", onPointerUp);
         document.body.removeAttribute(BODY_DRAGGING_ATTR);
-        clearActive(state.activeEl);
-        state.activeEl = null;
+        setBlockActive(null, state.activeFactId);
+        state.activeFactId = null;
       };
 
       dragRef.current = state;
 
-      // Match the existing cursor affordance from symbol-node.
       const container = node.getStage()?.container();
       if (container) container.style.cursor = "grabbing";
     },
@@ -102,14 +131,18 @@ export function useCanvasTagDrag(symbolId: string): CanvasTagDragHandlers {
       dragRef.current = null;
 
       if (!state) {
-        // No drag state — fall through to normal positional update.
-        updateSymbol(symbolId, { x: node.x(), y: node.y() });
+        // No drag state — fall through to a clamped positional update.
+        const { x, y } = clampToStage(node.x(), node.y());
+        node.x(x);
+        node.y(y);
+        updateSymbol(symbolId, { x, y });
         return;
       }
 
       state.cleanup();
 
-      const container = node.getStage()?.container();
+      const stage = node.getStage();
+      const container = stage?.container();
       if (container) container.style.cursor = "grab";
 
       if (state.dropFactId) {
@@ -118,15 +151,32 @@ export function useCanvasTagDrag(symbolId: string): CanvasTagDragHandlers {
         node.y(state.origY);
         const wrote = tagSymbolsWithFact([symbolId], state.dropFactId);
         if (wrote) {
-          // Quiet feedback — sync layer will glow the chip.
           toast("Tagged", { duration: 1200 });
         } else {
-          // Already tagged here — let user know nothing changed.
           toast("Already tagged", { duration: 1000 });
         }
+        return;
+      }
+
+      // No fact target. Decide based on where the pointer ended up.
+      const evt = e.evt as DragEvent;
+      const containerRect = container?.getBoundingClientRect();
+      const insideCanvas =
+        containerRect != null &&
+        Number.isFinite(evt.clientX) &&
+        Number.isFinite(evt.clientY) &&
+        isPointInRect(evt.clientX, evt.clientY, containerRect);
+
+      if (insideCanvas) {
+        // Normal positional drag inside canvas — clamp to stage bounds.
+        const { x, y } = clampToStage(node.x(), node.y());
+        node.x(x);
+        node.y(y);
+        updateSymbol(symbolId, { x, y });
       } else {
-        // Normal positional drag: write the new x/y to the store.
-        updateSymbol(symbolId, { x: node.x(), y: node.y() });
+        // Released outside the canvas with no fact target — cancel.
+        node.x(state.origX);
+        node.y(state.origY);
       }
     },
     [symbolId, tagSymbolsWithFact, updateSymbol],
