@@ -1,12 +1,14 @@
 "use client";
 
 import * as React from "react";
+import { redo, undo } from "@codemirror/commands";
 import { useStore } from "@/lib/store";
 import { useCurrentPicmonicId, usePicmonic } from "@/lib/store/hooks";
 import { parseNotes } from "@/lib/notes/parse";
 import { buildBaseExtensions } from "@/lib/notes/codemirror/setup";
 import { factHeadingExtension } from "@/lib/notes/codemirror/fact-heading-extension";
 import { symbolChipExtension } from "@/lib/notes/codemirror/sym-token-extension";
+import { isTypingTarget } from "@/lib/keybindings";
 import { transientHighlightField } from "./transient-highlight";
 import { NotesBreadcrumb } from "./breadcrumb";
 import { NotesTree } from "./notes-tree";
@@ -58,6 +60,32 @@ export function NotesPanel() {
 
   useSymbolResolver(view);
   useSyncCanvasToEditor(view, parsed);
+
+  // Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z work everywhere in the right panel by
+  // routing to CodeMirror's history. The editor itself catches the keys
+  // when it has focus (its own `historyKeymap` fires); this listener is
+  // the global fallback for the Outline tree, where focus is on a button
+  // and the document gets the keydown.
+  //
+  // Tree mutations (insertSection / insertFact) call setNotes; the value
+  // prop flowing back to CodeMirror in `useCodeMirror` lands as a single
+  // full-doc-replace transaction — already recorded in history. So undo
+  // here just reverses that transaction and the store re-syncs through
+  // the editor's onChange.
+  React.useEffect(() => {
+    if (!view) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key.toLowerCase() !== "z") return;
+      // When focus is in the editor itself, let CodeMirror's keymap fire.
+      if (isTypingTarget(e.target)) return;
+      e.preventDefault();
+      const cmd = e.shiftKey ? redo : undo;
+      cmd({ state: view.state, dispatch: view.dispatch });
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [view]);
 
   const isEmpty = value.trim().length === 0;
 
