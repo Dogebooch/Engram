@@ -186,6 +186,17 @@ Decision points are flagged ⚠️. Hit one → pause, decide, then proceed.
 - [ ] **`Replace symbol…` action on canvas symbols**
   - Right-click → Replace, or double-click while a symbol is selected → opens a constrained library picker that swaps the symbol's `ref` in place
   - Replaces the awkward delete-then-add-then-clean-up-`[missing]`-chip workflow without changing the chip's location in notes
+- [ ] **Editor-side hotspot ghost + inline reveal-card editor**
+  - Phase 5 hotspot circles only render in the player overlay ([player-stage.tsx:274](src/components/editor/player/player-stage.tsx:274) — `<HotspotCircle>` lives there, never on the editor canvas). Authoring-time friction: user has no way to see whether a Fact's centroid lands somewhere readable until they press M to enter Study mode, AND the only way to rename a Fact, change its Section, or edit a symbol's description is by typing into the markdown column.
+  - **Ghost ring layer**: faint numbered ring per Fact on the editor canvas — same numbered glyph + position math as `HotspotCircle`, at low opacity (~15%) and non-interactive on the ring itself. Reuse `getOrderedFacts(parsed)` from [fact-order.ts](src/lib/notes/fact-order.ts) and the centroid math in [centroid.ts](src/lib/canvas/centroid.ts) so the preview cannot drift from the player. While dragging a symbol, fade further (~8%) so they don't fight the active interaction.
+  - **Click-to-edit popup**: clicking a ghost ring opens an editable variant of the player's [hotspot-reveal-card.tsx](src/components/editor/player/hotspot-reveal-card.tsx). Same shape (Section eyebrow → Fact name → per-symbol description rows) but every line is an inline input. Edits round-trip back to the markdown column:
+    - Section eyebrow → renames the `# Section` heading (string replace at `parsed.sections[i].headingFrom..headingTo`).
+    - Fact name → renames the `## Fact` heading (string replace at `fact.headingFrom..headingTo`); factId re-synthesizes on next parse.
+    - Description row → edits the trailing text after `{sym:UUID}` on that bullet line (the chunk between the chip and the next newline).
+    - All three reuse the existing notes-store mutation path (`setNotes(cid, newNotes)`); no new persistence surface.
+  - **Why this matters**: lets the user author scenes spatially (drop symbols, drag the hotspot, name the fact) without ever touching the markdown column. Markdown stays the source of truth but stops being the only authoring surface.
+  - Toggle the ghost layer via a topbar/settings switch — default OFF so the editor canvas stays clean for users who don't want it.
+  - Surfaced from Phase 5 manual-checklist walkthrough where the user expected hotspot numbers to appear during authoring; expanded after the user pointed out the popup itself should be editable.
 - [ ] **Double-click a `{sym:UUID}` chip in notes to inline-edit its description**
   - CodeMirror widget interaction; opens a small inline input over the chip
   - Decide: edit the per-chip description text (after the `:`) only, or override the display name too
