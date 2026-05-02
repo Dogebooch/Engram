@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import { useCurrentPicmonicId, useUiPrefs } from "@/lib/store/hooks";
 import { EditorExportMenu } from "./editor-export-menu";
+import { FileMenu } from "./file-menu";
 import { PicmonicName } from "./picmonic-name";
 import { SaveStatus } from "./save-status";
 
@@ -57,6 +58,8 @@ export function Topbar() {
 
       {inEditor ? (
         <>
+          <div className="mx-1 h-4 w-px bg-border/80" aria-hidden="true" />
+          <FileMenu />
           <div className="mx-1 h-4 w-px bg-border/80" aria-hidden="true" />
           <PicmonicName />
         </>

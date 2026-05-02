@@ -1,98 +1,32 @@
 "use client";
 
-import * as React from "react";
 import { DownloadIcon } from "lucide-react";
-import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useStore } from "@/lib/store";
-import { useCurrentPicmonicId } from "@/lib/store/hooks";
-import {
-  exportAnkiCsv,
-  exportBundle,
-  exportMarkdown,
-  exportPng,
-} from "@/lib/export";
-import { useCurrentStage } from "./canvas/canvas-stage-ref";
-
-function isQuotaExceeded(err: unknown): boolean {
-  if (!(err instanceof Error)) return false;
-  return (
-    err.name === "QuotaExceededError" ||
-    /quota/i.test(err.message)
-  );
-}
-
-function messageForExportError(err: unknown, label: string): string {
-  if (isQuotaExceeded(err)) {
-    return `${label} export failed — storage full. Free space and retry.`;
-  }
-  if (err instanceof Error && err.message) {
-    return `${label} export failed: ${err.message}`;
-  }
-  return `${label} export failed`;
-}
+import { useExportActions } from "./use-export-actions";
 
 export function EditorExportMenu() {
-  const currentId = useCurrentPicmonicId();
-  const stage = useCurrentStage();
-  const [busy, setBusy] = React.useState(false);
-
-  const getPicmonic = () => {
-    const s = useStore.getState();
-    return currentId ? s.picmonics[currentId] : undefined;
-  };
-
-  const wrap = async (fn: () => Promise<void> | void, label: string) => {
-    setBusy(true);
-    try {
-      await fn();
-      toast(`Exported ${label}`, { duration: 1400 });
-    } catch (err) {
-      console.error(err);
-      toast.error(messageForExportError(err, label));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onPng = () => {
-    const p = getPicmonic();
-    if (!p || !stage) {
-      toast.error("Canvas not ready");
-      return;
-    }
-    void wrap(() => exportPng(stage, p), "PNG");
-  };
-
-  const onMarkdown = () => {
-    const p = getPicmonic();
-    if (!p) return;
-    void wrap(() => exportMarkdown(p), "Markdown");
-  };
-
-  const onAnki = () => {
-    const p = getPicmonic();
-    if (!p) return;
-    void wrap(() => exportAnkiCsv(p), "Anki CSV");
-  };
-
-  const onBundle = () => {
-    const p = getPicmonic();
-    if (!p) return;
-    void wrap(() => exportBundle(stage, p), "Bundle");
-  };
+  const {
+    onPng,
+    onMarkdown,
+    onAnki,
+    onBundle,
+    busy,
+    hasStage,
+    hasPicmonic,
+  } = useExportActions();
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        disabled={!currentId || busy}
+        disabled={!hasPicmonic || busy}
         className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-50 [&_svg:not([class*='size-'])]:size-4"
         aria-label="Export"
       >
@@ -100,13 +34,15 @@ export function EditorExportMenu() {
         <span className="hidden md:inline">Export</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-52">
-        <DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-          Export
-        </DropdownMenuLabel>
-        <DropdownMenuItem onClick={onPng} disabled={!stage}>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Export
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
+        <DropdownMenuItem onClick={onPng} disabled={!hasStage}>
           PNG
           <span className="ml-auto font-mono text-[10px] text-muted-foreground/70">
-            2× scene
+            2× · clean
           </span>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onMarkdown}>

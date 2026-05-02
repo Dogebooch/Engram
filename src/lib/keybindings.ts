@@ -3,6 +3,8 @@
 import { useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
+import { flushPendingSave } from "@/lib/store/debounced-save";
+import { saveCurrentPicmonicNow } from "@/lib/store/save-now";
 
 // Help-overlay rendering moved to `<HelpDialog />`. Keep no inline copy here —
 // the dialog owns the reference.
@@ -268,6 +270,16 @@ export function useEditorKeybindings(): void {
     [enterPlayer],
   );
 
+  // ⌘S / Ctrl+S — flush any pending debounced save and write now.
+  // preventDefault stops the browser's "Save Page As…" dialog.
+  const onExplicitSave = useCallback((e: KeyboardEvent) => {
+    const s = useStore.getState();
+    if (!s.currentPicmonicId) return;
+    e.preventDefault();
+    flushPendingSave();
+    void saveCurrentPicmonicNow();
+  }, []);
+
   useKeybinding({ key: "n", mod: true }, onNew);
   useKeybinding({ key: "b", mod: true }, onToggleLeft);
   useKeybinding({ key: "\\", mod: true }, onToggleRight);
@@ -286,4 +298,7 @@ export function useEditorKeybindings(): void {
   useKeybinding({ key: "g", mod: true, shift: false }, onGroup);
   useKeybinding({ key: "g", mod: true, shift: true }, onUngroup);
   useKeybinding({ key: "m", mod: false, shift: false, alt: false }, onEnterStudy);
+  useKeybinding({ key: "s", mod: true, shift: false }, onExplicitSave, {
+    allowInTypingFields: true,
+  });
 }

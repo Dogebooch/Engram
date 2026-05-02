@@ -1,13 +1,24 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { set as idbSet } from "idb-keyval";
-import { picmonicKey, SAVE_DEBOUNCE_MS } from "@/lib/constants";
+import { SAVE_DEBOUNCE_MS } from "@/lib/constants";
 import { debounce, type DebouncedFn } from "@/lib/debounce";
 import type { Picmonic } from "@/lib/types/picmonic";
 import { useStore } from "./index";
+import { saveCurrentPicmonicNow } from "./save-now";
 
 const SAVED_LINGER_MS = 1500;
+
+let pendingFlush: (() => void) | null = null;
+let pendingCancel: (() => void) | null = null;
+
+/**
+ * Flush any debounce-pending save immediately. Used by ⌘S / File ▸ Save so
+ * the explicit-save path doesn't race the timer. No-op if nothing is queued.
+ */
+export function flushPendingSave(): void {
+  pendingFlush?.();
+}
 
 export function useDebouncedPicmonicSave(): void {
   const debouncedRef = useRef<DebouncedFn<[Picmonic]> | null>(null);
@@ -23,20 +34,12 @@ export function useDebouncedPicmonicSave(): void {
       }, SAVED_LINGER_MS);
     };
 
-    debouncedRef.current = debounce(async (p: Picmonic) => {
-      try {
-        await idbSet(picmonicKey(p.id), p);
-        const s = useStore.getState();
-        if (s.currentPicmonicId === p.id) {
-          s.setLastSavedAt(Date.now());
-          s.setSaveStatus("saved");
-          flushSavedToIdle();
-        }
-      } catch (err) {
-        console.error("[engram] save failed", err);
-        useStore.getState().setSaveStatus("error");
-      }
+    debouncedRef.current = debounce(async (_p: Picmonic) => {
+      const ok = await saveCurrentPicmonicNow();
+      if (ok) flushSavedToIdle();
     }, SAVE_DEBOUNCE_MS);
+    pendingFlush = () => debouncedRef.current?.flush();
+    pendingCancel = () => debouncedRef.current?.cancel();
 
     let lastSeen: Picmonic | null = null;
     const initial = useStore.getState();
@@ -59,7 +62,9 @@ export function useDebouncedPicmonicSave(): void {
 
     return () => {
       unsubscribe();
-      debouncedRef.current?.cancel();
+      pendingCancel?.();
+      pendingFlush = null;
+      pendingCancel = null;
       if (lingerTimer) clearTimeout(lingerTimer);
     };
   }, []);
