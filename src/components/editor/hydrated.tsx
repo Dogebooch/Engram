@@ -6,6 +6,7 @@ import { picmonicKey } from "@/lib/constants";
 import { useStore } from "@/lib/store";
 import { useIndexStore } from "@/lib/store/index-store";
 import { loadSymbols } from "@/lib/symbols";
+import { requestPersistentStorage } from "@/lib/storage/persist";
 import type { Picmonic } from "@/lib/types/picmonic";
 
 interface HydratedProps {
@@ -41,6 +42,10 @@ export function Hydrated({ fallback, children }: HydratedProps) {
 
     let cancelled = false;
     void useIndexStore.getState().loadIndex();
+    // Ask the browser to keep our IDB data around under storage pressure.
+    // No-ops on Safari (needs a gesture); silently grants/denies on Chrome
+    // based on engagement; prompts once on Firefox.
+    void requestPersistentStorage();
     // Warm the symbol library cache as early as possible. SymbolNode
     // reactively re-renders via useSymbolsReady once this resolves; no
     // need to gate first paint on it.
