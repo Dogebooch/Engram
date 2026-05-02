@@ -9,6 +9,7 @@ import {
 } from "@/lib/constants";
 import { useStore } from "@/lib/store";
 import { useCurrentPicmonicId } from "@/lib/store/hooks";
+import { addSymbolWithNoteSync } from "@/lib/canvas/add-symbol-with-note-sync";
 import {
   loadSymbols,
   searchSymbols,
@@ -36,7 +37,6 @@ export function SymbolLibrary() {
   const [status, setStatus] = React.useState<LoadStatus>({ kind: "loading" });
   const [query, setQuery] = React.useState("");
 
-  const addSymbol = useStore((s) => s.addSymbol);
   const recentIds = useStore((s) => s.ui.recentSymbolIds);
   const currentPicmonicId = useCurrentPicmonicId();
 
@@ -86,9 +86,9 @@ export function SymbolLibrary() {
         });
         return;
       }
-      addSymbol({ ref: entry.id, x: CENTER_X, y: CENTER_Y });
+      addSymbolWithNoteSync({ ref: entry.id, x: CENTER_X, y: CENTER_Y });
     },
-    [addSymbol, currentPicmonicId],
+    [currentPicmonicId],
   );
 
   const totalLabel =
