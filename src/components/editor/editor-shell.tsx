@@ -11,6 +11,7 @@ import {
 import { PANEL_DEFAULTS } from "@/lib/constants";
 import { useStore } from "@/lib/store";
 import { useDebouncedPicmonicSave } from "@/lib/store/debounced-save";
+import { useAutoOpenRightPanel } from "@/lib/store/use-auto-open-right-panel";
 import { useCurrentPicmonicId, useUiPrefs } from "@/lib/store/hooks";
 import { useEditorKeybindings } from "@/lib/keybindings";
 import { useSaveFlowMonitor } from "@/lib/storage/use-save-flow-monitor";
@@ -36,6 +37,7 @@ export function EditorShell() {
   useDebouncedPicmonicSave();
   useEditorKeybindings();
   useSaveFlowMonitor();
+  useAutoOpenRightPanel();
 
   const ui = useUiPrefs();
   const currentId = useCurrentPicmonicId();

@@ -34,7 +34,9 @@ export const useStore = create<RootState>()(
       storage: createJSONStorage(() => idbStateStorage),
       partialize: (s): PersistedShape => ({
         currentPicmonicId: s.currentPicmonicId,
-        ui: s.ui,
+        // `autoOpenedRightForActivePicmonic` is transient — always persisted as
+        // false so each reload starts a fresh per-picmonic auto-open arc.
+        ui: { ...s.ui, autoOpenedRightForActivePicmonic: false },
       }),
       version: STORE_VERSION,
       migrate: (state) => state as PersistedShape,

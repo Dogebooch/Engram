@@ -28,6 +28,13 @@ export interface UiState {
    * user can opt out via the dialog's "Don't ask again" checkbox.
    */
   confirmSymbolDelete: boolean;
+  /**
+   * Transient (non-persisted): becomes true the first time we auto-open
+   * the right panel for the active picmonic, so re-collapsing the panel
+   * isn't fought by subsequent symbol adds. Resets on picmonic switch.
+   * Excluded from persistence via [persist partialize].
+   */
+  autoOpenedRightForActivePicmonic: boolean;
 }
 
 export interface UiSlice {
@@ -42,6 +49,13 @@ export interface UiSlice {
   setLastPlayerMode: (mode: PlayerMode) => void;
   setStorageQuota: (next: StorageQuotaState) => void;
   setConfirmSymbolDelete: (value: boolean) => void;
+  /**
+   * Open the right panel and mark it auto-opened, but only on the first
+   * trigger per active picmonic. Subsequent calls are no-ops, so the user
+   * can re-collapse without fighting the system. Reset on picmonic switch.
+   */
+  ensureRightPanelOpenedOnce: () => void;
+  resetAutoOpenedRight: () => void;
 }
 
 export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => ({
@@ -54,6 +68,7 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
     lastPlayerMode: "hotspot",
     storageQuota: { percent: null, lastWarned: null },
     confirmSymbolDelete: true,
+    autoOpenedRightForActivePicmonic: false,
   },
   setLeftPanelSize: (size) =>
     set((s) => ({ ui: { ...s.ui, leftPanelSize: size } })),
@@ -83,4 +98,21 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
     set((s) => ({ ui: { ...s.ui, storageQuota: next } })),
   setConfirmSymbolDelete: (value) =>
     set((s) => ({ ui: { ...s.ui, confirmSymbolDelete: value } })),
+  ensureRightPanelOpenedOnce: () =>
+    set((s) => {
+      if (s.ui.autoOpenedRightForActivePicmonic) return s;
+      return {
+        ui: {
+          ...s.ui,
+          rightCollapsed: false,
+          autoOpenedRightForActivePicmonic: true,
+        },
+      };
+    }),
+  resetAutoOpenedRight: () =>
+    set((s) =>
+      s.ui.autoOpenedRightForActivePicmonic
+        ? { ui: { ...s.ui, autoOpenedRightForActivePicmonic: false } }
+        : s,
+    ),
 });
