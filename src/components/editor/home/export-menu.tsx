@@ -16,6 +16,7 @@ import {
   exportAnkiCsv,
   exportBundle,
   exportMarkdown,
+  exportPngFromPicmonic,
 } from "@/lib/export";
 import type { Picmonic } from "@/lib/types/picmonic";
 
@@ -27,9 +28,9 @@ interface HomeExportDialogProps {
 }
 
 /**
- * Home-view export dialog. Picks Markdown / Anki CSV / Bundle (.zip).
- * PNG export is only offered from the editor (live stage) — pushed back
- * for ship-readiness; users open a scene to export it as an image.
+ * Home-view export dialog. PNG renders the picmonic via an off-screen
+ * Konva stage (no live editor required); the other formats stream straight
+ * from the picmonic record.
  */
 export function HomeExportDialog({
   picmonicId,
@@ -98,6 +99,13 @@ export function HomeExportDialog({
 
         <div className="grid gap-2">
           <Row
+            kbd="PNG"
+            title="PNG"
+            sub="2× scene · clean (no grid, no handles)"
+            disabled={busy}
+            onClick={() => run((p) => exportPngFromPicmonic(p), "PNG")}
+          />
+          <Row
             kbd="MD"
             title="Markdown"
             sub="notes.md — drop into Obsidian"
@@ -118,9 +126,6 @@ export function HomeExportDialog({
             disabled={busy}
             onClick={() => run((p) => exportBundle(null, p), "Bundle")}
           />
-          <p className="mt-1 px-1 text-[11px] leading-relaxed text-muted-foreground/80">
-            PNG export is available in the editor — open a scene to capture it as an image.
-          </p>
         </div>
       </DialogContent>
     </Dialog>

@@ -204,7 +204,7 @@ export function CanvasStage() {
                 />
               ))}
             </Layer>
-            <Layer listening={false}>
+            <Layer name="export-chrome" listening={false}>
               {groupOutlineSymbols.map((sy) => (
                 <Rect
                   key={`group-outline-${sy.id}`}
@@ -222,7 +222,7 @@ export function CanvasStage() {
                 />
               ))}
             </Layer>
-            <Layer>
+            <Layer name="export-chrome">
               <CanvasTransformer
                 selectedIds={selectedIds}
                 symbolsKey={symbolsKey}

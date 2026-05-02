@@ -37,5 +37,9 @@ export const DotGrid = React.memo(function DotGrid() {
     return out;
   }, [fill]);
 
-  return <Group listening={false}>{dots}</Group>;
+  return (
+    <Group name="export-chrome" listening={false}>
+      {dots}
+    </Group>
+  );
 });

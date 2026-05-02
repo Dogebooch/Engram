@@ -3,13 +3,18 @@ import type { Picmonic } from "@/lib/types/picmonic";
 import { buildAnkiCsv } from "./anki";
 import { buildBundleZip } from "./bundle";
 import { downloadBlob, downloadText, slugifyName } from "./download";
-import { exportStageToPng } from "./png";
+import { exportStageToPng, rasterizePicmonicToPng } from "./png";
 
 export async function exportPng(
   stage: Konva.Stage,
   picmonic: Picmonic,
 ): Promise<void> {
   const blob = await exportStageToPng(stage);
+  downloadBlob(blob, `${slugifyName(picmonic.meta.name)}.png`);
+}
+
+export async function exportPngFromPicmonic(picmonic: Picmonic): Promise<void> {
+  const blob = await rasterizePicmonicToPng(picmonic);
   downloadBlob(blob, `${slugifyName(picmonic.meta.name)}.png`);
 }
 
