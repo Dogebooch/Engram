@@ -84,6 +84,9 @@ export const HotspotCircle = React.memo(function HotspotCircle({
 
   const handleClick = React.useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
+      // Konva fires `click` on every mouse-up; ignore non-primary buttons so
+      // right-click doesn't reveal the card alongside the context menu.
+      if (e.evt.button !== 0) return;
       e.cancelBubble = true;
       onClick(factId);
     },
