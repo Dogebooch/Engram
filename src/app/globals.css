@@ -302,16 +302,16 @@
 
 @keyframes eng-bullet-pulse {
   0% {
-    background-color: color-mix(in oklch, var(--accent) 22%, transparent);
+    background-color: color-mix(in oklch, var(--accent) 28%, transparent);
     box-shadow: inset 2px 0 0 0 var(--accent);
   }
   35% {
-    background-color: color-mix(in oklch, var(--accent) 18%, transparent);
+    background-color: color-mix(in oklch, var(--accent) 22%, transparent);
     box-shadow: inset 2px 0 0 0 var(--accent);
   }
   100% {
-    background-color: color-mix(in oklch, var(--accent) 4%, transparent);
-    box-shadow: inset 2px 0 0 0 color-mix(in oklch, var(--accent) 25%, transparent);
+    background-color: color-mix(in oklch, var(--accent) 6%, transparent);
+    box-shadow: inset 2px 0 0 0 color-mix(in oklch, var(--accent) 30%, transparent);
   }
 }
 
@@ -359,9 +359,9 @@
   flex-direction: column;
   gap: 4px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   line-height: 1.55;
-  color: color-mix(in oklch, var(--muted-foreground) 75%, transparent);
+  color: color-mix(in oklch, var(--muted-foreground) 55%, transparent);
   letter-spacing: 0.005em;
   width: 100%;
 }
@@ -378,7 +378,7 @@
 }
 
 .eng-notes-empty__comment {
-  color: color-mix(in oklch, var(--muted-foreground) 50%, transparent);
+  color: color-mix(in oklch, var(--muted-foreground) 35%, transparent);
   font-style: normal;
 }
 
@@ -410,10 +410,10 @@
   min-width: 14px;
   height: 14px;
   padding: 0 4px;
-  border: 1px solid color-mix(in oklch, var(--border) 100%, transparent);
+  border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
   border-radius: 2px;
-  background: color-mix(in oklch, var(--background) 50%, transparent);
-  color: color-mix(in oklch, var(--foreground) 70%, transparent);
+  background: color-mix(in oklch, var(--background) 30%, transparent);
+  color: color-mix(in oklch, var(--foreground) 55%, transparent);
   font-size: 9px;
   letter-spacing: 0;
 }

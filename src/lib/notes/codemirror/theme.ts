@@ -54,7 +54,7 @@ export const engramEditorTheme = EditorView.theme(
 );
 
 const headingColor = "var(--foreground)";
-const subHeadingColor = "color-mix(in oklch, var(--foreground) 88%, transparent)";
+const subHeadingColor = "color-mix(in oklch, var(--muted-foreground) 70%, var(--accent) 30%)";
 
 export const engramHighlightStyle = HighlightStyle.define([
   // h1 = Section. Editorial dateline feel: medium weight, tight tracking, sans.
