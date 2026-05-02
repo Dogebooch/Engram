@@ -42,3 +42,6 @@ export const UNASSIGNED_FACT_NAME = "Unassigned";
 // a literal `Unassigned` heading (legacy docs) or the highest-ordinal
 // `Fact N` heading (current behavior). See `parse.ts`.
 export const AUTO_FACT_ORDINAL_RE = /^Fact (\d+)$/;
+
+// Symmetric pattern for auto-generated section headings.
+export const AUTO_SECTION_ORDINAL_RE = /^Section (\d+)$/;

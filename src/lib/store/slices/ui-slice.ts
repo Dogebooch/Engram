@@ -4,6 +4,13 @@ import type { RootState } from "../types";
 
 export type PlayerMode = "hotspot" | "sequential";
 
+/**
+ * Right notes panel rendering mode.
+ *   • outline — structured tree (Section → Fact → Symbol). Default.
+ *   • raw     — raw CodeMirror markdown editor (escape hatch).
+ */
+export type NotesPanelMode = "outline" | "raw";
+
 export type QuotaThreshold = "80" | "95";
 
 export interface StorageQuotaState {
@@ -35,6 +42,11 @@ export interface UiState {
    * Excluded from persistence via [persist partialize].
    */
   autoOpenedRightForActivePicmonic: boolean;
+  /**
+   * Right notes panel rendering mode — outline tree (default) vs raw
+   * markdown editor. User can flip via the panel header toggle.
+   */
+  notesPanelMode: NotesPanelMode;
 }
 
 export interface UiSlice {
@@ -56,6 +68,7 @@ export interface UiSlice {
    */
   ensureRightPanelOpenedOnce: () => void;
   resetAutoOpenedRight: () => void;
+  setNotesPanelMode: (mode: NotesPanelMode) => void;
 }
 
 export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => ({
@@ -69,6 +82,7 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
     storageQuota: { percent: null, lastWarned: null },
     confirmSymbolDelete: true,
     autoOpenedRightForActivePicmonic: false,
+    notesPanelMode: "outline",
   },
   setLeftPanelSize: (size) =>
     set((s) => ({ ui: { ...s.ui, leftPanelSize: size } })),
@@ -115,4 +129,6 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
         ? { ui: { ...s.ui, autoOpenedRightForActivePicmonic: false } }
         : s,
     ),
+  setNotesPanelMode: (mode) =>
+    set((s) => ({ ui: { ...s.ui, notesPanelMode: mode } })),
 });
