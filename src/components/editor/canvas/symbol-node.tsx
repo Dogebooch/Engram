@@ -194,7 +194,12 @@ export const SymbolNode = React.memo(function SymbolNode({
       opacity={dimFactor}
       draggable={interactive}
       listening={interactive}
-      perfectDrawEnabled={false}
+      // Konva skips the offscreen-buffer pass when perfectDrawEnabled is
+      // false, which also skips shadow rendering for transparent-fill
+      // shapes like our PNG symbols. Turn it on only when a glow is active
+      // so the cheap path stays the default and the shadow renders during
+      // hotspot reveal / cursor-on-bullet sync.
+      perfectDrawEnabled={showGlow}
       shadowEnabled={showGlow}
       shadowColor="oklch(0.78 0.13 75)"
       shadowBlur={28}
