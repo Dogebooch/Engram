@@ -36,3 +36,9 @@ export interface ParsedNotes {
 }
 
 export const UNASSIGNED_FACT_NAME = "Unassigned";
+
+// Matches the auto-generated ordinal heading shape `Fact N`.
+// The auto-fact slot in a freshly parsed doc resolves to either
+// a literal `Unassigned` heading (legacy docs) or the highest-ordinal
+// `Fact N` heading (current behavior). See `parse.ts`.
+export const AUTO_FACT_ORDINAL_RE = /^Fact (\d+)$/;

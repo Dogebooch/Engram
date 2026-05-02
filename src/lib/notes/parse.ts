@@ -5,6 +5,7 @@ import type { Root, Heading, List, Text, ListItem } from "mdast";
 import type { Position } from "unist";
 import { synthesizeFactId, synthesizeSectionId } from "./fact-id";
 import {
+  AUTO_FACT_ORDINAL_RE,
   UNASSIGNED_FACT_NAME,
   type ParsedFact,
   type ParsedNotes,
@@ -185,6 +186,23 @@ export function parseNotes(notes: string): ParsedNotes {
   // Finalize any trailing fact bodyRange
   if (state.currentFact) {
     state.currentFact.bodyRange.to = state.docLength;
+  }
+
+  // Auto-fact slot: legacy `Unassigned` wins; otherwise the highest-ordinal
+  // `Fact N` heading is treated as the reusable auto-fact target.
+  if (state.unassignedFactId == null) {
+    let bestId: string | null = null;
+    let bestOrdinal = -1;
+    for (const fact of state.factsById.values()) {
+      const m = AUTO_FACT_ORDINAL_RE.exec(fact.name);
+      if (!m) continue;
+      const n = Number.parseInt(m[1], 10);
+      if (Number.isFinite(n) && n > bestOrdinal) {
+        bestOrdinal = n;
+        bestId = fact.factId;
+      }
+    }
+    if (bestId) state.unassignedFactId = bestId;
   }
 
   return {

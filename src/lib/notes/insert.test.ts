@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { insertSymbolBullet } from "./insert";
+import { insertSymbolBullet, nextAutoFactName } from "./insert";
 import { parseNotes } from "./parse";
 import { UNASSIGNED_FACT_NAME } from "./types";
 
 const UUID_A = "11111111-2222-3333-4444-555555555555";
 const UUID_B = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+const UUID_C = "cccccccc-cccc-cccc-cccc-cccccccccccc";
 
 function insert(notes: string, factId: string | null, uuid: string) {
   const parsed = parseNotes(notes);
@@ -12,9 +13,9 @@ function insert(notes: string, factId: string | null, uuid: string) {
 }
 
 describe("insertSymbolBullet", () => {
-  it("creates ## Unassigned in an empty doc", () => {
+  it("creates ## Fact 1 in an empty doc", () => {
     const r = insert("", null, UUID_A);
-    expect(r.newNotes).toBe(`## ${UNASSIGNED_FACT_NAME}\n* {sym:${UUID_A}} `);
+    expect(r.newNotes).toBe(`## Fact 1\n* {sym:${UUID_A}} `);
     expect(r.factId).toBeTruthy();
   });
 
@@ -48,7 +49,7 @@ describe("insertSymbolBullet", () => {
     );
   });
 
-  it("reuses existing ## Unassigned instead of creating a duplicate", () => {
+  it("reuses existing legacy ## Unassigned heading", () => {
     const initial = `## ${UNASSIGNED_FACT_NAME}\n* {sym:${UUID_A}} a\n`;
     const parsed = parseNotes(initial);
     const r = insertSymbolBullet(initial, parsed, null, UUID_B);
@@ -58,18 +59,27 @@ describe("insertSymbolBullet", () => {
     expect(r.factId).toBe(parsed.unassignedFactId);
   });
 
-  it("appends ## Unassigned at end when none exists and factId is null", () => {
-    const initial = `## Fact A\n* {sym:${UUID_A}} a\n`;
-    const r = insert(initial, null, UUID_B);
+  it("reuses highest-ordinal Fact N as auto-fact", () => {
+    const initial = `## Fact 1\n* {sym:${UUID_A}} a\n`;
+    const parsed = parseNotes(initial);
+    const r = insertSymbolBullet(initial, parsed, null, UUID_B);
     expect(r.newNotes).toBe(
-      `## Fact A\n* {sym:${UUID_A}} a\n\n## ${UNASSIGNED_FACT_NAME}\n* {sym:${UUID_B}} `,
+      `## Fact 1\n* {sym:${UUID_A}} a\n* {sym:${UUID_B}} \n`,
     );
   });
 
-  it("falls back to Unassigned when factId is unknown", () => {
-    const initial = `## Fact A\n* {sym:${UUID_A}} a\n`;
+  it("appends ## Fact N+1 at end when no auto-fact slot exists", () => {
+    const initial = `## Pathology\n* {sym:${UUID_A}} a\n`;
+    const r = insert(initial, null, UUID_B);
+    expect(r.newNotes).toBe(
+      `## Pathology\n* {sym:${UUID_A}} a\n\n## Fact 1\n* {sym:${UUID_B}} `,
+    );
+  });
+
+  it("falls back to auto-fact creation when factId is unknown", () => {
+    const initial = `## Pathology\n* {sym:${UUID_A}} a\n`;
     const r = insert(initial, "nonexistent-fact-id", UUID_B);
-    expect(r.newNotes).toContain(`## ${UNASSIGNED_FACT_NAME}\n* {sym:${UUID_B}} `);
+    expect(r.newNotes).toContain(`## Fact 1\n* {sym:${UUID_B}} `);
   });
 
   it("returns selection offset at end of inserted bullet (cursor-ready)", () => {
@@ -82,7 +92,7 @@ describe("insertSymbolBullet", () => {
     );
   });
 
-  it("repeated drops produce parseable output", () => {
+  it("repeated drops reuse the auto-fact (no Fact 2 spam)", () => {
     let notes = "";
     let r = insert(notes, null, UUID_A);
     notes = r.newNotes;
@@ -91,6 +101,42 @@ describe("insertSymbolBullet", () => {
     const parsed = parseNotes(notes);
     expect(parsed.factsById.size).toBe(1);
     const fact = parsed.factsById.values().next().value!;
+    expect(fact.name).toBe("Fact 1");
     expect(fact.symbolRefs).toHaveLength(2);
+  });
+});
+
+describe("nextAutoFactName", () => {
+  it("returns Fact 1 for empty doc", () => {
+    expect(nextAutoFactName(parseNotes(""))).toBe("Fact 1");
+  });
+
+  it("returns Fact 1 when no Fact N facts exist", () => {
+    expect(nextAutoFactName(parseNotes("## Pathology\n## Risk Factors\n"))).toBe(
+      "Fact 1",
+    );
+  });
+
+  it("returns next ordinal after the highest existing Fact N", () => {
+    expect(nextAutoFactName(parseNotes("## Fact 1\n## Fact 2\n"))).toBe("Fact 3");
+  });
+
+  it("skips gaps — next-after-max, not next-empty-slot", () => {
+    expect(nextAutoFactName(parseNotes("## Fact 3\n"))).toBe("Fact 4");
+  });
+
+  it("ignores facts whose names contain ordinals but don't match `Fact N` exactly", () => {
+    expect(
+      nextAutoFactName(parseNotes(`## Fact 1 Notes\n## My Fact 5\n## Fact 1\n`)),
+    ).toBe("Fact 2");
+  });
+
+  it(`auto-fact slot prefers legacy ${UNASSIGNED_FACT_NAME} over Fact N`, () => {
+    const initial = `## ${UNASSIGNED_FACT_NAME}\n* {sym:${UUID_A}} a\n## Fact 5\n`;
+    const parsed = parseNotes(initial);
+    const r = insertSymbolBullet(initial, parsed, null, UUID_C);
+    expect(r.newNotes).toBe(
+      `## ${UNASSIGNED_FACT_NAME}\n* {sym:${UUID_A}} a\n* {sym:${UUID_C}} \n## Fact 5\n`,
+    );
   });
 });

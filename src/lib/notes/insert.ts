@@ -1,4 +1,5 @@
 import {
+  AUTO_FACT_ORDINAL_RE,
   UNASSIGNED_FACT_NAME,
   type ParsedFact,
   type ParsedNotes,
@@ -37,7 +38,7 @@ function insertAtFactEnd(
   };
 }
 
-function findUnassignedFact(parsed: ParsedNotes): ParsedFact | null {
+function findAutoFact(parsed: ParsedNotes): ParsedFact | null {
   if (parsed.unassignedFactId) {
     return parsed.factsById.get(parsed.unassignedFactId) ?? null;
   }
@@ -47,14 +48,29 @@ function findUnassignedFact(parsed: ParsedNotes): ParsedFact | null {
   return null;
 }
 
-function appendUnassigned(notes: string, bullet: string): InsertResult {
+export function nextAutoFactName(parsed: ParsedNotes): string {
+  let max = 0;
+  for (const fact of parsed.factsById.values()) {
+    const m = AUTO_FACT_ORDINAL_RE.exec(fact.name);
+    if (!m) continue;
+    const n = Number.parseInt(m[1], 10);
+    if (Number.isFinite(n) && n > max) max = n;
+  }
+  return `Fact ${max + 1}`;
+}
+
+function appendAutoFact(
+  notes: string,
+  bullet: string,
+  parsed: ParsedNotes,
+): InsertResult {
   const trimmedEnd = trimTrailingWs(notes, 0);
   const prefix = notes.slice(0, trimmedEnd);
   const separator = trimmedEnd === 0 ? "" : "\n\n";
-  const heading = `## ${UNASSIGNED_FACT_NAME}\n`;
+  const heading = `## ${nextAutoFactName(parsed)}\n`;
   const insertion = `${separator}${heading}${bullet}`;
   const newNotes = prefix + insertion;
-  // re-parse to grab the synthesized factId for the freshly-added Unassigned
+  // re-parse to grab the synthesized factId for the freshly-created auto-fact
   const reparsed = parseNotes(newNotes);
   const factId = reparsed.unassignedFactId ?? "";
   return {
@@ -77,8 +93,8 @@ export function insertSymbolBullet(
     if (fact) return insertAtFactEnd(notes, fact, bullet);
   }
 
-  const unassigned = findUnassignedFact(parsed);
-  if (unassigned) return insertAtFactEnd(notes, unassigned, bullet);
+  const autoFact = findAutoFact(parsed);
+  if (autoFact) return insertAtFactEnd(notes, autoFact, bullet);
 
-  return appendUnassigned(notes, bullet);
+  return appendAutoFact(notes, bullet, parsed);
 }
