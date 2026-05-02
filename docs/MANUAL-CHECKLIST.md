@@ -222,7 +222,7 @@
 
 - [x] Player closed → topbar has no study-mode dot
 - [x] Player open → topbar shows discreet study-mode dot signal
-- [ ] M cycles back to Hotspot from Sequential
+- [x] M cycles back to Hotspot from Sequential
 
 ---
 
@@ -230,42 +230,42 @@
 
 ### Home (Picmonic list)
 
-- [ ] 0 picmonics → **EmptyHero** with "Build your first mnemonic scene" + Create + Import
-- [ ] 1+ picmonics → grid view: 16:9 thumbnails, name, tags, "X total" count, Import button
-- [ ] Search by name → filters cards in real-time (case-insensitive substring)
-- [ ] Tag filter chips → click to toggle; multiple tags applied as AND
-- [ ] No matches → "No Picmonics match those filters" + Clear filters
-- [ ] Card menu → Rename / Edit Tags / Duplicate / Export / Delete
+- [x] 0 picmonics → **EmptyHero** with "Build your first mnemonic scene" + Create + Import
+- [x] 1+ picmonics → grid view: 16:9 thumbnails, name, tags, "X total" count, Import button
+- [x] Search by name → filters cards in real-time (case-insensitive substring)
+- [x] Tag filter chips → click to toggle; multiple tags applied as AND
+- [x] No matches → "No Picmonics match those filters" + Clear filters
+- [x] Card menu → Rename / Edit Tags / Duplicate / Export / Delete
 
 ### CRUD
 
-- [ ] **Rename** → dialog; Enter saves, Esc cancels; empty reverts
-- [ ] **Edit Tags** → chip-on-Enter editor; autocomplete from union of all picmonics' tags
-- [ ] **Duplicate** → new id, name + " (copy)"; tags + canvas + notes preserved
-- [ ] **Delete** → confirm dialog → on confirm: IDB record + index entry purged. Reload → card stays gone.
-- [ ] **🔬** After delete, `useIndexStore.getState().index` does not contain the deleted id
+- [x] **Rename** → dialog; Enter saves, Esc cancels; empty reverts
+- [x] **Edit Tags** → chip-on-Enter editor; autocomplete from union of all picmonics' tags
+- [x] **Duplicate** → new id, name + " (copy)"; tags + canvas + notes preserved
+- [x] **Delete** → confirm dialog → on confirm: IDB record + index entry purged. Reload → card stays gone.
+- [x] **🔬** After delete, `useIndexStore.getState().index` does not contain the deleted id
 
 ### Picmonic name editing in topbar
 
-- [ ] Click picmonic name in editor topbar → inline text field
-- [ ] Enter or blur saves; empty reverts to old name
+- [x] Click picmonic name in editor topbar → inline text field
+- [x] Enter or blur saves; empty reverts to old name
 
 ### Export menu (editor)
 
-- [ ] Topbar Export → dropdown: PNG / Markdown / Anki CSV / —— / Bundle (.zip)
-- [ ] Each item shows hint (`2× scene`, `notes.md`, `per-Fact`, `all`)
-- [ ] **PNG** → downloads `<picmonic-name>.png`; opening shows scene at 2× pixelRatio
-- [ ] **Markdown** → downloads `notes.md`; raw `#`, `##`, `* {sym:UUID}` preserved
-- [ ] **Anki CSV** → downloads `<picmonic-name>.csv`; columns: `picmonic_name, section, fact_name, symbol_descriptions, image_path`
-- [ ] Anki CSV: Unassigned + zero-symbol Facts excluded
-- [ ] Anki CSV: multi-symbol Fact descriptions joined with `¶` (note the spaces)
-- [ ] **Bundle** → downloads `<slug>.zip` containing `notes.md`, `canvas.json`, `meta.json`, `scene.png` at root
-- [ ] Each export triggers brief "Exported <format>" toast
+- [x] Topbar Export → dropdown: PNG / Markdown / Anki CSV / —— / Bundle (.zip)
+- [x] Each item shows hint (`2× scene`, `notes.md`, `per-Fact`, `all`)
+- [x] **PNG** → downloads `<picmonic-name>.png`; opening shows scene at 2× pixelRatio
+- [x] **Markdown** → downloads `notes.md`; raw `#`, `##`, `* {sym:UUID}` preserved
+- [x] **Anki CSV** → downloads `<picmonic-name>.csv`; columns: `picmonic_name, section, fact_name, symbol_descriptions, image_path`
+- [x] Anki CSV: Unassigned + zero-symbol Facts excluded
+- [x] Anki CSV: multi-symbol Fact descriptions joined with `¶` (note the spaces)
+- [x] **Bundle** → downloads `<slug>.zip` containing `notes.md`, `canvas.json`, `meta.json`, `scene.png` at root
+- [x] Each export triggers brief "Exported <format>" toast
 
 ### Thumbnail
 
-- [ ] Add a symbol → save fires → return to home → thumbnail reflects current canvas
-- [ ] **🔬** `useIndexStore.getState().index.find(e => e.id === '<id>').thumbDataUrl` is non-empty after first save→saved transition
+- [x] Add a symbol → save fires → return to home → thumbnail reflects current canvas
+- [x] **🔬** `useIndexStore.getState().index.find(e => e.id === '<id>').thumbDataUrl` is non-empty after first save→saved transition
 
 ---
 
@@ -273,92 +273,8 @@
 
 ### Help dialog
 
-- [ ] Press **?** (Shift+/) → dialog opens with manpage stamp header (`engram(1) • v0.1 • keyboard`)
-- [ ] Sections: Editor / Canvas & symbols / Player / Picmonic
-- [ ] Each row: label + optional hint + key chips with `+` separators
-- [ ] Click ? icon in topbar → same dialog opens
-- [ ] Esc closes dialog (Esc ladder prioritizes help)
-
-### Storage quota warnings
-
-- [ ] **🔬** Force a real ~80% threshold by importing several large bundles, OR override storage estimate in DevTools:
-  ```js
-  navigator.storage.estimate = async () => ({
-    usage: 82_000_000,
-    quota: 100_000_000,
-  });
-  ```
-  Then trigger a save (edit a symbol) and wait ~2s → toast `Storage 80% full` (yellow warning)
-- [ ] Bump override to `usage: 96_000_000` → trigger save → toast `Storage 95% full — saves may fail` (red, with `Open Home` action)
-- [ ] Topbar quota badge appears when ≥95% — clickable, returns home
-- [ ] **🔬** Reload the page → no duplicate warning toast (verify `useStore.getState().ui.storageQuota.lastWarned` persisted)
-
-### Save-error recovery
-
-- [ ] **🔬** Force a save error in console:
-  ```js
-  useStore.setState({ saveStatus: "error" });
-  ```
-  → toast `Save failed` with action button `Export bundle`
-- [ ] Click `Export bundle` → triggers bundle export flow
-
-### Bundle import
-
-- [ ] Home grid header shows **Import** button
-- [ ] EmptyHero shows `or [Import]` link as alternative to Create
-- [ ] Click Import → file picker filtered to `.zip`
-- [ ] **⚠️** Round-trip: export a bundle from Picmonic A, delete A, import the bundle → new picmonic with identical canvas + notes + group + hotspot overrides
-- [ ] **🔬** Imported picmonic gets a NEW root id (regenerated to avoid collision)
-- [ ] Import a malformed `.zip` (e.g. unzip and remove `notes.md`, re-zip) → error toast describing reason (`schema-mismatch`, `invalid-json`, `missing-file`, etc.)
-- [ ] **🔬** Import a bundle whose `factHotspots` references a factId no longer in `notes.md` → imports OK; orphan dropped; `console.warn` logged
-- [ ] **🔬** Import a bundle whose `notes.md` references a `{sym:UUID}` not in `canvas.json` → imports OK; soft warn; chip renders as `[missing]`
-
-### Themed canvas chrome
-
-- [ ] **🔬** In DevTools, run `document.documentElement.style.setProperty('--stage', '#440000')` → canvas paper rect re-paints within one frame
-- [ ] **🔬** Override `--stage-grid` → dot grid color updates
-- [ ] **🔬** Override `--stage-vignette-start` and `--stage-vignette-stop` → radial backdrop updates
-- [ ] **🔬** Console clean during a normal author session — no React warnings, no Konva warnings, no CodeMirror errors
-
----
-
-## Cross-cuts (run last)
-
-### 5-minute end-to-end smoke
-
-- [ ] Clean state → home empty
-- [ ] Create picmonic → drop **5 symbols** from library
-- [ ] Add **3 Facts** in notes; tag symbols across them via all three paths (drag, F, right-click)
-- [ ] Group 2 of the symbols
-- [ ] Drag one hotspot to override its position
-- [ ] **M** → cycle through both player modes; jump to Fact 2 via `2`
-- [ ] Esc out → rename picmonic; tag it with `test`
-- [ ] Export bundle
-- [ ] Delete picmonic from home → confirm gone
-- [ ] Re-import the bundle → state matches what was exported (canvas, notes, group, override)
-
-### Persistence durability
-
-- [ ] **⚠️** Quit browser tab, reopen `localhost:3000` → state restored to last save
-- [ ] **🔬** DevTools → Application → IndexedDB shows `engram:picmonic:<id>` records and one `engram:picmonic-index:v1` entry
-
-### Keyboard shortcut roll-call
-
-- [ ] Editor: **⌘+N**, **⌘+B**, **⌘+\\**, **/**, **?** all fire as expected
-- [ ] Canvas: **F**, **⌘+G**, **⌘+⇧+G**, **Delete**, **Backspace**, **⌘+D**, **[**, **]**, **{**, **}** all fire
-- [ ] Player: **M**, **←**, **→**, **1**–**9**, **Esc** all fire
-- [ ] Esc ladder: help → picker → context menu → clear selection (in that order)
-
----
-
-## Known gaps (do NOT test, just be aware)
-
-- **⌘+S** — listed in help dialog with hint _auto-saves on edit_ but **no handler is registered** in `src/lib/keybindings.ts`. Browser captures it as "Save Page As…". Auto-save handles persistence; explicit ⌘+S is currently a no-op stub. Either remove from help or wire a handler in Phase 8.
-
----
-
-## After running
-
-- Triage failures by phase tag (e.g. `P3-7`, `P5-12`).
-- Don't fix in-place during the smoke run — log each failure, finish the pass, then prioritize: fix-now vs. defer-to-Phase-8.
-- When all items pass: tick `docs/TODO.md` line 119 and start Phase 8.
+- [x] Press **?** (Shift+/) → dialog opens with manpage stamp header (`engram(1) • v0.1 • keyboard`)
+- [x] Sections: Editor / Canvas & symbols / Player / Picmonic
+- [x] Each row: label + optional hint + key chips with `+` separators
+- [x] Click ? icon in topbar → same dialog opens
+- [x] Esc closes dialog (Esc ladder prioritizes help)
