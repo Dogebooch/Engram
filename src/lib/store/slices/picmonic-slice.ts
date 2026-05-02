@@ -16,6 +16,7 @@ export interface PicmonicSlice {
   picmonics: Record<string, Picmonic>;
   currentPicmonicId: string | null;
   saveStatus: SaveStatus;
+  lastSavedAt: number | null;
   createPicmonic: (initialName?: string) => string;
   setCurrentPicmonic: (id: string | null) => void;
   renamePicmonic: (id: string, name: string) => void;
@@ -24,6 +25,7 @@ export interface PicmonicSlice {
   duplicatePicmonic: (id: string) => Promise<string | null>;
   loadPicmonicById: (id: string) => Promise<boolean>;
   setSaveStatus: (status: SaveStatus) => void;
+  setLastSavedAt: (ts: number | null) => void;
   hydratePicmonic: (picmonic: Picmonic) => void;
   setNotes: (id: string, notes: NotesDoc) => void;
   setCanvas: (id: string, canvas: CanvasState) => void;
@@ -57,6 +59,7 @@ export const createPicmonicSlice: StateCreator<RootState, [], [], PicmonicSlice>
   picmonics: {},
   currentPicmonicId: null,
   saveStatus: "idle",
+  lastSavedAt: null,
   createPicmonic: (initialName = "Untitled Picmonic") => {
     const p = makePicmonic(initialName);
     set((s) => ({
@@ -168,6 +171,7 @@ export const createPicmonicSlice: StateCreator<RootState, [], [], PicmonicSlice>
     }
   },
   setSaveStatus: (status) => set({ saveStatus: status }),
+  setLastSavedAt: (ts) => set({ lastSavedAt: ts }),
   hydratePicmonic: (picmonic) =>
     set((s) => ({
       picmonics: { ...s.picmonics, [picmonic.id]: picmonic },

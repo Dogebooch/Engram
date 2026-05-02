@@ -18,6 +18,10 @@ export function useSaveStatus(): SaveStatus {
   return useStore((s) => s.saveStatus);
 }
 
+export function useLastSavedAt(): number | null {
+  return useStore((s) => s.lastSavedAt);
+}
+
 export function useUiPrefs(): UiState {
   return useStore((s) => s.ui);
 }

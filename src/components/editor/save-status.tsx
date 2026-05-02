@@ -1,21 +1,42 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { CheckIcon, CircleDashedIcon, Loader2Icon, OctagonXIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSaveStatus, useCurrentPicmonicId } from "@/lib/store/hooks";
+import {
+  useSaveStatus,
+  useCurrentPicmonicId,
+  useLastSavedAt,
+} from "@/lib/store/hooks";
 
 const COPY = {
-  idle: "Saved",
   saving: "Saving",
   saved: "Saved",
   error: "Save failed",
 } as const;
 
+const TIME_FMT = new Intl.DateTimeFormat([], {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
 export function SaveStatus() {
   const status = useSaveStatus();
   const id = useCurrentPicmonicId();
+  const lastSavedAt = useLastSavedAt();
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (status !== "idle" || lastSavedAt == null) return;
+    const interval = setInterval(() => setTick((n) => n + 1), 60_000);
+    return () => clearInterval(interval);
+  }, [status, lastSavedAt]);
 
   if (!id) return null;
+
+  const idleLabel =
+    lastSavedAt != null ? `Saved (${TIME_FMT.format(lastSavedAt)})` : "Idle";
 
   return (
     <div
@@ -30,7 +51,7 @@ export function SaveStatus() {
       )}
     >
       <Icon status={status} />
-      <span>{COPY[status]}</span>
+      <span>{status === "idle" ? idleLabel : COPY[status]}</span>
     </div>
   );
 }

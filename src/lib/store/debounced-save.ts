@@ -28,6 +28,7 @@ export function useDebouncedPicmonicSave(): void {
         await idbSet(picmonicKey(p.id), p);
         const s = useStore.getState();
         if (s.currentPicmonicId === p.id) {
+          s.setLastSavedAt(Date.now());
           s.setSaveStatus("saved");
           flushSavedToIdle();
         }
