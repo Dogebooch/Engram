@@ -48,3 +48,10 @@ Run a single test file: `npx vitest run src/lib/notes/parse.test.ts`. Tests use 
 - `factMeta`, `timeline`, and `SymbolLayer.animation*` fields (v2 scaffolding — see SPEC §"Architecture-only fields").
 - The markdown bullet format `Visual description → meaning; encoding-note (why)` — only `{sym:UUID}` is structurally required, the rest is freeform on purpose.
 - Rejected stack alternatives in SPEC §"Stack decisions made" — don't relitigate without cause.
+
+## General Coding Practices
+
+Scope — only do what was asked. A bug fix doesn't get surrounding cleanup. A simple feature doesn't get extra config knobs. No "improvements" that weren't requested.
+Documentation — don't add docstrings, comments, or type annotations to code you didn't change. Comments only where logic isn't self-evident.
+Defensive coding — no error handling, fallbacks, or validation for situations that can't actually occur. Trust internal code and framework guarantees. Validate only at system boundaries (user input, external APIs).
+Abstractions — no helpers or utilities for one-time operations. No designing for hypothetical future needs. Minimum complexity for the current task.
