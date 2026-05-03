@@ -3,10 +3,13 @@
 import * as React from "react";
 import { useStore } from "@/lib/store";
 import { useCurrentPicmonicId, usePicmonic } from "@/lib/store/hooks";
+import { lintGutter } from "@codemirror/lint";
 import { parseNotes } from "@/lib/notes/parse";
+import { lintNotes } from "@/lib/notes/lint";
 import { buildBaseExtensions } from "@/lib/notes/codemirror/setup";
 import { factHeadingExtension } from "@/lib/notes/codemirror/fact-heading-extension";
 import { symbolChipExtension } from "@/lib/notes/codemirror/sym-token-extension";
+import { buildBulletLinterExtension } from "@/lib/notes/codemirror/lint-extension";
 import { transientHighlightField } from "./transient-highlight";
 import { NotesBreadcrumb } from "./breadcrumb";
 import { useCodeMirror } from "./use-codemirror";
@@ -40,6 +43,8 @@ export function NotesPanel() {
       symbolChipExtension,
       factHeadingExtension,
       transientHighlightField,
+      lintGutter(),
+      buildBulletLinterExtension(),
     ],
     [],
   );
@@ -54,6 +59,36 @@ export function NotesPanel() {
   useSymbolResolver(view);
   useSyncCanvasToEditor(view, parsed);
 
+  const symbolIds = React.useMemo(() => {
+    const ids = picmonic?.canvas.symbols.map((sy) => sy.id.toLowerCase()) ?? [];
+    return new Set(ids);
+  }, [picmonic]);
+
+  const lintIssues = React.useMemo(
+    () => lintNotes(value, parsed, symbolIds),
+    [value, parsed, symbolIds],
+  );
+
+  const lintCounts = React.useMemo(() => {
+    let errors = 0;
+    let warnings = 0;
+    for (const i of lintIssues) {
+      if (i.severity === "error") errors++;
+      else warnings++;
+    }
+    return { errors, warnings };
+  }, [lintIssues]);
+
+  const jumpToFirstIssue = React.useCallback(() => {
+    if (!view || lintIssues.length === 0) return;
+    const first = lintIssues.reduce((a, b) => (a.from <= b.from ? a : b));
+    view.focus();
+    view.dispatch({
+      selection: { anchor: first.from },
+      scrollIntoView: true,
+    });
+  }, [view, lintIssues]);
+
   const isEmpty = value.trim().length === 0;
 
   return (
@@ -62,10 +97,36 @@ export function NotesPanel() {
         <span className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
           notes
         </span>
-        <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground/45">
-          <span className="size-[5px] rounded-full bg-muted-foreground/35" />
-          markdown
-        </span>
+        <div className="flex items-center gap-3">
+          {(lintCounts.errors > 0 || lintCounts.warnings > 0) && (
+            <button
+              type="button"
+              onClick={jumpToFirstIssue}
+              title="Jump to first issue"
+              className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground/70 hover:text-foreground"
+            >
+              {lintCounts.errors > 0 && (
+                <span className="flex items-center gap-1 text-destructive">
+                  <span className="size-[5px] rounded-full bg-destructive" />
+                  {lintCounts.errors} error{lintCounts.errors === 1 ? "" : "s"}
+                </span>
+              )}
+              {lintCounts.errors > 0 && lintCounts.warnings > 0 && (
+                <span className="text-muted-foreground/40">·</span>
+              )}
+              {lintCounts.warnings > 0 && (
+                <span className="flex items-center gap-1 text-amber-500">
+                  <span className="size-[5px] rounded-full bg-amber-500" />
+                  {lintCounts.warnings} warn{lintCounts.warnings === 1 ? "" : "s"}
+                </span>
+              )}
+            </button>
+          )}
+          <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground/45">
+            <span className="size-[5px] rounded-full bg-muted-foreground/35" />
+            markdown
+          </span>
+        </div>
       </div>
       <NotesBreadcrumb breadcrumb={breadcrumb} />
       <div className="relative flex flex-1 flex-col overflow-hidden">

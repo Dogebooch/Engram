@@ -10,22 +10,22 @@
 
 ### 8.1 — Bullet structure enforcement [HIGHEST YIELD]
 
-> "Uniform markdown" guarantee for the downstream animation/video pipeline is solved by linting bullets + exposing parts as a selection-bound mini-form *inside* notes-panel. No parallel structured panel, no canvas.json content fields. See [SPEC §"Bullet validation & structured editing"](docs/SPEC.md).
+> "Uniform markdown" guarantee for the downstream animation/video pipeline is solved by linting bullets + exposing parts as a selection-bound mini-form _inside_ notes-panel. No parallel structured panel, no canvas.json content fields. See [SPEC §"Bullet validation & structured editing"](docs/SPEC.md).
 
 #### 8.1a — Pipeline export schema [GATE]
 
-- [ ] Write [docs/PIPELINE-SCHEMA.md](docs/PIPELINE-SCHEMA.md) — JSON shape of one exported mnemonic for the downstream animator/exporter. Per-Fact: `factId`, `name`, ordering, `audioRef`, narrative timing slots. Per-symbol-in-Fact: `chipUuid`, `description`, `meaning`, `encoding`, animation hints (placeholder for v2).
-- [ ] Categorize each field as **prose → bullet** or **machine-state → canvas.json**. New machine-state fields land alongside `animation*` / `factMeta` / `timeline`, never inside bullet text.
-- [ ] Decide which fields are mandatory vs optional for export. List drives the lint rules in 8.1b.
-- [ ] Block 8.1b and 8.1c until this lands.
+- [x] Write [docs/PIPELINE-SCHEMA.md](docs/PIPELINE-SCHEMA.md) — JSON shape of one exported mnemonic for the downstream animator/exporter. Per-Fact: `factId`, `name`, ordering, `audioRef`, narrative timing slots. Per-symbol-in-Fact: `chipUuid`, `description`, `meaning`, `encoding`, animation hints (placeholder for v2).
+- [x] Categorize each field as **prose → bullet** or **machine-state → canvas.json**. New machine-state fields land alongside `animation*` / `factMeta` / `timeline`, never inside bullet text.
+- [x] Decide which fields are mandatory vs optional for export. List drives the lint rules in 8.1b.
+- [x] Block 8.1b and 8.1c until this lands.
 
 #### 8.1b — Bullet linter
 
-- [ ] [src/lib/notes/lint.ts](src/lib/notes/lint.ts) — pure `lintBullet(text, ctx?): LintIssue[]`. Reuses `parseBullet` from [bullet.ts](src/lib/notes/bullet.ts). Issue codes: `missing-symbol-token`, `malformed-symbol-token`, `missing-arrow`, `missing-semicolon`, `empty-meaning`, `unknown-symbol-uuid`, `untagged-symbol` (latter requires Fact context).
-- [ ] Severity map: pipeline-blocking issues → error, format-only → warning. Driven by 8.1a's mandatory/optional split.
-- [ ] Co-located tests next to [bullet.test.ts](src/lib/notes/bullet.test.ts), one case per issue code.
-- [ ] Wire into CodeMirror via `@codemirror/lint`'s `linter()` extension in [notes-panel](src/components/editor/panels/notes-panel/index.tsx). Issues render as gutter markers + hover tooltips.
-- [ ] Header badge in notes-panel showing total error/warning counts; click jumps to first issue.
+- [x] [src/lib/notes/lint.ts](src/lib/notes/lint.ts) — pure `lintBullet(text, ctx?): LintIssue[]`. Reuses `parseBullet` from [bullet.ts](src/lib/notes/bullet.ts). Issue codes: `missing-symbol-token`, `malformed-symbol-token`, `missing-arrow`, `missing-semicolon`, `empty-description`, `unknown-symbol-uuid`, `untagged-symbol` (latter requires Fact context).
+- [x] Severity map: pipeline-blocking issues → error, format-only → warning. Driven by 8.1a's mandatory/optional split.
+- [x] Co-located tests next to [bullet.test.ts](src/lib/notes/bullet.test.ts), one case per issue code.
+- [x] Wire into CodeMirror via `@codemirror/lint`'s `linter()` extension in [notes-panel](src/components/editor/panels/notes-panel/index.tsx). Issues render as gutter markers + hover tooltips.
+- [x] Header badge in notes-panel showing total error/warning counts; click jumps to first issue.
 
 #### 8.1c — Selection-bound inline form
 
