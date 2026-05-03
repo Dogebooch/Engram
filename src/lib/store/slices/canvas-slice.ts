@@ -12,7 +12,7 @@ import {
   type TagResult,
 } from "@/lib/notes/tag";
 import type { Picmonic } from "@/lib/types/picmonic";
-import type { FactHotspots, Group, SymbolLayer } from "@/lib/types/canvas";
+import type { CanvasState, FactHotspots, SymbolLayer, Group } from "@/lib/types/canvas";
 import type { RootState } from "../types";
 
 export interface AddSymbolInput {
@@ -67,35 +67,16 @@ export interface CanvasSlice {
   clearHotspotOverride: (factId: string) => void;
 }
 
-function withCanvasSymbols(p: Picmonic, symbols: SymbolLayer[]): Picmonic {
+function patchCanvas(p: Picmonic, patch: Partial<CanvasState>): Picmonic {
   return {
     ...p,
-    canvas: { ...p.canvas, symbols },
+    canvas: { ...p.canvas, ...patch },
     meta: { ...p.meta, updatedAt: Date.now() },
   };
 }
 
-function withCanvas(
-  p: Picmonic,
-  patch: { symbols?: SymbolLayer[]; groups?: Group[] },
-): Picmonic {
-  return {
-    ...p,
-    canvas: {
-      ...p.canvas,
-      symbols: patch.symbols ?? p.canvas.symbols,
-      groups: patch.groups ?? p.canvas.groups,
-    },
-    meta: { ...p.meta, updatedAt: Date.now() },
-  };
-}
-
-function withFactHotspots(p: Picmonic, factHotspots: FactHotspots): Picmonic {
-  return {
-    ...p,
-    canvas: { ...p.canvas, factHotspots },
-    meta: { ...p.meta, updatedAt: Date.now() },
-  };
+function patchPicmonic(p: Picmonic, patch: Partial<Picmonic>): Picmonic {
+  return { ...p, ...patch, meta: { ...p.meta, updatedAt: Date.now() } };
 }
 
 function pruneEmptyGroups(
@@ -157,7 +138,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       return {
         picmonics: {
           ...s.picmonics,
-          [cid]: withCanvasSymbols(picmonic, symbols),
+          [cid]: patchCanvas(picmonic, { symbols }),
         },
         ui: { ...s.ui, recentSymbolIds: recent },
         selectedSymbolIds: [layer.id],
@@ -181,7 +162,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       return {
         picmonics: {
           ...s.picmonics,
-          [cid]: withCanvasSymbols(picmonic, symbols),
+          [cid]: patchCanvas(picmonic, { symbols }),
         },
       };
     });
@@ -200,7 +181,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       return {
         picmonics: {
           ...s.picmonics,
-          [cid]: withCanvasSymbols(picmonic, symbols),
+          [cid]: patchCanvas(picmonic, { symbols }),
         },
         selectedSymbolIds: s.selectedSymbolIds.filter((sid) => !idSet.has(sid)),
       };
@@ -230,7 +211,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       return {
         picmonics: {
           ...s.picmonics,
-          [cid]: withCanvasSymbols(p, symbols),
+          [cid]: patchCanvas(p, { symbols }),
         },
         selectedSymbolIds: dupeIds,
       };
@@ -255,7 +236,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       return {
         picmonics: {
           ...s.picmonics,
-          [cid]: withCanvasSymbols(picmonic, next),
+          [cid]: patchCanvas(picmonic, { symbols: next }),
         },
       };
     });
@@ -292,7 +273,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       return {
         picmonics: {
           ...s.picmonics,
-          [cid]: withCanvas(p, { symbols, groups }),
+          [cid]: patchCanvas(p, { symbols, groups }),
         },
       };
     });
@@ -326,7 +307,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       return {
         picmonics: {
           ...s.picmonics,
-          [cid]: withCanvas(p, { symbols, groups }),
+          [cid]: patchCanvas(p, { symbols, groups }),
         },
       };
     });
@@ -336,7 +317,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
     if (symbolIds.length === 0 || !factId) return false;
     const cid = get().currentPicmonicId;
     if (!cid) return false;
-    let picmonic = get().picmonics[cid];
+    const picmonic = get().picmonics[cid];
     if (!picmonic) return false;
 
     let notes = picmonic.notes;
@@ -358,11 +339,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       return {
         picmonics: {
           ...s.picmonics,
-          [cid]: {
-            ...p,
-            notes,
-            meta: { ...p.meta, updatedAt: Date.now() },
-          },
+          [cid]: patchPicmonic(p, { notes }),
         },
         lastSyncSource: "canvas",
       };
@@ -382,7 +359,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
         [factId]: { x, y, userOverride: true },
       };
       return {
-        picmonics: { ...s.picmonics, [cid]: withFactHotspots(p, next) },
+        picmonics: { ...s.picmonics, [cid]: patchCanvas(p, { factHotspots: next }) },
       };
     });
   },
@@ -398,7 +375,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       const next: FactHotspots = { ...p.canvas.factHotspots };
       delete next[factId];
       return {
-        picmonics: { ...s.picmonics, [cid]: withFactHotspots(p, next) },
+        picmonics: { ...s.picmonics, [cid]: patchCanvas(p, { factHotspots: next }) },
       };
     });
   },
@@ -442,11 +419,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       return {
         picmonics: {
           ...s.picmonics,
-          [cid]: {
-            ...p,
-            notes,
-            meta: { ...p.meta, updatedAt: Date.now() },
-          },
+          [cid]: patchPicmonic(p, { notes }),
         },
         lastSyncSource: "canvas",
       };
