@@ -41,24 +41,20 @@ export function useDebouncedPicmonicSave(): void {
     pendingFlush = () => debouncedRef.current?.flush();
     pendingCancel = () => debouncedRef.current?.cancel();
 
-    let lastSeen: Picmonic | null = null;
-    const initial = useStore.getState();
-    if (initial.currentPicmonicId) {
-      lastSeen = initial.picmonics[initial.currentPicmonicId] ?? null;
-    }
-
-    const unsubscribe = useStore.subscribe((state) => {
-      const id = state.currentPicmonicId;
-      if (!id) {
-        lastSeen = null;
-        return;
-      }
-      const current = state.picmonics[id];
-      if (!current || current === lastSeen) return;
-      lastSeen = current;
-      state.setSaveStatus("saving");
-      debouncedRef.current?.(current);
-    });
+    // Fires only when the active picmonic's reference changes (Object.is on the
+    // selected value). Unrelated dictionary mutations are skipped, and the initial
+    // subscription doesn't fire — preserving the pre-refactor save semantics.
+    const unsubscribe = useStore.subscribe(
+      (state) =>
+        state.currentPicmonicId
+          ? state.picmonics[state.currentPicmonicId] ?? null
+          : null,
+      (current) => {
+        if (!current) return;
+        useStore.getState().setSaveStatus("saving");
+        debouncedRef.current?.(current);
+      },
+    );
 
     return () => {
       unsubscribe();

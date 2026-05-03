@@ -2,6 +2,19 @@
 
 import { useEffect } from "react";
 import { useStore } from "./index";
+import type { RootState } from "./types";
+
+interface Snapshot {
+  cid: string | null;
+  symCount: number;
+  selCount: number;
+}
+
+function snapshot(state: RootState): Snapshot {
+  const cid = state.currentPicmonicId;
+  const symCount = cid ? state.picmonics[cid]?.canvas.symbols.length ?? 0 : 0;
+  return { cid, symCount, selCount: state.selectedSymbolIds.length };
+}
 
 /**
  * Auto-open the right (notes) panel the first time the user adds a symbol
@@ -11,43 +24,33 @@ import { useStore } from "./index";
  */
 export function useAutoOpenRightPanel(): void {
   useEffect(() => {
-    let prevPicmonicId = useStore.getState().currentPicmonicId;
-    let prevSymbolCount = symbolCount(useStore.getState(), prevPicmonicId);
-    let prevSelectionCount = useStore.getState().selectedSymbolIds.length;
+    return useStore.subscribe(
+      snapshot,
+      (curr, prev) => {
+        const state = useStore.getState();
 
-    return useStore.subscribe((state) => {
-      const cid = state.currentPicmonicId;
+        if (curr.cid !== prev.cid) {
+          state.resetAutoOpenedRight();
+          return;
+        }
 
-      if (cid !== prevPicmonicId) {
-        state.resetAutoOpenedRight();
-        prevPicmonicId = cid;
-        prevSymbolCount = symbolCount(state, cid);
-        prevSelectionCount = state.selectedSymbolIds.length;
-        return;
-      }
-
-      const symCount = symbolCount(state, cid);
-      const selCount = state.selectedSymbolIds.length;
-      const grew = symCount > prevSymbolCount || selCount > prevSelectionCount;
-      prevSymbolCount = symCount;
-      prevSelectionCount = selCount;
-
-      if (
-        grew &&
-        cid != null &&
-        state.ui.rightCollapsed &&
-        !state.ui.autoOpenedRightForActivePicmonic
-      ) {
-        state.ensureRightPanelOpenedOnce();
-      }
-    });
+        const grew =
+          curr.symCount > prev.symCount || curr.selCount > prev.selCount;
+        if (
+          grew &&
+          curr.cid != null &&
+          state.ui.rightCollapsed &&
+          !state.ui.autoOpenedRightForActivePicmonic
+        ) {
+          state.ensureRightPanelOpenedOnce();
+        }
+      },
+      {
+        equalityFn: (a, b) =>
+          a.cid === b.cid &&
+          a.symCount === b.symCount &&
+          a.selCount === b.selCount,
+      },
+    );
   }, []);
-}
-
-function symbolCount(
-  state: ReturnType<typeof useStore.getState>,
-  cid: string | null,
-): number {
-  if (!cid) return 0;
-  return state.picmonics[cid]?.canvas.symbols.length ?? 0;
 }
