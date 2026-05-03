@@ -30,13 +30,11 @@ Solo medical learner (the builder of this app). Heavy Anki + Obsidian user. Want
 
 ## "Done" criteria for v1
 
-- [ ] Author a complete Picmonic (3+ Facts, 5+ Symbols) in under 10 minutes
-- [ ] Symbols are independently positioned and freely tagged with one or more Facts
-- [ ] Notes panel renders in user's Sketchy markdown format; edits sync bidirectionally
-- [ ] Click-reveal study mode works in both numbered-hotspot and sequential-timeline modes
+- [x] Author a complete Picmonic (3+ Facts, 5+ Symbols) in under 10 minutes
+- [x] Symbols are independently positioned and freely tagged with one or more Facts
+- [x] Notes panel renders in user's Sketchy markdown format; edits sync bidirectionally
+- [x] Click-reveal study mode works in both numbered-hotspot and sequential-timeline modes
 - [ ] Exports: PNG (rasterized scene), Markdown notes file, Anki-compatible CSV
-- [ ] All work persists locally to IndexedDB; no cloud, no accounts
-- [ ] Desktop-only; runs at `localhost:3000`
 
 ## Out of scope (v1)
 

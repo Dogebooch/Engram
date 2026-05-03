@@ -116,3 +116,57 @@
 
 - [x] Have Claude Generate a Manual Checklist for Each Phase to this point, and manually run through the checks to ensure the program is behaving as expected.
 - [x] Manual Checklist complete (Keyboard Shortcut rollcall finished)
+
+### 8.1 — Bullet structure enforcement [HIGHEST YIELD]
+
+> "Uniform markdown" guarantee for the downstream animation/video pipeline is solved by linting bullets + exposing parts as a selection-bound mini-form _inside_ notes-panel. No parallel structured panel, no canvas.json content fields. See [SPEC §"Bullet validation & structured editing"](docs/SPEC.md).
+
+#### 8.1a — Pipeline export schema [GATE]
+
+- [x] Write [docs/PIPELINE-SCHEMA.md](docs/PIPELINE-SCHEMA.md) — JSON shape of one exported mnemonic for the downstream animator/exporter. Per-Fact: `factId`, `name`, ordering, `audioRef`, narrative timing slots. Per-symbol-in-Fact: `chipUuid`, `description`, `meaning`, `encoding`, animation hints (placeholder for v2).
+- [x] Categorize each field as **prose → bullet** or **machine-state → canvas.json**. New machine-state fields land alongside `animation*` / `factMeta` / `timeline`, never inside bullet text.
+- [x] Decide which fields are mandatory vs optional for export. List drives the lint rules in 8.1b.
+- [x] Block 8.1b and 8.1c until this lands.
+
+#### 8.1b — Bullet linter
+
+- [x] [src/lib/notes/lint.ts](src/lib/notes/lint.ts) — pure `lintBullet(text, ctx?): LintIssue[]`. Reuses `parseBullet` from [bullet.ts](src/lib/notes/bullet.ts). Issue codes: `missing-symbol-token`, `malformed-symbol-token`, `missing-arrow`, `missing-semicolon`, `empty-description`, `unknown-symbol-uuid`, `untagged-symbol` (latter requires Fact context).
+- [x] Severity map: pipeline-blocking issues → error, format-only → warning. Driven by 8.1a's mandatory/optional split.
+- [x] Co-located tests next to [bullet.test.ts](src/lib/notes/bullet.test.ts), one case per issue code.
+- [x] Wire into CodeMirror via `@codemirror/lint`'s `linter()` extension in [notes-panel](src/components/editor/panels/notes-panel/index.tsx). Issues render as gutter markers + hover tooltips.
+- [x] Header badge in notes-panel showing total error/warning counts; click jumps to first issue.
+
+#### 8.1c — Selection-bound inline form
+
+- [x] `src/components/editor/panels/notes-panel/selected-bullet-form.tsx`. Mounts above the CodeMirror when exactly one canvas symbol is selected AND that symbol has a bullet under at least one Fact.
+- [x] Inputs: `description`, `meaning`, `encoding` (shadcn `<Textarea>` / `<Input>`).
+- [x] On change → existing notes write helpers ([tag.ts](src/lib/notes/tag.ts), [bullet.ts](src/lib/notes/bullet.ts), [insert.ts](src/lib/notes/insert.ts)) splice the new bullet text in. No parallel update path.
+- [x] On external markdown edit (typing in CodeMirror), repopulate from the freshly parsed bullet — markdown stays canonical.
+- [x] Disambiguation when symbol is tagged in multiple Facts: small Fact selector at the top of the form picks which bullet to edit.
+- [x] Hide the form when 0 or 2+ symbols selected; selection-scoped by design.
+
+---
+
+### 8.2 — Cross-pane atomic undo (Ctrl+Z)
+
+> Today there is no global undo. CodeMirror has its own history (notes pane only); canvas has none. Goal: a single Ctrl+Z that unwinds the last user action across **both** panes when they're coupled — e.g. delete a canvas symbol → bullet stripped → one Ctrl+Z restores both. Solves the main "missing chip" failure mode at the source.
+>
+> Architecture: **two stacks, smart routing** (Path 2). Keep CM's native history for in-editor typing so typing-coalesced undo stays nice. Add a canvas-side history stack (zundo middleware on the canvas slice is the lowest-friction option) that records canvas mutations _plus_ any notes-doc edit they triggered as a single transaction record with both inverse operations. Ctrl+Z dispatches based on focus.
+
+- [x] **Canvas history stack** — `zundo` `temporal` middleware on the root store, partialized to `{picmonics, currentPicmonicId}` with a shallow `equality` to dedupe no-op writes. Drag/transform are already coalesced by Konva (one `updateSymbol` per `dragend`/`transformend`), so no throttling is needed. `updateSymbol` carries a no-op guard that skips identical patches.
+- [x] **Transaction records for coupled actions** — [add-symbol-with-note-sync.ts](src/lib/canvas/add-symbol-with-note-sync.ts) refactored to issue ONE `useStore.setState` (canvas + notes + recent + selection together), and `deleteSymbols` now strips orphan bullets atomically via [remove-bullets.ts](src/lib/notes/remove-bullets.ts) — all in a single `set()` call so undo restores both panes.
+- [x] **Focus-routed Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y** in [keybindings.ts](src/lib/keybindings.ts) with default `allowInTypingFields: false` (CM owns notes-pane Ctrl+Z natively). Empty-stack triggers a 900ms "Nothing to undo / redo" toast. CM-driven `setNotes` is wrapped with `pauseHistory()` / `resumeHistory()` in [notes-panel/index.tsx](src/components/editor/panels/notes-panel/index.tsx) so typing doesn't pollute the canvas stack; programmatic CM dispatches in [use-codemirror.ts](src/components/editor/panels/notes-panel/use-codemirror.ts) carry `Transaction.addToHistory.of(false)` so zundo replays don't pollute CM history.
+- [x] **Topbar Edit menu** — [edit-menu.tsx](src/components/editor/edit-menu.tsx) next to FileMenu. Undo/Redo items with live `disabled` state subscribed to the temporal store via `useUndoRedo()`. Trigger always present; only items gray out (no layout shift, no history-depth count — minimal chrome per design).
+- [x] **History reset on picmonic switch** — `clearHistory()` fires on `currentPicmonicId` change in [editor-shell.tsx](src/components/editor/editor-shell.tsx) so undo never crosses documents.
+- [x] **Tests** — [remove-bullets.test.ts](src/lib/notes/remove-bullets.test.ts) (6 cases: empty/single/multi-tag/idempotent/missing/case-insensitive) and [canvas-slice.undo.test.ts](src/lib/store/slices/canvas-slice.undo.test.ts) (7 integration cases: delete+undo, add+undo, redo, no-op dedup, real move records 1, clearHistory, paused). 160 total tests pass.
+
+> Reassess 8.3+ "missing chip" handling (broken-chip SymbolPicker swap was the old 8.2 plan) **after** this lands. With cross-pane undo, the only remaining ways to produce a broken chip are paste-from-elsewhere and hand-typo — likely rare enough to drop.
+
+---
+
+### 8.3 — Canvas polish
+
+> Salvaged from old plan. Orthogonal to authoring direction, still useful.
+
+- [x] **Replace symbol** — right-click a canvas symbol → "Replace symbol…" item in [SymbolContextMenu](src/components/editor/canvas/symbol-context-menu.tsx) (disabled when 2+ selected) → opens [ReplaceSymbolPopover](src/components/editor/canvas/replace-symbol-popover.tsx) (Base UI Popover anchored to cursor, 360×420, search + 4-col grid, current-symbol thumbnail in header) → `updateSymbol(symbolId, { ref })`. Notes / chip UUID untouched; flows through 8.2's zundo stack. Esc / outside-click closes; Esc-ladder gets `closeReplacePicker` between fact picker and context menu.
+- [x] **Marquee select** — stage `mousedown` on empty paper enters a deferred state machine ([canvas-stage.tsx](src/components/editor/canvas/canvas-stage.tsx)). Document-level `mousemove`/`mouseup` follow the cursor anywhere. Hits ≥4px drag → renders an accent dashed Konva `Rect` (1 screen-px stroke regardless of stage scale) over a top-most `listening:false` layer; `mouseup` runs [marqueeHitTest](src/lib/canvas/marquee-hit-test.ts) (rotation-aware AABB) and replaces selection (Shift = additive merge). Drag <4px = click → clears selection. Escape during active drag cancels via module-scoped `cancelMarqueeIfActive` hook in the keybindings ladder.
