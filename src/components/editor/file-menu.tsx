@@ -55,7 +55,7 @@ export function FileMenu() {
   );
 
   const handleSave = React.useCallback(() => {
-    flushPendingSave();
+    void flushPendingSave();
     void saveCurrentPicmonicNow();
   }, []);
 

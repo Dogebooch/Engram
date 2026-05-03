@@ -286,7 +286,7 @@ export function useEditorKeybindings(): void {
     const s = useStore.getState();
     if (!s.currentPicmonicId) return;
     e.preventDefault();
-    flushPendingSave();
+    void flushPendingSave();
     void saveCurrentPicmonicNow();
   }, []);
 

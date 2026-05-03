@@ -7,8 +7,15 @@ import { Group, Image as KonvaImage, Rect, Text } from "react-konva";
 import { useImage } from "@/lib/image-cache";
 import { useStore } from "@/lib/store";
 import { getSymbolById, useSymbolsReady } from "@/lib/symbols";
+import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
 import type { SymbolLayer } from "@/lib/types/canvas";
 import { useCanvasTagDrag } from "./use-canvas-tag-drag";
+
+const ACCENT_FALLBACK = "oklch(0.78 0.13 75)";
+const DESTRUCTIVE_FALLBACK = "oklch(0.7 0.19 22)";
+const PLACEHOLDER_FILL_FALLBACK = "oklch(1 0 0 / 0.04)";
+const PLACEHOLDER_FILL_WEAK_FALLBACK = "oklch(1 0 0 / 0.02)";
+const PLACEHOLDER_FILL_STRONG_FALLBACK = "oklch(1 0 0 / 0.18)";
 
 interface SymbolNodeProps {
   layer: SymbolLayer;
@@ -46,6 +53,19 @@ export const SymbolNode = React.memo(function SymbolNode({
   const openSymbolContextMenu = useStore((s) => s.openSymbolContextMenu);
 
   const tagDrag = useCanvasTagDrag(layer.id);
+
+  const accent = useThemedCssVar("--accent", ACCENT_FALLBACK) ?? ACCENT_FALLBACK;
+  const destructive =
+    useThemedCssVar("--destructive", DESTRUCTIVE_FALLBACK) ?? DESTRUCTIVE_FALLBACK;
+  const placeholderFill =
+    useThemedCssVar("--canvas-placeholder-fill", PLACEHOLDER_FILL_FALLBACK) ??
+    PLACEHOLDER_FILL_FALLBACK;
+  const placeholderFillWeak =
+    useThemedCssVar("--canvas-placeholder-fill-weak", PLACEHOLDER_FILL_WEAK_FALLBACK) ??
+    PLACEHOLDER_FILL_WEAK_FALLBACK;
+  const placeholderFillStrong =
+    useThemedCssVar("--canvas-placeholder-fill-strong", PLACEHOLDER_FILL_STRONG_FALLBACK) ??
+    PLACEHOLDER_FILL_STRONG_FALLBACK;
 
   const imageRef = React.useRef<Konva.Image | null>(null);
 
@@ -121,7 +141,7 @@ export const SymbolNode = React.memo(function SymbolNode({
         width={layer.width}
         height={layer.height}
         rotation={layer.rotation}
-        fill="rgba(255,255,255,0.04)"
+        fill={placeholderFill}
         cornerRadius={4}
         listening={false}
       />
@@ -136,7 +156,7 @@ export const SymbolNode = React.memo(function SymbolNode({
         width={layer.width}
         height={layer.height}
         rotation={layer.rotation}
-        fill="rgba(255,255,255,0.04)"
+        fill={placeholderFill}
         cornerRadius={4}
         listening={false}
       />
@@ -157,10 +177,10 @@ export const SymbolNode = React.memo(function SymbolNode({
         <Rect
           width={layer.width}
           height={layer.height}
-          stroke={selected ? "oklch(0.78 0.13 75)" : "rgba(255,255,255,0.18)"}
+          stroke={selected ? accent : placeholderFillStrong}
           strokeWidth={selected ? 1.5 : 1}
           dash={[6, 6]}
-          fill="rgba(255,255,255,0.02)"
+          fill={placeholderFillWeak}
           cornerRadius={4}
         />
         <Text
@@ -172,7 +192,7 @@ export const SymbolNode = React.memo(function SymbolNode({
           align="center"
           verticalAlign="middle"
           fontSize={Math.min(layer.width, layer.height) * 0.45}
-          fill="oklch(0.65 0.18 25)"
+          fill={destructive}
           listening={false}
         />
       </Group>
@@ -201,7 +221,7 @@ export const SymbolNode = React.memo(function SymbolNode({
       // hotspot reveal / cursor-on-bullet sync.
       perfectDrawEnabled={showGlow}
       shadowEnabled={showGlow}
-      shadowColor="oklch(0.78 0.13 75)"
+      shadowColor={accent}
       shadowBlur={28}
       shadowOpacity={showGlow ? 1 : 0}
       shadowOffsetX={0}

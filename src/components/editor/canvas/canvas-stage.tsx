@@ -401,7 +401,7 @@ export function CanvasStage() {
                   width={sy.width + 8}
                   height={sy.height + 8}
                   rotation={sy.rotation}
-                  stroke="oklch(0.78 0.13 75)"
+                  stroke={accent}
                   strokeWidth={1}
                   dash={[4, 4]}
                   opacity={0.45}

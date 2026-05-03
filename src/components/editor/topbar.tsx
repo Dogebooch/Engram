@@ -1,16 +1,20 @@
 "use client";
 
+import * as React from "react";
 import { CircleHelpIcon, PanelLeftIcon, PanelRightIcon, PlayIcon, PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import { useCurrentPicmonicId, useUiPrefs } from "@/lib/store/hooks";
+import { flushPendingSave } from "@/lib/store/debounced-save";
+import { flushIndexPersist } from "@/lib/store/index-store";
 import { EditMenu } from "./edit-menu";
 import { EditorExportMenu } from "./editor-export-menu";
 import { FileMenu } from "./file-menu";
 import { PicmonicName } from "./picmonic-name";
 import { SaveStatus } from "./save-status";
+import { ThemeToggle } from "./theme-toggle";
 
 export function Topbar() {
   const ui = useUiPrefs();
@@ -23,6 +27,15 @@ export function Topbar() {
   const setHelpOpen = useStore((s) => s.setHelpOpen);
 
   const inEditor = Boolean(currentId);
+
+  // Flush any debounce-pending save (canvas/notes 500ms, index 250ms) before
+  // dropping the active picmonic. Without this, edits made within the debounce
+  // window are silently lost when the brand button or quota badge sends the
+  // user home.
+  const goHome = React.useCallback(async () => {
+    await Promise.all([flushPendingSave(), flushIndexPersist()]);
+    setCurrentPicmonic(null);
+  }, [setCurrentPicmonic]);
 
   return (
     <header
@@ -52,10 +65,7 @@ export function Topbar() {
         </Tooltip>
       ) : null}
 
-      <Brand
-        canGoHome={inEditor}
-        onHome={() => setCurrentPicmonic(null)}
-      />
+      <Brand canGoHome={inEditor} onHome={() => void goHome()} />
 
       {inEditor ? (
         <>
@@ -75,7 +85,7 @@ export function Topbar() {
       )}
 
       <div className="ml-auto flex items-center gap-2">
-        <QuotaBadge onJumpHome={() => setCurrentPicmonic(null)} />
+        <QuotaBadge onJumpHome={() => void goHome()} />
         {inEditor ? (
           <>
             <SaveStatus />
@@ -117,6 +127,8 @@ export function Topbar() {
           />
           <TooltipContent>Shortcuts (?)</TooltipContent>
         </Tooltip>
+
+        <ThemeToggle />
 
         <Tooltip>
           <TooltipTrigger

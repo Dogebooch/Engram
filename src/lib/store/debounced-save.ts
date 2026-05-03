@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import { SAVE_DEBOUNCE_MS } from "@/lib/constants";
 import { debounce, type DebouncedFn } from "@/lib/debounce";
-import type { Picmonic } from "@/lib/types/picmonic";
 import { useStore } from "./index";
 import { saveCurrentPicmonicNow } from "./save-now";
 
@@ -11,17 +10,20 @@ const SAVED_LINGER_MS = 1500;
 
 let pendingFlush: (() => void) | null = null;
 let pendingCancel: (() => void) | null = null;
+let inFlightSave: Promise<void> | null = null;
 
 /**
- * Flush any debounce-pending save immediately. Used by ⌘S / File ▸ Save so
- * the explicit-save path doesn't race the timer. No-op if nothing is queued.
+ * Flush any debounce-pending save immediately and await its completion.
+ * Used by ⌘S / File ▸ Save and by navigation (brand-button → home) so neither
+ * the explicit-save path nor a route change races the 500ms debounce.
  */
-export function flushPendingSave(): void {
+export async function flushPendingSave(): Promise<void> {
   pendingFlush?.();
+  if (inFlightSave) await inFlightSave;
 }
 
 export function useDebouncedPicmonicSave(): void {
-  const debouncedRef = useRef<DebouncedFn<[Picmonic]> | null>(null);
+  const debouncedRef = useRef<DebouncedFn<[]> | null>(null);
 
   useEffect(() => {
     let lingerTimer: ReturnType<typeof setTimeout> | null = null;
@@ -34,9 +36,18 @@ export function useDebouncedPicmonicSave(): void {
       }, SAVED_LINGER_MS);
     };
 
-    debouncedRef.current = debounce(async (_p: Picmonic) => {
-      const ok = await saveCurrentPicmonicNow();
-      if (ok) flushSavedToIdle();
+    // The picmonic arg from the subscriber gates the trigger but isn't read
+     // here — saveCurrentPicmonicNow re-reads the active picmonic from the
+    // store at write time so we never persist a stale reference.
+    debouncedRef.current = debounce(() => {
+      const task = (async () => {
+        const ok = await saveCurrentPicmonicNow();
+        if (ok) flushSavedToIdle();
+      })();
+      inFlightSave = task;
+      void task.finally(() => {
+        if (inFlightSave === task) inFlightSave = null;
+      });
     }, SAVE_DEBOUNCE_MS);
     pendingFlush = () => debouncedRef.current?.flush();
     pendingCancel = () => debouncedRef.current?.cancel();
@@ -52,7 +63,7 @@ export function useDebouncedPicmonicSave(): void {
       (current) => {
         if (!current) return;
         useStore.getState().setSaveStatus("saving");
-        debouncedRef.current?.(current);
+        debouncedRef.current?.();
       },
     );
 

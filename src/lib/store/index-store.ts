@@ -24,9 +24,28 @@ interface IndexState {
   removeIndexEntry: (id: string) => void;
 }
 
+let inFlightPersist: Promise<void> | null = null;
+
 const persistDebounced = debounce((index: PicmonicIndex) => {
-  void idbSet(IDB_KEYS.picmonicIndex, index);
+  const task = idbSet(IDB_KEYS.picmonicIndex, index)
+    .catch((err: unknown) => {
+      console.error("[engram] failed to persist index", err);
+    })
+    .finally(() => {
+      if (inFlightPersist === task) inFlightPersist = null;
+    });
+  inFlightPersist = task;
 }, 250);
+
+/**
+ * Flush any debounce-pending index write and await its completion. Used by
+ * navigation (brand-button → home) and beforeunload so an in-flight 250ms
+ * timer can't drop a metadata/thumbnail update.
+ */
+export async function flushIndexPersist(): Promise<void> {
+  persistDebounced.flush();
+  if (inFlightPersist) await inFlightPersist;
+}
 
 export const useIndexStore = create<IndexState>((set, get) => ({
   index: null,

@@ -7,6 +7,7 @@ import { useStore } from "@/lib/store";
 import { useIndexStore } from "@/lib/store/index-store";
 import { loadSymbols } from "@/lib/symbols";
 import { requestPersistentStorage } from "@/lib/storage/persist";
+import { useFlushOnUnload } from "@/lib/storage/use-flush-on-unload";
 import type { Picmonic } from "@/lib/types/picmonic";
 
 interface HydratedProps {
@@ -35,6 +36,8 @@ export function Hydrated({ fallback, children }: HydratedProps) {
 
   const [picmonicLoaded, setPicmonicLoaded] = React.useState(false);
   const loadStartedRef = React.useRef(false);
+
+  useFlushOnUnload();
 
   React.useEffect(() => {
     if (!persistHydrated || loadStartedRef.current) return;

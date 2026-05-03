@@ -5,6 +5,10 @@ import Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { Transformer } from "react-konva";
 import { useStore } from "@/lib/store";
+import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
+
+const ACCENT_FALLBACK = "oklch(0.78 0.13 75)";
+const STAGE_FALLBACK = "oklch(0.105 0 0)";
 
 interface CanvasTransformerProps {
   selectedIds: string[];
@@ -37,6 +41,8 @@ export function CanvasTransformer({
 }: CanvasTransformerProps) {
   const transformerRef = React.useRef<Konva.Transformer | null>(null);
   const updateSymbol = useStore((s) => s.updateSymbol);
+  const accent = useThemedCssVar("--accent", ACCENT_FALLBACK) ?? ACCENT_FALLBACK;
+  const anchorFill = useThemedCssVar("--stage", STAGE_FALLBACK) ?? STAGE_FALLBACK;
 
   React.useEffect(() => {
     const tr = transformerRef.current;
@@ -74,11 +80,11 @@ export function CanvasTransformer({
     <Transformer
       ref={transformerRef}
       anchorSize={ANCHOR_SIZE}
-      anchorFill="#0a0a0a"
-      anchorStroke="oklch(0.78 0.13 75)"
+      anchorFill={anchorFill}
+      anchorStroke={accent}
       anchorStrokeWidth={1.25}
       anchorCornerRadius={1.5}
-      borderStroke="oklch(0.78 0.13 75)"
+      borderStroke={accent}
       borderStrokeWidth={1}
       borderDash={[3, 3]}
       padding={4}

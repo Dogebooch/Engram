@@ -5,6 +5,7 @@ import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { Layer, Rect, Stage } from "react-konva";
 import { STAGE_HEIGHT, STAGE_WIDTH } from "@/lib/constants";
+import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
 import { useStore } from "@/lib/store";
 import { usePicmonic } from "@/lib/store/hooks";
 import { getFactAnchor } from "@/lib/canvas/centroid";
@@ -20,7 +21,7 @@ import {
   type HotspotContextMenuState,
 } from "./hotspot-context-menu";
 
-const STAGE_PAPER_FILL = "#181818";
+const STAGE_FALLBACK = "oklch(0.105 0 0)";
 
 interface FitBox {
   width: number;
@@ -36,6 +37,7 @@ export function PlayerStage() {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const stageRef = React.useRef<Konva.Stage | null>(null);
   const [box, setBox] = React.useState<FitBox>(ZERO_BOX);
+  const stageFill = useThemedCssVar("--stage", STAGE_FALLBACK) ?? STAGE_FALLBACK;
 
   const picmonic = usePicmonic();
   const symbols = picmonic?.canvas.symbols ?? EMPTY_SYMBOLS;
@@ -245,7 +247,7 @@ export function PlayerStage() {
                 y={0}
                 width={STAGE_WIDTH}
                 height={STAGE_HEIGHT}
-                fill={STAGE_PAPER_FILL}
+                fill={stageFill}
               />
               <DotGrid />
             </Layer>

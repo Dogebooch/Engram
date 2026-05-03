@@ -5,10 +5,11 @@ import Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { Circle, Group, Text } from "react-konva";
 import { STAGE_HEIGHT, STAGE_WIDTH } from "@/lib/constants";
+import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
 
-const ACCENT = "oklch(0.78 0.13 75)";
-const STAGE_FILL = "oklch(0.105 0 0)";
-const NUMBER_DARK = "oklch(0.13 0 0)";
+const ACCENT_FALLBACK = "oklch(0.78 0.13 75)";
+const STAGE_FALLBACK = "oklch(0.105 0 0)";
+const ACCENT_FG_FALLBACK = "oklch(0.13 0 0)";
 
 const RADIUS = 18;
 const HALO_RADIUS = 20;
@@ -39,6 +40,11 @@ export const HotspotCircle = React.memo(function HotspotCircle({
 }: HotspotCircleProps) {
   const [hover, setHover] = React.useState(false);
   const haloRef = React.useRef<Konva.Circle | null>(null);
+
+  const accent = useThemedCssVar("--accent", ACCENT_FALLBACK) ?? ACCENT_FALLBACK;
+  const stageFill = useThemedCssVar("--stage", STAGE_FALLBACK) ?? STAGE_FALLBACK;
+  const accentForeground =
+    useThemedCssVar("--accent-foreground", ACCENT_FG_FALLBACK) ?? ACCENT_FG_FALLBACK;
 
   // Pulse the halo while this hotspot is the revealed one.
   React.useEffect(() => {
@@ -154,7 +160,7 @@ export const HotspotCircle = React.memo(function HotspotCircle({
       <Circle
         ref={haloRef}
         radius={HALO_RADIUS}
-        stroke={ACCENT}
+        stroke={accent}
         strokeWidth={1.5}
         opacity={0}
         listening={false}
@@ -162,9 +168,9 @@ export const HotspotCircle = React.memo(function HotspotCircle({
       {/* Outer ring + inner fill */}
       <Circle
         radius={RADIUS}
-        stroke={ACCENT}
+        stroke={accent}
         strokeWidth={hover ? 2.5 : 2}
-        fill={isActive ? ACCENT : STAGE_FILL}
+        fill={isActive ? accent : stageFill}
         fillEnabled
         shadowColor="black"
         shadowBlur={hover ? 14 : 10}
@@ -179,7 +185,7 @@ export const HotspotCircle = React.memo(function HotspotCircle({
         fontFamily='"Geist Mono", ui-monospace, SFMono-Regular, monospace'
         fontStyle="500"
         fontSize={13}
-        fill={isActive ? NUMBER_DARK : ACCENT}
+        fill={isActive ? accentForeground : accent}
         align="center"
         verticalAlign="middle"
         x={-RADIUS}
@@ -192,7 +198,7 @@ export const HotspotCircle = React.memo(function HotspotCircle({
       {isOverride && !isActive && (
         <Circle
           radius={OVERRIDE_RADIUS}
-          stroke={ACCENT}
+          stroke={accent}
           strokeWidth={1}
           dash={[2, 2]}
           opacity={0.55}
