@@ -33,6 +33,7 @@ export function SymbolDeleteConfirm() {
 
   const open = pending !== null;
   const count = pending?.ids.length ?? 0;
+  const scrubReferences = pending?.scrubReferences ?? false;
 
   const handleOpenChange = React.useCallback(
     (next: boolean) => {
@@ -60,9 +61,13 @@ export function SymbolDeleteConfirm() {
             {count > 1 ? `Delete ${count} symbols?` : "Delete this symbol?"}
           </DialogTitle>
           <DialogDescription>
-            {count > 1
-              ? "Their canvas layers will be removed. Any references in your notes will render as [missing] chips so you can decide what to do with them."
-              : "Its canvas layer will be removed. Any reference in your notes will render as a [missing] chip so you can decide what to do with it."}
+            {scrubReferences
+              ? count > 1
+                ? "Their canvas layers AND every reference in your notes will be removed."
+                : "Its canvas layer AND every reference in your notes will be removed."
+              : count > 1
+                ? "Their canvas layers will be removed. Any references in your notes will render as [missing] chips so you can decide what to do with them."
+                : "Its canvas layer will be removed. Any reference in your notes will render as a [missing] chip so you can decide what to do with it."}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="sm:justify-between sm:items-center">

@@ -4,6 +4,9 @@ import * as React from "react";
 import { useStore } from "@/lib/store";
 import { getSymbolById, loadSymbols } from "@/lib/symbols";
 import {
+  setSymbolChipOnBrokenClick,
+  setSymbolChipOnContextMenu,
+  setSymbolChipOnDoubleClick,
   setSymbolChipOnHoverChange,
   setSymbolChipOnSelect,
   setSymbolChipResolver,
@@ -38,6 +41,37 @@ export function useSymbolResolver(view: EditorView | null): void {
       setLastSyncSource("editor");
       setSelected([uuid]);
     });
+
+    setSymbolChipOnBrokenClick((uuid: string) => {
+      // Broken chip → open the swap-broken picker. Preserves the chip's
+      // UUID so the swap doesn't touch notes; only the canvas gains a
+      // layer with that id pointing at the picked ref.
+      useStore.getState().openSymbolPicker({
+        mode: "swap-broken",
+        chipUuid: uuid,
+      });
+    });
+
+    // Description popover removed — descriptions are now edited inline on
+    // the symbol row in the cards panel. Chip double-click is a no-op until
+    // raw mode returns via the File menu.
+    setSymbolChipOnDoubleClick(() => {});
+
+    setSymbolChipOnContextMenu(
+      (
+        uuid: string,
+        offset: number,
+        x: number,
+        y: number,
+        anchor: DOMRect,
+      ) => {
+        window.dispatchEvent(
+          new CustomEvent("engram:open-chip-context-menu", {
+            detail: { uuid, offset, x, y, anchor: anchor.toJSON() },
+          }),
+        );
+      },
+    );
 
     setSymbolChipOnHoverChange((uuid: string | null) => {
       const setHover = useStore.getState().setHoveredFact;

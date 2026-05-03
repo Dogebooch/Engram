@@ -5,6 +5,13 @@ import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { flushPendingSave } from "@/lib/store/debounced-save";
 import { saveCurrentPicmonicNow } from "@/lib/store/save-now";
+import { parseNotes } from "@/lib/notes/parse";
+import {
+  insertFact,
+  insertSectionAbove,
+  moveFact,
+  type FactDropTarget,
+} from "@/lib/notes/insert";
 
 // Help-overlay rendering moved to `<HelpDialog />`. Keep no inline copy here —
 // the dialog owns the reference.
@@ -218,17 +225,33 @@ export function useEditorKeybindings(): void {
 
   const onOpenFactPicker = useCallback(
     (e: KeyboardEvent) => {
-      const ids = useStore.getState().selectedSymbolIds;
-      if (ids.length === 0) {
-        toast("Select a symbol first", {
-          description: "Then press F to tag with a Fact.",
-          duration: 1800,
-        });
+      const s = useStore.getState();
+      const ids = s.selectedSymbolIds;
+      if (ids.length > 0) {
         e.preventDefault();
+        openFactPicker(ids);
         return;
       }
+      // No symbols selected — if a fact card has focus, create a new fact
+      // in the same section as the focused one. Falls back to a toast when
+      // nothing is focused.
+      const cid = s.currentPicmonicId;
+      const factId = s.lastActiveFactId;
+      const picmonic = cid ? s.picmonics[cid] : null;
+      if (cid && picmonic && factId) {
+        e.preventDefault();
+        const parsed = parseNotes(picmonic.notes);
+        const sectionId = parsed.factsById.get(factId)?.sectionId ?? null;
+        const r = insertFact(picmonic.notes, parsed, sectionId);
+        s.setNotes(cid, r.newNotes);
+        s.setCursorContext({ factId: r.factId, symbolIds: [] });
+        return;
+      }
+      toast("Select a symbol or focus a Fact card first", {
+        description: "Then press F to tag or to add a new Fact.",
+        duration: 1800,
+      });
       e.preventDefault();
-      openFactPicker(ids);
     },
     [openFactPicker],
   );
@@ -270,6 +293,67 @@ export function useEditorKeybindings(): void {
     [enterPlayer],
   );
 
+  // `+` while a Fact is focused (i.e. the sidebar tree shows it as the
+  // active row) opens the symbol picker in `add-to-fact` mode. Falls back
+  // to "no fact focused" toast so the user knows what's missing.
+  const onAddSymbolToFact = useCallback((e: KeyboardEvent) => {
+    const s = useStore.getState();
+    if (!s.currentPicmonicId) return;
+    if (s.symbolPicker !== null || s.factPicker?.open) return;
+    const factId = s.lastActiveFactId;
+    if (!factId) {
+      toast("No Fact focused", {
+        description: "Click a Fact in the outline first.",
+        duration: 1600,
+      });
+      e.preventDefault();
+      return;
+    }
+    e.preventDefault();
+    s.openSymbolPicker({ mode: "add-to-fact", factId });
+  }, []);
+
+  // `s` (no modifier) → open the symbol picker for the focused Fact card.
+  // Same payload as `+`, but a single keystroke for the cards-panel flow
+  // where the user already has a card focused.
+  const onAddSymbolPlainS = useCallback((e: KeyboardEvent) => {
+    const s = useStore.getState();
+    if (!s.currentPicmonicId) return;
+    if (s.symbolPicker !== null || s.factPicker?.open) return;
+    const factId = s.lastActiveFactId;
+    if (!factId) return; // silent — user can use `+` for an explicit toast
+    e.preventDefault();
+    s.openSymbolPicker({ mode: "add-to-fact", factId });
+  }, []);
+
+  // `#` (Shift+3) → insert a section break above the focused fact card.
+  // The focused fact becomes the first fact of the new section.
+  const onInsertSectionAbove = useCallback((e: KeyboardEvent) => {
+    const s = useStore.getState();
+    const cid = s.currentPicmonicId;
+    if (!cid) return;
+    const picmonic = s.picmonics[cid];
+    if (!picmonic) return;
+    const factId = s.lastActiveFactId;
+    if (!factId) return;
+    e.preventDefault();
+    const parsed = parseNotes(picmonic.notes);
+    const r = insertSectionAbove(picmonic.notes, parsed, factId);
+    if (r.newNotes !== picmonic.notes) s.setNotes(cid, r.newNotes);
+  }, []);
+
+  // Cmd/Ctrl+ArrowUp / +ArrowDown → move the focused fact up/down in the
+  // document. Crosses section boundaries (composes with `moveFact`'s
+  // section-end target for cross-section drops).
+  const onMoveFactUp = useCallback(
+    (e: KeyboardEvent) => moveFocusedFact(e, "up"),
+    [],
+  );
+  const onMoveFactDown = useCallback(
+    (e: KeyboardEvent) => moveFocusedFact(e, "down"),
+    [],
+  );
+
   // ⌘S / Ctrl+S — flush any pending debounced save and write now.
   // preventDefault stops the browser's "Save Page As…" dialog.
   const onExplicitSave = useCallback((e: KeyboardEvent) => {
@@ -301,4 +385,59 @@ export function useEditorKeybindings(): void {
   useKeybinding({ key: "s", mod: true, shift: false }, onExplicitSave, {
     allowInTypingFields: true,
   });
+  // `+` (Shift+= on US layouts) → open symbol picker for the focused Fact.
+  useKeybinding({ key: "+", mod: false, shift: true }, onAddSymbolToFact);
+  // Cards-panel keys: bare `s`, `#` (Shift+3), Cmd/Ctrl+↑/↓.
+  useKeybinding({ key: "s", mod: false, shift: false }, onAddSymbolPlainS);
+  useKeybinding({ key: "#", mod: false, shift: true }, onInsertSectionAbove);
+  useKeybinding({ key: "ArrowUp", mod: true, shift: false }, onMoveFactUp);
+  useKeybinding({ key: "ArrowDown", mod: true, shift: false }, onMoveFactDown);
+}
+
+/**
+ * Move the focused fact up or down in document order. Resolves the previous
+ * or next sibling across section boundaries using the parsed projection.
+ * No-op when no card is focused or the fact is already at the doc edge.
+ */
+function moveFocusedFact(e: KeyboardEvent, direction: "up" | "down"): void {
+  const s = useStore.getState();
+  const cid = s.currentPicmonicId;
+  if (!cid) return;
+  const picmonic = s.picmonics[cid];
+  if (!picmonic) return;
+  const factId = s.lastActiveFactId;
+  if (!factId) return;
+  const parsed = parseNotes(picmonic.notes);
+  const fact = parsed.factsById.get(factId);
+  if (!fact) return;
+
+  // Build the flat document-order list of facts.
+  const flat: { factId: string; sectionId: string | null }[] = [];
+  for (const f of parsed.rootFacts) flat.push({ factId: f.factId, sectionId: null });
+  for (const sec of parsed.sections) {
+    for (const f of sec.facts) flat.push({ factId: f.factId, sectionId: sec.sectionId });
+  }
+  const idx = flat.findIndex((f) => f.factId === factId);
+  if (idx === -1) return;
+
+  let target: FactDropTarget | null = null;
+  if (direction === "up") {
+    if (idx === 0) return;
+    const prev = flat[idx - 1];
+    target = { kind: "before-fact", factId: prev.factId };
+  } else {
+    if (idx === flat.length - 1) return;
+    // Skip past the immediate-next sibling so we land AFTER it.
+    const after = flat[idx + 1];
+    if (idx + 2 < flat.length) {
+      target = { kind: "before-fact", factId: flat[idx + 2].factId };
+    } else {
+      // After the last fact — append to its section (or doc end if root).
+      target = { kind: "section-end", sectionId: after.sectionId };
+    }
+  }
+
+  e.preventDefault();
+  const next = moveFact(picmonic.notes, parsed, factId, target);
+  if (next !== picmonic.notes) s.setNotes(cid, next);
 }

@@ -22,6 +22,12 @@ export interface AddSymbolInput {
   width?: number;
   height?: number;
   rotation?: number;
+  /**
+   * Optional pre-assigned UUID. Used by the "swap broken chip" flow so the
+   * existing chip's `{sym:UUID}` token resolves to the new layer without a
+   * notes-string rewrite. When omitted, a fresh UUID is generated.
+   */
+  id?: string;
 }
 
 export type ReorderMode = "back" | "forward" | "toBack" | "toFront";
@@ -133,7 +139,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
     const cid = get().currentPicmonicId;
     if (!cid) return null;
     const layer: SymbolLayer = {
-      id: newId(),
+      id: input.id ?? newId(),
       ref: input.ref,
       x: input.x,
       y: input.y,

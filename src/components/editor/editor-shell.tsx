@@ -17,7 +17,10 @@ import { useEditorKeybindings } from "@/lib/keybindings";
 import { useSaveFlowMonitor } from "@/lib/storage/use-save-flow-monitor";
 import { CanvasErrorBoundary } from "./error-boundary";
 import { FactPicker } from "./dialogs/fact-picker";
+import { SymbolPicker } from "./dialogs/symbol-picker";
 import { SymbolDeleteConfirm } from "./dialogs/symbol-delete-confirm";
+import { ChipContextMenu } from "./notes/chip-context-menu";
+import { FactCardContextMenu } from "./panels/notes-panel/cards/fact-card-context-menu";
 import { HelpDialog } from "./help-dialog";
 import { Home } from "./home/home";
 import { LeftPanel } from "./panels/left-panel";
@@ -133,6 +136,9 @@ export function EditorShell() {
         </ResizablePanelGroup>
       </div>
       <FactPicker />
+      <SymbolPicker />
+      <ChipContextMenu />
+      <FactCardContextMenu />
       <SymbolDeleteConfirm />
       <PlayerOverlay />
       <HelpDialog />
