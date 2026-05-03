@@ -75,9 +75,15 @@ Rules:
   ],
   "factHotspots": {
     "factId-or-name": { "x": 1100, "y": 700, "userOverride": true }
-  }
+  },
+  "factMeta": {
+    "factId": { "audioRef": null }
+  },
+  "timeline": []
 }
 ```
+
+`factMeta` and `timeline` are v2 scaffolding — the schema reserves them, but no v1 UI writes to them. `factMeta` is keyed parallel to `factHotspots` and currently only carries `audioRef` for per-Fact narration. `timeline` is an ordered array of `{ factId, startMs, durationMs }` entries for animated video export. Records loaded from older bundles are normalized via `normalizeCanvas()` on import / IDB load.
 
 ### Symbol library entries (separate index, not per-Picmonic)
 ```json
@@ -103,20 +109,8 @@ Three resizable panels:
 - **Right** (~360px, collapsible): CodeMirror notes panel
 
 ### Keyboard shortcuts
-| Key | Action |
-|---|---|
-| `/` | Open symbol library search |
-| `T` | Add text overlay |
-| `F` | Tag selected symbols with Fact (open picker) |
-| `Cmd+G` | Group selection |
-| `Cmd+Shift+G` | Ungroup |
-| `Delete` | Remove selected layer |
-| `Cmd+D` | Duplicate selected layer |
-| `[` / `]` | Send back / Bring forward |
-| `Cmd+S` | Save (also auto-saves) |
-| `Cmd+Scroll` | Zoom canvas |
-| `Space+Drag` | Pan canvas |
-| `M` | Toggle study mode |
+
+See `src/lib/keybindings.ts` for the live binding table; press `?` in-app for the rendered help overlay. SPEC intentionally does not duplicate the table — it drifts.
 
 ### Symbol library
 - Aggregated, ranked, virtualized grid (5–6 columns)
@@ -173,9 +167,9 @@ Toggle modes with `M`. Esc returns to editor.
 
 ## Architecture-only fields (v2+ scaffolding)
 Schemas include these now, no UI exposes them in v1:
-- `Symbol.animation`, `Symbol.animationDelay`, `Symbol.animationDuration`
-- `Fact.audioRef` (per-Fact narration audio)
-- Top-level `timeline` array in canvas.json (Fact playback ordering for video gen)
+- `SymbolLayer.animation`, `SymbolLayer.animationDelay`, `SymbolLayer.animationDuration`
+- `canvas.factMeta[factId].audioRef` — per-Fact narration audio
+- `canvas.timeline[]` — Fact playback ordering for video gen, entry shape `{ factId, startMs, durationMs }`
 
 ## Tests (non-trivial logic only)
 - **Unit**: markdown parser (notes.md → structured representation, round-trip)

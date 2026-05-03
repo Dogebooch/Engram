@@ -2,7 +2,7 @@ import type { StateCreator } from "zustand";
 import { del as idbDel, get as idbGet } from "idb-keyval";
 import { picmonicKey } from "@/lib/constants";
 import { newId } from "@/lib/id";
-import { emptyCanvas } from "@/lib/types/canvas";
+import { emptyCanvas, normalizeCanvas } from "@/lib/types/canvas";
 import type { CanvasState } from "@/lib/types/canvas";
 import type {
   NotesDoc,
@@ -11,6 +11,11 @@ import type {
 } from "@/lib/types/picmonic";
 import { entryFromPicmonic, useIndexStore } from "../index-store";
 import type { RootState } from "../types";
+
+function normalizePicmonic(p: Picmonic): Picmonic {
+  const canvas = normalizeCanvas(p.canvas);
+  return canvas === p.canvas ? p : { ...p, canvas };
+}
 
 export interface PicmonicSlice {
   picmonics: Record<string, Picmonic>;
@@ -158,8 +163,9 @@ export const createPicmonicSlice: StateCreator<RootState, [], [], PicmonicSlice>
       return true;
     }
     try {
-      const data = await idbGet<Picmonic>(picmonicKey(id));
-      if (!data) return false;
+      const raw = await idbGet<Picmonic>(picmonicKey(id));
+      if (!raw) return false;
+      const data = normalizePicmonic(raw);
       set((s) => ({
         picmonics: { ...s.picmonics, [data.id]: data },
         currentPicmonicId: data.id,
@@ -172,10 +178,12 @@ export const createPicmonicSlice: StateCreator<RootState, [], [], PicmonicSlice>
   },
   setSaveStatus: (status) => set({ saveStatus: status }),
   setLastSavedAt: (ts) => set({ lastSavedAt: ts }),
-  hydratePicmonic: (picmonic) =>
+  hydratePicmonic: (picmonic) => {
+    const normalized = normalizePicmonic(picmonic);
     set((s) => ({
-      picmonics: { ...s.picmonics, [picmonic.id]: picmonic },
-    })),
+      picmonics: { ...s.picmonics, [normalized.id]: normalized },
+    }));
+  },
   setNotes: (id, notes) =>
     set((s) => {
       const existing = s.picmonics[id];

@@ -63,6 +63,8 @@ describe("canvas state serialization", () => {
         "section::a#0": { x: 500, y: 300, userOverride: true },
         "section::b#0": { x: 600, y: 400, userOverride: false },
       },
+      factMeta: {},
+      timeline: [],
     };
     const restored = clone(original);
     expect(restored).toEqual(original);
