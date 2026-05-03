@@ -21,6 +21,7 @@
 - **Markdown-as-source over relational tables**: matches user's Obsidian workflow, single source of truth, free Markdown export.
 - **IndexedDB over localStorage**: blobs and quota.
 - **Zustand over Redux/Jotai**: scope doesn't justify heavier state libs.
+- **Lint + selection-bound form over parallel structured panel**: bullet structure is enforced via a CodeMirror linter and a selection-bound mini-form rendered *inside* notes-panel — never by promoting bullet content into `canvas.json` or by building a parallel right-column properties panel that competes with notes-panel. Markdown stays canonical; structured editing is a presentation layer over the same text.
 
 ## Data model
 
@@ -100,6 +101,14 @@ Rules:
 
 Sources & ranks: user-uploaded (0) > OpenMoji (1) > Game-Icons (2) > Twemoji (3, optional).
 
+## Bullet validation & structured editing
+
+The downstream animation/video pipeline needs uniform bullet output, but the system commits to markdown-as-source-of-truth. Resolution: **lint + selection-bound form**, both rendered inside notes-panel. No parallel structured state, no third panel, no bullet content promoted to `canvas.json`.
+
+- **Pipeline export schema** (TBD; lives in `docs/PIPELINE-SCHEMA.md`) defines the JSON shape one exported mnemonic produces for the downstream animator/exporter and which fields are mandatory. Drives the lint rule list. Authoring rule: anything prose-shaped goes in the bullet; anything machine-state (timing, animation cues, scene roles, narration refs) goes in `canvas.json` alongside `animation*` / `factMeta` / `timeline`.
+- **CodeMirror linter** validates each bullet on edit: malformed `{sym:UUID}` token, missing `→` or `;` separators, empty meaning, unknown symbol UUIDs, untagged symbols. Issues surface as gutter markers, tooltips, and a header-badge count in notes-panel.
+- **Selection-bound mini-form** renders inside notes-panel when exactly one symbol is selected on the canvas and is bound to one or more Facts. Inputs expose the three semantic fields (`description / meaning / encoding`) for the active Fact's bullet. Edits round-trip through the existing notes write helpers (`tag`, `bullet`, `insert`); the form repopulates from the freshly parsed bullet on external markdown change. Single source of truth, two ways to edit.
+
 ## Editor UX
 
 ### Layout
@@ -127,7 +136,7 @@ See `src/lib/keybindings.ts` for the live binding table; press `?` in-app for th
 - Drop symbol from library → adds layer + appends `* {sym:id} ` bullet under cursor's current Fact (or under "Unassigned" pseudo-Fact if cursor is outside any `##`)
 
 ### Tagging UX (three entry points, one underlying action)
-All three call `tagSymbolWithFact(symbolId, factName)`:
+All three open the FactPicker dialog which calls `tagSymbolsWithFact(symbolIds, factName)` — atomic update of notes + canvas state:
 1. **Drag**: drag canvas symbol onto a `##` heading in notes panel
 2. **Keyboard**: select symbol(s) → `F` → fuzzy-pick Fact (or type new name to create)
 3. **Right-click**: context menu → "Tag with Fact..." → same picker
@@ -159,7 +168,7 @@ Toggle modes with `M`. Esc returns to editor.
 | Symbol with no Fact tags | Allowed. Layer exists, no bullet anywhere; not in study mode. |
 | Same symbol tagged with N Facts | N hotspots, all centroids may overlap visually; acceptable. |
 | Custom backdrop upload | Image fills canvas; `object-fit: cover` semantics. |
-| User types `{sym:NONEXISTENT}` | Render with red underline warning in CodeMirror; ignored in canvas-side sync. |
+| User types `{sym:NONEXISTENT}` | Chip widget renders in broken state (red border via `.eng-sym-chip-broken`); ignored in canvas-side sync. |
 | Storage quota approaching limit | Warn user at 80%; suggest exporting or deleting old Picmonics. |
 | Browser refresh mid-edit | Zustand persist + IndexedDB ensures survival to last save (debounced ~500ms). |
 | Symbol moved on canvas | Recompute Fact centroids unless user has dragged hotspot (override flag). |
