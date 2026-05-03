@@ -1,7 +1,11 @@
 "use client";
 
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
+import {
+  createJSONStorage,
+  persist,
+  subscribeWithSelector,
+} from "zustand/middleware";
 import { IDB_KEYS } from "@/lib/constants";
 import { idbStateStorage } from "./persist";
 import { createCanvasSlice } from "./slices/canvas-slice";
@@ -20,37 +24,39 @@ interface PersistedShape {
 const STORE_VERSION = 1;
 
 export const useStore = create<RootState>()(
-  persist(
-    (...a) => ({
-      ...createPicmonicSlice(...a),
-      ...createUiSlice(...a),
-      ...createSelectionSlice(...a),
-      ...createCanvasSlice(...a),
-      ...createInteractionsSlice(...a),
-      ...createPlayerSlice(...a),
-    }),
-    {
-      name: IDB_KEYS.uiPrefs,
-      storage: createJSONStorage(() => idbStateStorage),
-      partialize: (s): PersistedShape => ({
-        currentPicmonicId: s.currentPicmonicId,
-        // `autoOpenedRightForActivePicmonic` is transient — always persisted as
-        // false so each reload starts a fresh per-picmonic auto-open arc.
-        ui: { ...s.ui, autoOpenedRightForActivePicmonic: false },
+  subscribeWithSelector(
+    persist(
+      (...a) => ({
+        ...createPicmonicSlice(...a),
+        ...createUiSlice(...a),
+        ...createSelectionSlice(...a),
+        ...createCanvasSlice(...a),
+        ...createInteractionsSlice(...a),
+        ...createPlayerSlice(...a),
       }),
-      version: STORE_VERSION,
-      migrate: (state) => state as PersistedShape,
-      // Deep-merge `ui` so newly added fields (e.g. recentSymbolIds) keep
-      // their in-memory defaults when older persisted state lacks them.
-      merge: (persistedState, currentState) => {
-        const persisted = (persistedState ?? {}) as Partial<PersistedShape>;
-        return {
-          ...currentState,
-          ...persisted,
-          ui: { ...currentState.ui, ...(persisted.ui ?? {}) },
-        } as RootState;
+      {
+        name: IDB_KEYS.uiPrefs,
+        storage: createJSONStorage(() => idbStateStorage),
+        partialize: (s): PersistedShape => ({
+          currentPicmonicId: s.currentPicmonicId,
+          // `autoOpenedRightForActivePicmonic` is transient — always persisted as
+          // false so each reload starts a fresh per-picmonic auto-open arc.
+          ui: { ...s.ui, autoOpenedRightForActivePicmonic: false },
+        }),
+        version: STORE_VERSION,
+        migrate: (state) => state as PersistedShape,
+        // Deep-merge `ui` so newly added fields (e.g. recentSymbolIds) keep
+        // their in-memory defaults when older persisted state lacks them.
+        merge: (persistedState, currentState) => {
+          const persisted = (persistedState ?? {}) as Partial<PersistedShape>;
+          return {
+            ...currentState,
+            ...persisted,
+            ui: { ...currentState.ui, ...(persisted.ui ?? {}) },
+          } as RootState;
+        },
       },
-    },
+    ),
   ),
 );
 
