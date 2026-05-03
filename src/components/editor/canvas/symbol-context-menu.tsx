@@ -37,6 +37,7 @@ function SymbolContextMenuInner({
 }) {
   const closeContextMenu = useStore((s) => s.closeSymbolContextMenu);
   const openFactPicker = useStore((s) => s.openFactPicker);
+  const openReplacePicker = useStore((s) => s.openReplacePicker);
   const selectedSymbolIds = useStore((s) => s.selectedSymbolIds);
   const groupSymbols = useStore((s) => s.groupSymbols);
   const ungroupSymbols = useStore((s) => s.ungroupSymbols);
@@ -66,6 +67,13 @@ function SymbolContextMenuInner({
     closeContextMenu();
     openFactPicker(targetIds);
   };
+
+  const onReplace = () => {
+    closeContextMenu();
+    openReplacePicker(x, y, symbolId);
+  };
+
+  const canReplace = targetIds.length === 1;
 
   const onGroup = () => {
     closeContextMenu();
@@ -135,6 +143,9 @@ function SymbolContextMenuInner({
         sideOffset={4}
         className="eng-symbol-context-menu min-w-56"
       >
+        <DropdownMenuItem onClick={onReplace} disabled={!canReplace}>
+          Replace symbol…
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={tagWithFact}>
           Tag with Fact…
           <DropdownMenuShortcut>F</DropdownMenuShortcut>

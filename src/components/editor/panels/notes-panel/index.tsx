@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useStore } from "@/lib/store";
 import { useCurrentPicmonicId, usePicmonic } from "@/lib/store/hooks";
+import { pauseHistory, resumeHistory } from "@/lib/store/temporal";
 import { lintGutter } from "@codemirror/lint";
 import { parseNotes } from "@/lib/notes/parse";
 import { lintNotes } from "@/lib/notes/lint";
@@ -34,7 +35,16 @@ export function NotesPanel() {
 
   const handleChange = React.useCallback(
     (next: string) => {
-      if (currentId) setNotes(currentId, next);
+      if (!currentId) return;
+      // Typing in CodeMirror is owned by CM's own history extension, not by
+      // zundo. Pause the temporal middleware around the setNotes write so
+      // keystrokes don't double-record into the canvas history stack.
+      pauseHistory();
+      try {
+        setNotes(currentId, next);
+      } finally {
+        resumeHistory();
+      }
     },
     [currentId, setNotes],
   );

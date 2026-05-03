@@ -15,6 +15,7 @@ import { useAutoOpenRightPanel } from "@/lib/store/use-auto-open-right-panel";
 import { useCurrentPicmonicId, useUiPrefs } from "@/lib/store/hooks";
 import { useEditorKeybindings } from "@/lib/keybindings";
 import { useSaveFlowMonitor } from "@/lib/storage/use-save-flow-monitor";
+import { clearHistory } from "@/lib/store/temporal";
 import { CanvasErrorBoundary } from "./error-boundary";
 import { FactPicker } from "./dialogs/fact-picker";
 import { SymbolDeleteConfirm } from "./dialogs/symbol-delete-confirm";
@@ -51,6 +52,13 @@ export function EditorShell() {
 
   useSyncCollapse(leftRef, ui.leftCollapsed);
   useSyncCollapse(rightRef, ui.rightCollapsed);
+
+  // Undo history is per-picmonic. Wipe the temporal stack whenever the active
+  // picmonic changes (or clears) so undo can't surprise the user by walking
+  // back into a different document's state.
+  React.useEffect(() => {
+    clearHistory();
+  }, [currentId]);
 
   if (!currentId) {
     return (

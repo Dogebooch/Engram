@@ -6,6 +6,7 @@ import {
 } from "@/lib/constants";
 import { newId } from "@/lib/id";
 import { parseNotes } from "@/lib/notes/parse";
+import { removeOrphanedBullets } from "@/lib/notes/remove-bullets";
 import {
   tagSymbolsWithFact as runBatchTagWithFact,
   tagSymbolsWithNewFact as runBatchTagWithNewFact,
@@ -155,6 +156,19 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       const idx = picmonic.canvas.symbols.findIndex((sy) => sy.id === id);
       if (idx === -1) return s;
       const existing = picmonic.canvas.symbols[idx];
+      // No-op guard: skip the set entirely if every patched field already
+      // matches existing values. Avoids polluting zundo history with a
+      // mousedown-mouseup-without-move "drag" that didn't change anything.
+      const patchRecord = patch as unknown as Record<string, unknown>;
+      const existingRecord = existing as unknown as Record<string, unknown>;
+      let changed = false;
+      for (const key of Object.keys(patchRecord)) {
+        if (patchRecord[key] !== existingRecord[key]) {
+          changed = true;
+          break;
+        }
+      }
+      if (!changed) return s;
       const updated: SymbolLayer = { ...existing, ...patch, id: existing.id };
       const symbols = picmonic.canvas.symbols.slice();
       symbols[idx] = updated;
@@ -170,6 +184,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
   deleteSymbols: (ids) => {
     if (ids.length === 0) return;
     const idSet = new Set(ids);
+    const lowerIdSet = new Set(ids.map((id) => id.toLowerCase()));
     set((s) => {
       const cid = s.currentPicmonicId;
       if (!cid) return s;
@@ -177,12 +192,21 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       if (!picmonic) return s;
       const symbols = picmonic.canvas.symbols.filter((sy) => !idSet.has(sy.id));
       if (symbols.length === picmonic.canvas.symbols.length) return s;
+      // Strip any orphaned `* {sym:UUID}` bullets atomically so notes + canvas
+      // restore together on undo.
+      const parsed = parseNotes(picmonic.notes);
+      const newNotes = removeOrphanedBullets(picmonic.notes, parsed, lowerIdSet);
+      const groups = pruneEmptyGroups(picmonic.canvas.groups, symbols);
+      const next: Picmonic = {
+        ...picmonic,
+        canvas: { ...picmonic.canvas, symbols, groups },
+        notes: newNotes,
+        meta: { ...picmonic.meta, updatedAt: Date.now() },
+      };
       return {
-        picmonics: {
-          ...s.picmonics,
-          [cid]: patchCanvas(picmonic, { symbols }),
-        },
+        picmonics: { ...s.picmonics, [cid]: next },
         selectedSymbolIds: s.selectedSymbolIds.filter((sid) => !idSet.has(sid)),
+        ...(newNotes !== picmonic.notes ? { lastSyncSource: "canvas" as const } : {}),
       };
     });
   },

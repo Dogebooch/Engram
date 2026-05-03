@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { EditorState, type Extension } from "@codemirror/state";
+import { EditorState, Transaction, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 
 interface UseCodeMirrorArgs {
@@ -88,8 +88,12 @@ export function useCodeMirror({
     }
     programmaticUpdateRef.current = true;
     lastValueRef.current = value;
+    // External writes (canvas-side mutations, zundo undo restoring notes) must
+    // NOT enter CM's own history — otherwise CM's Ctrl+Z would walk back over
+    // a programmatic restoration and desync notes from canvas.
     view.dispatch({
       changes: { from: 0, to: current.length, insert: value },
+      annotations: Transaction.addToHistory.of(false),
     });
   }, [view, value]);
 

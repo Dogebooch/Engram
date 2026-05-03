@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import { useCurrentPicmonicId, useUiPrefs } from "@/lib/store/hooks";
+import { EditMenu } from "./edit-menu";
 import { EditorExportMenu } from "./editor-export-menu";
 import { FileMenu } from "./file-menu";
 import { PicmonicName } from "./picmonic-name";
@@ -60,6 +61,7 @@ export function Topbar() {
         <>
           <div className="mx-1 h-4 w-px bg-border/80" aria-hidden="true" />
           <FileMenu />
+          <EditMenu />
           <div className="mx-1 h-4 w-px bg-border/80" aria-hidden="true" />
           <PicmonicName />
         </>

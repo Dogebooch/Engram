@@ -17,6 +17,12 @@ export interface SymbolContextMenuState {
   symbolId: string;
 }
 
+export interface ReplacePickerState {
+  x: number;
+  y: number;
+  symbolId: string;
+}
+
 export interface PendingSymbolDeleteState {
   ids: readonly string[];
 }
@@ -24,6 +30,7 @@ export interface PendingSymbolDeleteState {
 export interface InteractionsSlice {
   factPicker: FactPickerState | null;
   contextMenu: SymbolContextMenuState | null;
+  replacePicker: ReplacePickerState | null;
   /** Ephemeral; intentionally outside `ui` so reload defaults to closed. */
   helpOpen: boolean;
   /**
@@ -39,6 +46,8 @@ export interface InteractionsSlice {
     symbolId: string,
   ) => void;
   closeSymbolContextMenu: () => void;
+  openReplacePicker: (x: number, y: number, symbolId: string) => void;
+  closeReplacePicker: () => void;
   setHelpOpen: (open: boolean) => void;
   requestSymbolDelete: (ids: readonly string[]) => void;
   cancelSymbolDelete: () => void;
@@ -60,6 +69,7 @@ export const createInteractionsSlice: StateCreator<
 > = (set, get) => ({
   factPicker: null,
   contextMenu: null,
+  replacePicker: null,
   helpOpen: false,
   pendingSymbolDelete: null,
   openFactPicker: (symbolIds) => {
@@ -70,6 +80,9 @@ export const createInteractionsSlice: StateCreator<
   openSymbolContextMenu: (x, y, symbolId) =>
     set({ contextMenu: { x, y, symbolId } }),
   closeSymbolContextMenu: () => set({ contextMenu: null }),
+  openReplacePicker: (x, y, symbolId) =>
+    set({ replacePicker: { x, y, symbolId } }),
+  closeReplacePicker: () => set({ replacePicker: null }),
   setHelpOpen: (open) => set({ helpOpen: open }),
   requestSymbolDelete: (ids) => {
     if (ids.length === 0) return;

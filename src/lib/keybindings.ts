@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect } from "react";
 import { toast } from "sonner";
+import { cancelMarqueeIfActive } from "@/components/editor/canvas/canvas-stage";
 import { useStore } from "@/lib/store";
 import { flushPendingSave } from "@/lib/store/debounced-save";
 import { saveCurrentPicmonicNow } from "@/lib/store/save-now";
+import { getTemporal } from "@/lib/store/temporal";
 
 // Help-overlay rendering moved to `<HelpDialog />`. Keep no inline copy here —
 // the dialog owns the reference.
@@ -69,6 +71,7 @@ export function useEditorKeybindings(): void {
   const openFactPicker = useStore((s) => s.openFactPicker);
   const closeFactPicker = useStore((s) => s.closeFactPicker);
   const closeContextMenu = useStore((s) => s.closeSymbolContextMenu);
+  const closeReplacePicker = useStore((s) => s.closeReplacePicker);
   const requestSymbolDelete = useStore((s) => s.requestSymbolDelete);
   const cancelSymbolDelete = useStore((s) => s.cancelSymbolDelete);
   const selectAllSymbols = useStore((s) => s.selectAllSymbols);
@@ -188,7 +191,8 @@ export function useEditorKeybindings(): void {
 
   const onEscape = useCallback(() => {
     const s = useStore.getState();
-    // Esc ladder: help → delete-confirm → picker → context menu → clear selection.
+    // Esc ladder: help → delete-confirm → fact picker → replace picker →
+    // context menu → in-flight marquee → clear selection.
     if (s.helpOpen) {
       setHelpOpen(false);
       return;
@@ -201,10 +205,15 @@ export function useEditorKeybindings(): void {
       closeFactPicker();
       return;
     }
+    if (s.replacePicker) {
+      closeReplacePicker();
+      return;
+    }
     if (s.contextMenu) {
       closeContextMenu();
       return;
     }
+    if (cancelMarqueeIfActive()) return;
     if (s.selectedSymbolIds.length > 0) {
       clearSelection();
     }
@@ -213,6 +222,7 @@ export function useEditorKeybindings(): void {
     clearSelection,
     closeContextMenu,
     closeFactPicker,
+    closeReplacePicker,
     setHelpOpen,
   ]);
 
@@ -280,6 +290,30 @@ export function useEditorKeybindings(): void {
     void saveCurrentPicmonicNow();
   }, []);
 
+  // Cross-pane atomic undo/redo. CodeMirror's own historyKeymap handles Ctrl+Z
+  // when notes pane is focused (via allowInTypingFields: false default below);
+  // these handlers fire only when the canvas / topbar / nothing is focused, and
+  // call into zundo's temporal history for the canvas + coupled-notes stack.
+  const onUndo = useCallback((e: KeyboardEvent) => {
+    e.preventDefault();
+    const t = getTemporal();
+    if (t.pastStates.length === 0) {
+      toast("Nothing to undo", { duration: 900 });
+      return;
+    }
+    t.undo();
+  }, []);
+
+  const onRedo = useCallback((e: KeyboardEvent) => {
+    e.preventDefault();
+    const t = getTemporal();
+    if (t.futureStates.length === 0) {
+      toast("Nothing to redo", { duration: 900 });
+      return;
+    }
+    t.redo();
+  }, []);
+
   useKeybinding({ key: "n", mod: true }, onNew);
   useKeybinding({ key: "b", mod: true }, onToggleLeft);
   useKeybinding({ key: "\\", mod: true }, onToggleRight);
@@ -301,4 +335,11 @@ export function useEditorKeybindings(): void {
   useKeybinding({ key: "s", mod: true, shift: false }, onExplicitSave, {
     allowInTypingFields: true,
   });
+  // Undo: Ctrl/Cmd+Z. Redo: Ctrl/Cmd+Shift+Z (primary) and Ctrl+Y (Win/Linux
+  // muscle memory). Default `allowInTypingFields: false` ensures these don't
+  // fire while typing in CodeMirror — CM's native historyKeymap handles the
+  // notes pane.
+  useKeybinding({ key: "z", mod: true, shift: false }, onUndo);
+  useKeybinding({ key: "z", mod: true, shift: true }, onRedo);
+  useKeybinding({ key: "y", mod: true, shift: false }, onRedo);
 }

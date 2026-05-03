@@ -5,12 +5,18 @@ import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { Layer, Rect, Stage } from "react-konva";
 import { STAGE_HEIGHT, STAGE_WIDTH } from "@/lib/constants";
+import {
+  marqueeHitTest,
+  normalizeRect,
+  type Rect as MarqueeRect,
+} from "@/lib/canvas/marquee-hit-test";
 import { useStore } from "@/lib/store";
 import { usePicmonic } from "@/lib/store/hooks";
 import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
 import { CanvasTransformer } from "./canvas-transformer";
 import { setCurrentStage } from "./canvas-stage-ref";
 import { DotGrid } from "./dot-grid";
+import { ReplaceSymbolPopover } from "./replace-symbol-popover";
 import { SymbolContextMenu } from "./symbol-context-menu";
 import { SymbolNode } from "./symbol-node";
 import { useCanvasDrop } from "./use-canvas-drop";
@@ -19,6 +25,8 @@ import { useThumbnailCapture } from "./use-thumbnail-capture";
 // Konva fallback for SSR / first-paint before CSS variables resolve. Matches the
 // dark-mode `--stage` token so the unflashed render is indistinguishable.
 const STAGE_PAPER_FALLBACK = "oklch(0.105 0 0)";
+
+const MARQUEE_DRAG_THRESHOLD = 4;
 
 interface FitBox {
   width: number;
@@ -30,6 +38,35 @@ interface FitBox {
 
 const ZERO_BOX: FitBox = { width: 0, height: 0, scale: 0, offsetX: 0, offsetY: 0 };
 
+type MarqueeState =
+  | { kind: "idle" }
+  | {
+      kind: "pending";
+      downX: number;
+      downY: number;
+      shift: boolean;
+      baseSelection: string[];
+    }
+  | {
+      kind: "active";
+      startX: number;
+      startY: number;
+      endX: number;
+      endY: number;
+      shift: boolean;
+      baseSelection: string[];
+    };
+
+const IDLE_MARQUEE: MarqueeState = { kind: "idle" };
+
+// Module-scoped cancel hook so the global Escape handler in keybindings.ts
+// can abort an in-flight marquee without prop drilling.
+let marqueeCancelHandler: (() => boolean) | null = null;
+
+export function cancelMarqueeIfActive(): boolean {
+  return marqueeCancelHandler ? marqueeCancelHandler() : false;
+}
+
 export function CanvasStage() {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const stageRef = React.useRef<Konva.Stage | null>(null);
@@ -39,9 +76,11 @@ export function CanvasStage() {
   const picmonic = usePicmonic();
   const symbols = picmonic?.canvas.symbols ?? EMPTY_SYMBOLS;
   const stageFill = useThemedCssVar("--stage", STAGE_PAPER_FALLBACK) ?? STAGE_PAPER_FALLBACK;
+  const accent = useThemedCssVar("--accent", "#7dd3fc") ?? "#7dd3fc";
   const selectedIds = useStore((s) => s.selectedSymbolIds);
   const cursorSymbolIds = useStore((s) => s.cursorSymbolIds);
   const clearSelection = useStore((s) => s.clearSelection);
+  const setSelectedSymbolIds = useStore((s) => s.setSelectedSymbolIds);
   const selectedSet = React.useMemo(() => new Set(selectedIds), [selectedIds]);
   const glowSet = React.useMemo(
     () => new Set(cursorSymbolIds),
@@ -134,19 +173,168 @@ export function CanvasStage() {
     [],
   );
 
+  // Marquee state machine — purely local; selection commits only on mouseup.
+  // The ref tracks the same value the React state holds; we keep both because
+  // event handlers need the latest value synchronously (ref) while the render
+  // path needs to react to changes (state).
+  const marqueeStateRef = React.useRef<MarqueeState>(IDLE_MARQUEE);
+  const [marquee, setMarqueeState] = React.useState<MarqueeState>(IDLE_MARQUEE);
+  const setMarquee = React.useCallback(
+    (next: MarqueeState | ((prev: MarqueeState) => MarqueeState)) => {
+      const value =
+        typeof next === "function"
+          ? (next as (p: MarqueeState) => MarqueeState)(marqueeStateRef.current)
+          : next;
+      marqueeStateRef.current = value;
+      setMarqueeState(value);
+    },
+    [],
+  );
+
+  // Latest symbols available to mouseup handler without recreating callbacks
+  // each render.
+  const symbolsRef = React.useRef(symbols);
+  React.useEffect(() => {
+    symbolsRef.current = symbols;
+  }, [symbols]);
+
+  const stageLocalFromClient = React.useCallback(
+    (clientX: number, clientY: number): { x: number; y: number } | null => {
+      const stage = stageRef.current;
+      if (!stage) return null;
+      const r = stage.container().getBoundingClientRect();
+      const sc = stage.scaleX() || 1;
+      return { x: (clientX - r.left) / sc, y: (clientY - r.top) / sc };
+    },
+    [],
+  );
+
   const handleStageMouseDown = React.useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
-      if (e.target === e.target.getStage()) {
-        clearSelection();
-      }
+      if (e.target !== e.target.getStage()) return;
+      // Only react to primary button; right-click is consumed by the div
+      // onContextMenu and per-symbol handlers.
+      if (e.evt.button !== 0) return;
+      const local = stageLocalFromClient(e.evt.clientX, e.evt.clientY);
+      if (!local) return;
+      setMarquee({
+        kind: "pending",
+        downX: local.x,
+        downY: local.y,
+        shift: e.evt.shiftKey,
+        baseSelection: useStore.getState().selectedSymbolIds.slice(),
+      });
     },
-    [clearSelection],
+    [stageLocalFromClient],
   );
+
+  // Document-level mousemove/mouseup so the user can drag past the stage
+  // bounds without the marquee getting stuck. Attached only while a drag is
+  // pending or active.
+  React.useEffect(() => {
+    if (marquee.kind === "idle") return;
+
+    const onMove = (e: MouseEvent) => {
+      const local = stageLocalFromClient(e.clientX, e.clientY);
+      if (!local) return;
+      setMarquee((prev) => {
+        if (prev.kind === "idle") return prev;
+        if (prev.kind === "pending") {
+          const dx = local.x - prev.downX;
+          const dy = local.y - prev.downY;
+          if (Math.hypot(dx, dy) < MARQUEE_DRAG_THRESHOLD) return prev;
+          return {
+            kind: "active",
+            startX: prev.downX,
+            startY: prev.downY,
+            endX: local.x,
+            endY: local.y,
+            shift: prev.shift,
+            baseSelection: prev.baseSelection,
+          };
+        }
+        return { ...prev, endX: local.x, endY: local.y };
+      });
+    };
+
+    const onUp = () => {
+      // Read latest marquee state via ref so we can run side-effects
+      // (selection writes) outside the setMarquee updater. Updater functions
+      // must be pure — running setState on another store there triggers the
+      // "setState while rendering" warning.
+      const prev = marqueeStateRef.current;
+      if (prev.kind === "pending") {
+        if (useStore.getState().selectedSymbolIds.length > 0) {
+          clearSelection();
+        }
+        setMarquee(IDLE_MARQUEE);
+        return;
+      }
+      if (prev.kind === "active") {
+        const rect: MarqueeRect = normalizeRect(
+          prev.startX,
+          prev.startY,
+          prev.endX,
+          prev.endY,
+        );
+        const hits = marqueeHitTest(rect, symbolsRef.current);
+        let next: string[];
+        if (prev.shift) {
+          const seen = new Set<string>();
+          next = [];
+          for (const id of [...prev.baseSelection, ...hits]) {
+            if (!seen.has(id)) {
+              seen.add(id);
+              next.push(id);
+            }
+          }
+        } else {
+          next = hits;
+        }
+        const cur = useStore.getState().selectedSymbolIds;
+        const same =
+          cur.length === next.length && cur.every((v, i) => v === next[i]);
+        if (!same) setSelectedSymbolIds(next);
+        setMarquee(IDLE_MARQUEE);
+      }
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, [marquee.kind, clearSelection, setSelectedSymbolIds, stageLocalFromClient]);
+
+  // Register the global marquee-cancel hook for the Escape ladder.
+  React.useEffect(() => {
+    marqueeCancelHandler = () => {
+      let cancelled = false;
+      setMarquee((prev) => {
+        if (prev.kind === "active" || prev.kind === "pending") {
+          cancelled = true;
+          return IDLE_MARQUEE;
+        }
+        return prev;
+      });
+      return cancelled;
+    };
+    return () => {
+      marqueeCancelHandler = null;
+    };
+  }, []);
 
   const symbolsKey = React.useMemo(
     () => symbols.map((s) => s.id).join("|"),
     [symbols],
   );
+
+  // Marquee Rect props (only used while active).
+  const marqueeRect: MarqueeRect | null =
+    marquee.kind === "active"
+      ? normalizeRect(marquee.startX, marquee.startY, marquee.endX, marquee.endY)
+      : null;
 
   return (
     <div
@@ -229,11 +417,36 @@ export function CanvasStage() {
                 getNode={(id) => symbolRefs.current.get(id) ?? null}
               />
             </Layer>
+            <Layer name="marquee" listening={false}>
+              {marqueeRect && (
+                <>
+                  <Rect
+                    x={marqueeRect.x}
+                    y={marqueeRect.y}
+                    width={marqueeRect.width}
+                    height={marqueeRect.height}
+                    fill={accent}
+                    opacity={0.1}
+                  />
+                  <Rect
+                    x={marqueeRect.x}
+                    y={marqueeRect.y}
+                    width={marqueeRect.width}
+                    height={marqueeRect.height}
+                    stroke={accent}
+                    strokeWidth={1 / box.scale}
+                    dash={[4 / box.scale, 4 / box.scale]}
+                    opacity={0.85}
+                  />
+                </>
+              )}
+            </Layer>
           </Stage>
         </div>
       )}
       <CornerReadout scale={box.scale} />
       <SymbolContextMenu />
+      <ReplaceSymbolPopover />
     </div>
   );
 }
