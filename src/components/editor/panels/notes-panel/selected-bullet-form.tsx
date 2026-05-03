@@ -62,9 +62,6 @@ function SelectedBulletFormInner({
   setNotes,
   setLastSyncSource,
 }: InnerProps) {
-  // Active Fact — defaults to first. We store the user's chosen factId, but
-  // derive the *effective* factId synchronously each render so a stale id
-  // (rename, untag) is never used.
   const [chosenFactId, setChosenFactId] = React.useState<string>(factIds[0]);
   const activeFactId =
     chosenFactId && parsed.factsById.has(chosenFactId) && factIds.includes(chosenFactId)
@@ -73,22 +70,22 @@ function SelectedBulletFormInner({
 
   const fact = parsed.factsById.get(activeFactId) ?? null;
 
-  // Locate the active bullet line (for repopulation on external edits).
+  const ref = React.useMemo(
+    () => fact?.symbolRefs.find((r) => r.symbolId === symbolId) ?? null,
+    [fact, symbolId],
+  );
+
   const lineText = React.useMemo(() => {
-    if (!fact) return "";
-    const ref = fact.symbolRefs.find((r) => r.symbolId === symbolId);
     if (!ref) return "";
     let lineStart = ref.start;
     while (lineStart > 0 && notes.charCodeAt(lineStart - 1) !== 10) lineStart--;
     let lineEnd = notes.indexOf("\n", ref.end);
     if (lineEnd === -1) lineEnd = notes.length;
     return notes.slice(lineStart, lineEnd);
-  }, [fact, notes, symbolId]);
+  }, [ref, notes]);
 
   const parsedBullet = React.useMemo(() => parseBullet(lineText), [lineText]);
 
-  // Local draft state — NOT derived-per-render. Sync from parsed only when the
-  // bullet identity changes, or when notes diverge from what we last wrote.
   const lastWriteRef = React.useRef<string | null>(null);
   const [draft, setDraft] = React.useState<DraftParts>({
     description: parsedBullet.description,
@@ -96,15 +93,11 @@ function SelectedBulletFormInner({
     encoding: parsedBullet.encoding ?? "",
   });
 
-  // Identity key for "is this the same bullet?" — changes when symbol or fact
-  // changes. We DON'T include `lineText` here because it changes on our own
-  // writes; we use lastWriteRef to gate notes-content-driven resyncs.
   const identityKey = `${symbolId}::${activeFactId}`;
   const prevIdentityRef = React.useRef(identityKey);
 
   React.useEffect(() => {
     if (prevIdentityRef.current !== identityKey) {
-      // Bullet identity changed (symbol or fact switch): repopulate.
       prevIdentityRef.current = identityKey;
       setDraft({
         description: parsedBullet.description,
@@ -114,10 +107,8 @@ function SelectedBulletFormInner({
       lastWriteRef.current = null;
       return;
     }
-    // Same bullet — only resync from parsed if notes diverged from our last write.
     if (lastWriteRef.current !== null && lastWriteRef.current === notes) return;
     if (lastWriteRef.current !== null && lastWriteRef.current !== notes) {
-      // External edit since our last write: resync.
       lastWriteRef.current = null;
       setDraft({
         description: parsedBullet.description,
@@ -152,7 +143,6 @@ function SelectedBulletFormInner({
     [commit, draft],
   );
 
-  // Resolve symbol identity for header strip.
   const layer = useStore((s) => {
     const cid = s.currentPicmonicId;
     if (!cid) return null;
@@ -162,17 +152,14 @@ function SelectedBulletFormInner({
   });
   const entry = layer ? getSymbolById(layer.ref) : null;
   const displayName = entry?.displayName ?? layer?.ref ?? "symbol";
-  const sourceLabel = entry?.source ?? null;
   const imageUrl = entry?.imageUrl ?? null;
 
   const clearSelection = useStore((s) => s.clearSelection);
 
-  // Focus management refs.
   const descRef = React.useRef<HTMLInputElement>(null);
   const meanRef = React.useRef<HTMLInputElement>(null);
   const whyRef = React.useRef<HTMLTextAreaElement>(null);
 
-  // Cmd/Ctrl+Enter → focus CodeMirror at the bullet line.
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       e.currentTarget.dispatchEvent(new Event("blur", { bubbles: true }));
@@ -191,8 +178,6 @@ function SelectedBulletFormInner({
   };
 
   const descEmpty = draft.description.trim().length === 0;
-  const meanEmpty = draft.meaning.trim().length === 0;
-  const whyEmpty = draft.encoding.trim().length === 0;
 
   const factName = fact?.name ?? "";
   const showSelector = factIds.length > 1;
@@ -200,14 +185,17 @@ function SelectedBulletFormInner({
 
   return (
     <div
-      className="eng-bullet-form flex flex-shrink-0 flex-col border-b border-border/60 bg-card/60"
+      className="eng-bullet-form flex flex-shrink-0 flex-col border-b border-border/60 bg-card/40"
       data-eng-bullet-form
       onKeyDown={handleKeyDown}
     >
       {/* Identity strip */}
-      <div className="flex h-7 items-center gap-2 px-3">
+      <div className="flex h-8 items-center gap-2 px-3">
+        <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground/55">
+          editing
+        </span>
         {imageUrl ? (
-          <span className="flex size-4 items-center justify-center overflow-hidden rounded-sm bg-foreground/[0.04]">
+          <span className="flex size-[18px] items-center justify-center overflow-hidden rounded-sm bg-foreground/[0.04]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={imageUrl}
@@ -217,193 +205,158 @@ function SelectedBulletFormInner({
             />
           </span>
         ) : (
-          <span className="size-4 rounded-sm bg-foreground/[0.06]" />
+          <span className="size-[18px] rounded-sm bg-foreground/[0.06]" />
         )}
-        <span className="truncate font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-foreground/85">
+        <span className="truncate text-[12px] font-medium text-foreground/90">
           {displayName}
         </span>
+        {showSelector && !useDropdown && (
+          <span className="ml-1 text-muted-foreground/40">·</span>
+        )}
+        {showSelector && !useDropdown && (
+          <div className="flex min-w-0 items-center gap-0.5">
+            {factIds.map((fid) => {
+              const f = parsed.factsById.get(fid);
+              if (!f) return null;
+              const active = fid === activeFactId;
+              return (
+                <button
+                  key={fid}
+                  type="button"
+                  onClick={() => setChosenFactId(fid)}
+                  className={cn(
+                    "max-w-[140px] truncate rounded px-1.5 py-0.5 text-[11px] transition-colors",
+                    active
+                      ? "bg-foreground/[0.08] text-foreground/95"
+                      : "text-muted-foreground/65 hover:bg-foreground/[0.04] hover:text-foreground/85",
+                  )}
+                >
+                  {f.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {showSelector && useDropdown && (
+          <>
+            <span className="ml-1 text-muted-foreground/40">·</span>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={cn(
+                  "flex min-w-0 max-w-[180px] items-center gap-1 rounded px-1.5 py-0.5 text-[11px]",
+                  "text-foreground/80 hover:bg-foreground/[0.04] hover:text-foreground/95 focus-visible:outline-none",
+                )}
+              >
+                <span className="truncate">{factName}</span>
+                <ChevronDown className="size-3 opacity-60" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[200px]">
+                {factIds.map((fid) => {
+                  const f = parsed.factsById.get(fid);
+                  if (!f) return null;
+                  return (
+                    <DropdownMenuItem
+                      key={fid}
+                      onSelect={() => setChosenFactId(fid)}
+                      className="text-xs"
+                    >
+                      {f.name}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        )}
         <button
           type="button"
           onClick={clearSelection}
           aria-label="Deselect"
-          className={cn(
-            "flex size-5 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-foreground/[0.06] hover:text-foreground/85",
-            !showSelector && !factName && "ml-auto",
-            (showSelector || factName) && "ml-1",
-          )}
+          className="ml-auto flex size-5 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:bg-foreground/[0.06] hover:text-foreground/85"
         >
           <X className="size-3" />
         </button>
       </div>
 
-      {/* Fact selector */}
-      {showSelector && !useDropdown && (
-        <div className="flex h-[26px] items-center gap-1 border-t border-border/40 px-2 pb-0.5 pt-0.5">
-          {factIds.map((fid) => {
-            const f = parsed.factsById.get(fid);
-            if (!f) return null;
-            const active = fid === activeFactId;
-            return (
-              <button
-                key={fid}
-                type="button"
-                onClick={() => setChosenFactId(fid)}
-                className={cn(
-                  "flex h-[22px] flex-1 items-center justify-center truncate rounded-md border px-2 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors",
-                  active
-                    ? "border-foreground/20 bg-foreground/[0.08] text-foreground/95"
-                    : "border-transparent text-muted-foreground/65 hover:bg-foreground/[0.04] hover:text-foreground/80",
-                )}
-              >
-                <span className="truncate">{f.name}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-      {showSelector && useDropdown && (
-        <div className="flex h-[26px] items-center border-t border-border/40 px-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={cn(
-                "flex h-[22px] w-full items-center gap-1.5 rounded-md border border-foreground/15 bg-foreground/[0.04] px-2",
-                "font-mono text-[10px] uppercase tracking-[0.18em] text-foreground/90",
-                "hover:bg-foreground/[0.07] focus-visible:outline-none",
-              )}
-            >
-              <span className="truncate">{factName}</span>
-              <ChevronDown className="ml-auto size-3 opacity-70" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-[200px]">
-              {factIds.map((fid) => {
-                const f = parsed.factsById.get(fid);
-                if (!f) return null;
-                return (
-                  <DropdownMenuItem
-                    key={fid}
-                    onSelect={() => setChosenFactId(fid)}
-                    className="font-mono text-xs"
-                  >
-                    {f.name}
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )}
-
-      {/* Fields */}
-      <FieldRow
-        label="DESC"
-        empty={descEmpty}
-        emptyVariant="required"
-      >
-        <input
-          ref={descRef}
-          type="text"
-          value={draft.description}
-          onChange={(e) => setField("description", e.target.value)}
-          onKeyDown={onAdvanceField("desc")}
-          placeholder="visual description"
-          aria-required
-          className={cn(
-            "h-7 w-full bg-transparent font-mono text-[12.5px] text-foreground/95 outline-none placeholder:italic placeholder:text-muted-foreground/40",
-            "border-b border-transparent",
-            "focus:border-foreground/45",
-            descEmpty && "border-dashed border-destructive/55",
+      {/* Body — frame the bullet as it would read in markdown, but as inputs */}
+      <div className="flex flex-col gap-1 px-3 pb-2.5">
+        <div className="relative">
+          <input
+            ref={descRef}
+            type="text"
+            value={draft.description}
+            onChange={(e) => setField("description", e.target.value)}
+            onKeyDown={onAdvanceField("desc")}
+            placeholder="visual description"
+            aria-required
+            aria-label="Description"
+            className={cn(
+              "h-7 w-full rounded-sm border bg-transparent px-2 text-[13px] text-foreground/95 outline-none transition-colors",
+              "placeholder:italic placeholder:text-muted-foreground/40",
+              "focus:border-foreground/35 focus:bg-foreground/[0.02]",
+              descEmpty
+                ? "border-destructive/40"
+                : "border-transparent hover:border-foreground/15",
+            )}
+          />
+          {descEmpty && (
+            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[9px] uppercase tracking-[0.22em] text-destructive/70">
+              required
+            </span>
           )}
-        />
-        {descEmpty && (
-          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[9px] uppercase tracking-[0.22em] text-destructive/70">
-            · required
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <span
+            className="font-mono text-[11px] leading-none text-muted-foreground/45"
+            aria-hidden
+          >
+            →
           </span>
-        )}
-      </FieldRow>
-      <Connector glyph="↓" />
-      <FieldRow
-        label="MEAN"
-        empty={meanEmpty}
-        emptyVariant="optional"
-      >
-        <input
-          ref={meanRef}
-          type="text"
-          value={draft.meaning}
-          onChange={(e) => setField("meaning", e.target.value)}
-          onKeyDown={onAdvanceField("mean")}
-          placeholder="meaning…"
-          className={cn(
-            "h-7 w-full bg-transparent font-mono text-[12.5px] text-foreground/95 outline-none placeholder:italic placeholder:text-muted-foreground/40",
-            "border-b border-transparent",
-            "focus:border-foreground/45",
-            meanEmpty && "border-dashed border-foreground/15",
-          )}
-        />
-      </FieldRow>
-      <Connector glyph=";" />
-      <FieldRow
-        label="WHY"
-        empty={whyEmpty}
-        emptyVariant="optional"
-        align="top"
-      >
-        <textarea
-          ref={whyRef}
-          value={draft.encoding}
-          onChange={(e) => setField("encoding", e.target.value)}
-          placeholder="why this image…"
-          rows={1}
-          className={cn(
-            "field-sizing-content min-h-7 w-full resize-none bg-transparent py-1 font-mono text-[12.5px] leading-snug text-foreground/95 outline-none placeholder:italic placeholder:text-muted-foreground/40",
-            "border-b border-transparent",
-            "focus:border-foreground/45",
-            whyEmpty && "border-dashed border-foreground/15",
-          )}
-          style={{ maxHeight: "5.5em" }}
-        />
-      </FieldRow>
-    </div>
-  );
-}
+          <input
+            ref={meanRef}
+            type="text"
+            value={draft.meaning}
+            onChange={(e) => setField("meaning", e.target.value)}
+            onKeyDown={onAdvanceField("mean")}
+            placeholder="what it means"
+            aria-label="Meaning"
+            className={cn(
+              "h-7 flex-1 rounded-sm border border-transparent bg-transparent px-2 text-[13px] text-foreground/90 outline-none transition-colors",
+              "placeholder:italic placeholder:text-muted-foreground/40",
+              "hover:border-foreground/15 focus:border-foreground/35 focus:bg-foreground/[0.02]",
+            )}
+          />
+        </div>
 
-interface FieldRowProps {
-  label: string;
-  empty: boolean;
-  emptyVariant: "required" | "optional";
-  align?: "center" | "top";
-  children: React.ReactNode;
-}
-
-function FieldRow({ label, align = "center", children }: FieldRowProps) {
-  return (
-    <div
-      className={cn(
-        "relative flex gap-0 px-3",
-        align === "top" ? "items-start py-0.5" : "items-center",
-      )}
-    >
-      <div
-        className={cn(
-          "flex w-[64px] shrink-0 select-none border-r border-border/40 pr-2 font-mono text-[9.5px] font-medium uppercase tracking-[0.22em] text-muted-foreground/70",
-          align === "top" ? "items-start pt-2" : "items-center",
-          align === "top" ? "h-7" : "h-7",
-        )}
-      >
-        {label}
-      </div>
-      <div className="relative flex flex-1 items-center pl-2.5">{children}</div>
-    </div>
-  );
-}
-
-function Connector({ glyph }: { glyph: string }) {
-  return (
-    <div className="flex h-2 items-center px-3">
-      <div className="flex w-[64px] shrink-0 justify-center border-r border-border/40 pr-2">
-        <span className="font-mono text-[10px] leading-none text-muted-foreground/40">
-          {glyph}
-        </span>
+        <div className="flex items-start gap-1">
+          <span
+            className="pt-1.5 font-mono text-[12px] leading-none text-muted-foreground/55"
+            aria-hidden
+          >
+            (
+          </span>
+          <textarea
+            ref={whyRef}
+            value={draft.encoding}
+            onChange={(e) => setField("encoding", e.target.value)}
+            placeholder="encoding note — why this image"
+            rows={1}
+            aria-label="Encoding note"
+            className={cn(
+              "field-sizing-content min-h-7 flex-1 resize-none rounded-sm border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] italic leading-snug text-muted-foreground/85 outline-none transition-colors",
+              "placeholder:not-italic placeholder:text-muted-foreground/40",
+              "hover:border-foreground/15 focus:border-foreground/35 focus:bg-foreground/[0.02] focus:text-foreground/90",
+            )}
+            style={{ maxHeight: "5.5em" }}
+          />
+          <span
+            className="pt-1.5 font-mono text-[12px] leading-none text-muted-foreground/55"
+            aria-hidden
+          >
+            )
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -9,7 +9,6 @@ export type LintCode =
   | "empty-description"
   | "unknown-symbol-uuid"
   | "missing-arrow"
-  | "missing-semicolon"
   | "untagged-symbol";
 
 export interface LintIssue {
@@ -53,8 +52,6 @@ function messageFor(code: LintCode): string {
       return "Symbol UUID does not match any canvas symbol.";
     case "missing-arrow":
       return "Bullet has no `→` (or `->`); meaning is empty.";
-    case "missing-semicolon":
-      return "Bullet has no `;` after the arrow; encoding-note is empty.";
     case "untagged-symbol":
       return "Canvas symbol has no bullet under any Fact.";
   }
@@ -113,12 +110,8 @@ export function lintBullet(line: string, ctx?: LintBulletCtx): LintIssue[] {
 
   // Only emit format warnings when a (well-formed enough) symbol token exists —
   // otherwise `missing-symbol-token` already covers the line.
-  if (tokenMatch) {
-    if (parts.meaning === null) {
-      issues.push(makeIssue("missing-arrow", 0, lineEnd, ctx));
-    } else if (parts.encoding === null) {
-      issues.push(makeIssue("missing-semicolon", 0, lineEnd, ctx));
-    }
+  if (tokenMatch && parts.meaning === null) {
+    issues.push(makeIssue("missing-arrow", 0, lineEnd, ctx));
   }
 
   return issues;

@@ -42,13 +42,12 @@ describe("lintBullet", () => {
   it("missing-arrow: bullet has token + description, no →", () => {
     const issues = lintBullet(`* {sym:${UUID_A}} just a description`);
     expect(codes(issues)).toContain("missing-arrow");
-    expect(codes(issues)).not.toContain("missing-semicolon");
   });
 
-  it("missing-semicolon: bullet has → but no ;", () => {
+  it("encoding-note is optional: bullet with → but no ; is clean", () => {
     const issues = lintBullet(`* {sym:${UUID_A}} desc → meaning only`);
-    expect(codes(issues)).toContain("missing-semicolon");
     expect(codes(issues)).not.toContain("missing-arrow");
+    expect(issues).toHaveLength(0);
   });
 
   it("severities: errors vs warnings map per pipeline schema", () => {
