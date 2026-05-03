@@ -7,9 +7,8 @@ import {
 import { newId } from "@/lib/id";
 import { parseNotes } from "@/lib/notes/parse";
 import {
-  tagSymbolWithFact as runTagWithFact,
-  tagSymbolWithNewFact as runTagWithNewFact,
-  type TagResult,
+  tagSymbolsWithFact as runBatchTagWithFact,
+  tagSymbolsWithNewFact as runBatchTagWithNewFact,
 } from "@/lib/notes/tag";
 import type { Picmonic } from "@/lib/types/picmonic";
 import type { CanvasState, FactHotspots, SymbolLayer, Group } from "@/lib/types/canvas";
@@ -320,18 +319,10 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
     const picmonic = get().picmonics[cid];
     if (!picmonic) return false;
 
-    let notes = picmonic.notes;
-    let parsed = parseNotes(notes);
-    let wrote = false;
-    for (const symbolId of symbolIds) {
-      const r: TagResult = runTagWithFact(notes, parsed, symbolId, factId);
-      if (!r.alreadyTagged && r.newNotes !== notes) {
-        notes = r.newNotes;
-        parsed = parseNotes(notes);
-        wrote = true;
-      }
-    }
-    if (!wrote) return false;
+    const parsed = parseNotes(picmonic.notes);
+    const result = runBatchTagWithFact(picmonic.notes, parsed, symbolIds, factId);
+    if (result.written === 0) return false;
+    const notes = result.newNotes;
 
     set((s) => {
       const p = s.picmonics[cid];
@@ -389,28 +380,16 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
     const picmonic = get().picmonics[cid];
     if (!picmonic) return "";
 
-    let notes = picmonic.notes;
-    let parsed = parseNotes(notes);
-
-    // First symbol: may create the heading. After this, factId is fixed.
-    const firstId = symbolIds[0];
-    const firstResult = runTagWithNewFact(notes, parsed, firstId, trimmed);
-    const factId = firstResult.factId;
+    const parsed = parseNotes(picmonic.notes);
+    const result = runBatchTagWithNewFact(
+      picmonic.notes,
+      parsed,
+      symbolIds,
+      trimmed,
+    );
+    const factId = result.factId;
     if (!factId) return "";
-    if (firstResult.newNotes !== notes) {
-      notes = firstResult.newNotes;
-      parsed = parseNotes(notes);
-    }
-
-    // Remaining symbols: tag against the now-known factId.
-    for (let i = 1; i < symbolIds.length; i++) {
-      const r = runTagWithFact(notes, parsed, symbolIds[i], factId);
-      if (!r.alreadyTagged && r.newNotes !== notes) {
-        notes = r.newNotes;
-        parsed = parseNotes(notes);
-      }
-    }
-
+    const notes = result.newNotes;
     if (notes === picmonic.notes) return factId;
 
     set((s) => {

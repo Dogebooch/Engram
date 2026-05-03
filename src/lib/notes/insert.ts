@@ -5,6 +5,7 @@ import {
   type ParsedNotes,
 } from "./types";
 import { parseNotes } from "./parse";
+import { trimTrailingWs } from "./whitespace";
 
 export interface InsertResult {
   newNotes: string;
@@ -16,19 +17,12 @@ function buildBullet(symbolUuid: string): string {
   return `* {sym:${symbolUuid}} `;
 }
 
-function trimTrailingWs(s: string, stopAt: number): number {
-  let pos = s.length;
-  while (pos > stopAt && /\s/.test(s[pos - 1])) pos--;
-  return pos;
-}
-
 function insertAtFactEnd(
   notes: string,
   fact: ParsedFact,
   bullet: string,
 ): InsertResult {
-  let pos = fact.bodyRange.to;
-  while (pos > fact.headingTo && /\s/.test(notes[pos - 1])) pos--;
+  const pos = trimTrailingWs(notes.slice(0, fact.bodyRange.to), fact.headingTo);
   const insertion = `\n${bullet}`;
   const newNotes = notes.slice(0, pos) + insertion + notes.slice(pos);
   return {
@@ -97,4 +91,69 @@ export function insertSymbolBullet(
   if (autoFact) return insertAtFactEnd(notes, autoFact, bullet);
 
   return appendAutoFact(notes, bullet, parsed);
+}
+
+/**
+ * Mutate `parsed` to reflect a bullet that was just inserted at `insertedAt`
+ * with length `insertedLen`, targeting the fact `targetFactId`. Shifts all
+ * offsets at or after `insertedAt` by `insertedLen`, extends the target
+ * fact's bodyRange, registers the new symbolRef, and updates factsBySymbolId.
+ *
+ * Use only when the insertion went through `insertAtFactEnd` (the simple
+ * fast path). For `appendAutoFact` paths, callers must re-parse — those
+ * insertions create new headings and synthesize new factIds.
+ */
+export function applyBulletInsertion(
+  notes: string,
+  parsed: ParsedNotes,
+  targetFactId: string,
+  symbolUuid: string,
+  insertedAt: number,
+  insertedLen: number,
+): void {
+  const target = parsed.factsById.get(targetFactId);
+  if (!target) return;
+  for (const section of parsed.sections) {
+    if (section.headingFrom >= insertedAt) {
+      section.headingFrom += insertedLen;
+      section.headingTo += insertedLen;
+    }
+  }
+  for (const fact of parsed.factsById.values()) {
+    if (fact.headingFrom >= insertedAt) {
+      fact.headingFrom += insertedLen;
+      fact.headingTo += insertedLen;
+    }
+    if (fact.bodyRange.from >= insertedAt) {
+      fact.bodyRange.from += insertedLen;
+    }
+    if (fact.bodyRange.to >= insertedAt) {
+      fact.bodyRange.to += insertedLen;
+    }
+    for (const ref of fact.symbolRefs) {
+      if (ref.start >= insertedAt) {
+        ref.start += insertedLen;
+        ref.end += insertedLen;
+        ref.bulletLine += 1;
+      }
+    }
+  }
+  // Insertion is "\n* {sym:UUID} ", so the token starts after "\n* ".
+  const tokenStart = insertedAt + "\n* ".length;
+  const tokenEnd = tokenStart + `{sym:${symbolUuid}}`.length;
+  // bulletLine is 1-indexed in parseNotes; count newlines up to tokenStart.
+  let bulletLine = 1;
+  for (let i = 0; i < tokenStart; i++) if (notes.charCodeAt(i) === 10) bulletLine++;
+  target.symbolRefs.push({
+    symbolId: symbolUuid,
+    start: tokenStart,
+    end: tokenEnd,
+    bulletLine,
+  });
+  parsed.docLength += insertedLen;
+  const arr = parsed.factsBySymbolId.get(symbolUuid) ?? [];
+  if (!arr.includes(targetFactId)) {
+    arr.push(targetFactId);
+    parsed.factsBySymbolId.set(symbolUuid, arr);
+  }
 }
