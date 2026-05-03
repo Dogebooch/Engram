@@ -12,6 +12,7 @@ import { symbolChipExtension } from "@/lib/notes/codemirror/sym-token-extension"
 import { buildBulletLinterExtension } from "@/lib/notes/codemirror/lint-extension";
 import { transientHighlightField } from "./transient-highlight";
 import { NotesBreadcrumb } from "./breadcrumb";
+import { SelectedBulletForm } from "./selected-bullet-form";
 import { useCodeMirror } from "./use-codemirror";
 import { useSymbolResolver } from "./use-symbol-resolver";
 import { useSyncCanvasToEditor } from "./use-sync-canvas-to-editor";
@@ -21,6 +22,7 @@ export function NotesPanel() {
   const picmonic = usePicmonic();
   const currentId = useCurrentPicmonicId();
   const setNotes = useStore((s) => s.setNotes);
+  const setLastSyncSource = useStore((s) => s.setLastSyncSource);
 
   const value = picmonic?.notes ?? "";
   const parsed = React.useMemo(() => parseNotes(value), [value]);
@@ -129,6 +131,13 @@ export function NotesPanel() {
         </div>
       </div>
       <NotesBreadcrumb breadcrumb={breadcrumb} />
+      <SelectedBulletForm
+        parsed={parsed}
+        notes={value}
+        currentId={currentId ?? null}
+        setNotes={setNotes}
+        setLastSyncSource={setLastSyncSource}
+      />
       <div className="relative flex flex-1 flex-col overflow-hidden">
         <div
           ref={setHostRef}

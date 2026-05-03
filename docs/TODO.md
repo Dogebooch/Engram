@@ -29,12 +29,12 @@
 
 #### 8.1c — Selection-bound inline form
 
-- [ ] `src/components/editor/panels/notes-panel/selected-bullet-form.tsx`. Mounts above the CodeMirror when exactly one canvas symbol is selected AND that symbol has a bullet under at least one Fact.
-- [ ] Inputs: `description`, `meaning`, `encoding` (shadcn `<Textarea>` / `<Input>`).
-- [ ] On change → existing notes write helpers ([tag.ts](src/lib/notes/tag.ts), [bullet.ts](src/lib/notes/bullet.ts), [insert.ts](src/lib/notes/insert.ts)) splice the new bullet text in. No parallel update path.
-- [ ] On external markdown edit (typing in CodeMirror), repopulate from the freshly parsed bullet — markdown stays canonical.
-- [ ] Disambiguation when symbol is tagged in multiple Facts: small Fact selector at the top of the form picks which bullet to edit.
-- [ ] Hide the form when 0 or 2+ symbols selected; selection-scoped by design.
+- [x] `src/components/editor/panels/notes-panel/selected-bullet-form.tsx`. Mounts above the CodeMirror when exactly one canvas symbol is selected AND that symbol has a bullet under at least one Fact.
+- [x] Inputs: `description`, `meaning`, `encoding` (shadcn `<Textarea>` / `<Input>`).
+- [x] On change → existing notes write helpers ([tag.ts](src/lib/notes/tag.ts), [bullet.ts](src/lib/notes/bullet.ts), [insert.ts](src/lib/notes/insert.ts)) splice the new bullet text in. No parallel update path.
+- [x] On external markdown edit (typing in CodeMirror), repopulate from the freshly parsed bullet — markdown stays canonical.
+- [x] Disambiguation when symbol is tagged in multiple Facts: small Fact selector at the top of the form picks which bullet to edit.
+- [x] Hide the form when 0 or 2+ symbols selected; selection-scoped by design.
 
 ---
 
