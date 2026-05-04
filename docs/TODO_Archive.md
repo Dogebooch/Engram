@@ -170,3 +170,8 @@
 
 - [x] **Replace symbol** — right-click a canvas symbol → "Replace symbol…" item in [SymbolContextMenu](src/components/editor/canvas/symbol-context-menu.tsx) (disabled when 2+ selected) → opens [ReplaceSymbolPopover](src/components/editor/canvas/replace-symbol-popover.tsx) (Base UI Popover anchored to cursor, 360×420, search + 4-col grid, current-symbol thumbnail in header) → `updateSymbol(symbolId, { ref })`. Notes / chip UUID untouched; flows through 8.2's zundo stack. Esc / outside-click closes; Esc-ladder gets `closeReplacePicker` between fact picker and context menu.
 - [x] **Marquee select** — stage `mousedown` on empty paper enters a deferred state machine ([canvas-stage.tsx](src/components/editor/canvas/canvas-stage.tsx)). Document-level `mousemove`/`mouseup` follow the cursor anywhere. Hits ≥4px drag → renders an accent dashed Konva `Rect` (1 screen-px stroke regardless of stage scale) over a top-most `listening:false` layer; `mouseup` runs [marqueeHitTest](src/lib/canvas/marquee-hit-test.ts) (rotation-aware AABB) and replaces selection (Shift = additive merge). Drag <4px = click → clears selection. Escape during active drag cancels via module-scoped `cancelMarqueeIfActive` hook in the keybindings ladder.
+
+### 8.4 — Verification + theme toggle
+
+- [x] Verify editor → home round-trip is clean. Brand button → home, re-open a picmonic; canvas + notes survive the round-trip.
+- [x] Theme toggle: light / dark / system. `next-themes` + `<ThemeProvider>` already wired; light tokens already in [globals.css](src/app/globals.css). Remaining: topbar UI + themed Konva colors (stage paper, dot grid, radial backdrop currently hardcoded dark).

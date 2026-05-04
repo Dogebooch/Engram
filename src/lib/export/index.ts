@@ -1,9 +1,15 @@
 import type Konva from "konva";
 import type { Picmonic } from "@/lib/types/picmonic";
 import { buildAnkiCsv } from "./anki";
-import { buildBundleZip } from "./bundle";
+import { buildBundleZip, type BundleAssetInput } from "./bundle";
 import { downloadBlob, downloadText, slugifyName } from "./download";
 import { exportStageToPng, rasterizePicmonicToPng } from "./png";
+import {
+  assetIdFromSymbolRef,
+  getBlob,
+  getUserAssetsSnapshot,
+  isUserSymbolRef,
+} from "@/lib/user-assets";
 
 export async function exportPng(
   stage: Konva.Stage,
@@ -48,6 +54,36 @@ export async function exportBundle(
       console.warn("[engram] bundle png skipped", err);
     }
   }
-  const zip = await buildBundleZip({ picmonic, pngBlob });
+  const userAssets = await collectReferencedUserAssets(picmonic);
+  const zip = await buildBundleZip({ picmonic, pngBlob, userAssets });
   downloadBlob(zip, `${slugifyName(picmonic.meta.name)}.zip`);
+}
+
+async function collectReferencedUserAssets(
+  picmonic: Picmonic,
+): Promise<BundleAssetInput[]> {
+  const referencedIds = new Set<string>();
+  for (const layer of picmonic.canvas.symbols) {
+    if (!isUserSymbolRef(layer.ref)) continue;
+    const id = assetIdFromSymbolRef(layer.ref);
+    if (id) referencedIds.add(id);
+  }
+  if (referencedIds.size === 0) return [];
+  const snapshot = getUserAssetsSnapshot();
+  const byId = new Map(snapshot.map((a) => [a.id, a]));
+  const out: BundleAssetInput[] = [];
+  for (const id of referencedIds) {
+    const asset = byId.get(id);
+    if (!asset) {
+      console.warn(`[engram] export: missing user asset metadata for ${id}`);
+      continue;
+    }
+    const blob = await getBlob(id);
+    if (!blob) {
+      console.warn(`[engram] export: missing blob for ${id}`);
+      continue;
+    }
+    out.push({ asset, blob });
+  }
+  return out;
 }

@@ -2,20 +2,7 @@
 
 ---
 
-## Phase 8 — v1 Polish
-
-> 8.1 is the load-bearing change for downstream pipeline reliability. 8.2–8.5 are discrete wins, mostly orthogonal.
-
----
-
-### 8.4 — Verification + theme toggle
-
-- [x] Verify editor → home round-trip is clean. Brand button → home, re-open a picmonic; canvas + notes survive the round-trip.
-- [x] Theme toggle: light / dark / system. `next-themes` + `<ThemeProvider>` already wired; light tokens already in [globals.css](src/app/globals.css). Remaining: topbar UI + themed Konva colors (stage paper, dot grid, radial backdrop currently hardcoded dark).
-
----
-
-## Phase 9 — Desktop wrap (skeleton; detail when Phase 8 lands)
+## Final — Desktop wrap (skeleton; detail when Phase 8 lands)
 
 - [ ] **Pick wrapper: Tauri** (recommended; ~5MB installer, system webview, Rust process) unless a Chromium-only feature blocks it.
 - [ ] Audit for `localhost:3001` assumptions — search hardcoded URLs; wrapped app serves from `tauri://` or `app://`.

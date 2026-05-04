@@ -11,6 +11,7 @@ export const IDB_KEYS = {
   uiPrefs: "engram:ui-prefs:v2",
   picmonicPrefix: "engram:picmonic:",
   picmonicIndex: "engram:picmonic-index:v1",
+  userAssetsIndex: "engram:user-assets-index:v1",
 } as const;
 
 export function picmonicKey(id: string): string {
@@ -18,6 +19,22 @@ export function picmonicKey(id: string): string {
 }
 
 export const CANVAS_SCHEMA_VERSION = 1 as const;
+export const BUNDLE_SCHEMA_VERSION = 2 as const;
+export const SUPPORTED_BUNDLE_SCHEMA_VERSIONS = [1, 2] as const;
+
+export const USER_ASSETS_DB = "engram-user-assets";
+export const USER_ASSETS_STORE = "blobs";
+export const USER_ASSET_MAX_BYTES = 5 * 1024 * 1024;
+export const USER_ASSET_ACCEPT =
+  "image/png,image/jpeg,image/webp,image/svg+xml,image/gif";
+export const USER_ASSET_ALLOWED_MIMES: ReadonlyArray<string> = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/svg+xml",
+  "image/gif",
+];
+export const USER_SYMBOL_PREFIX = "user:";
 
 export const PANEL_DEFAULTS = {
   leftSize: 18,

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(git push *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git commit -m 'docs: mark v1 done-criteria reflecting Phase 8 completion *)"
     ]
   }
 }

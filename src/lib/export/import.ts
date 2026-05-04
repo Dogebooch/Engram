@@ -1,9 +1,17 @@
 import JSZip from "jszip";
-import { CANVAS_SCHEMA_VERSION } from "@/lib/constants";
+import {
+  SUPPORTED_BUNDLE_SCHEMA_VERSIONS,
+  CANVAS_SCHEMA_VERSION,
+} from "@/lib/constants";
 import { newId } from "@/lib/id";
 import { parseNotes } from "@/lib/notes/parse";
 import { emptyCanvas, type CanvasState } from "@/lib/types/canvas";
 import type { Picmonic, PicmonicMeta } from "@/lib/types/picmonic";
+import {
+  putBlob,
+  registerImportedUserAssets,
+  type UserAsset,
+} from "./import-user-assets";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -49,8 +57,13 @@ interface BundleMeta {
   exportedAt?: number;
 }
 
+interface AssetManifest {
+  version?: number;
+  assets?: UserAsset[];
+}
+
 /**
- * Parse a Phase 6 export bundle (.zip) and return a fresh `Picmonic` ready to
+ * Parse an export bundle (.zip) and return a fresh `Picmonic` ready to
  * register via `hydratePicmonic` + `useIndexStore.upsertIndexEntry`.
  *
  * Behavior:
@@ -61,6 +74,10 @@ interface BundleMeta {
  *   factId no longer exists) are dropped with a warning.
  * - Soft cross-ref check: `{sym:UUID}` references in notes that don't exist in
  *   `canvas.symbols` produce a console warning, not an error.
+ * - If the bundle includes `assets/manifest.json` and `assets/<id>.<ext>`
+ *   files, each user asset is restored to IDB (skipped if id already
+ *   present) and registered in the in-memory symbol cache so the imported
+ *   canvas resolves on first render.
  *
  * Throws `BundleImportError` for fatal cases (corrupt zip, missing required
  * files, schema mismatch, invalid UUIDs).
@@ -94,14 +111,45 @@ export async function importBundle(
   const canvasRaw = parseJson<CanvasState>(canvasText, "canvas.json");
 
   const declaredSchema = canvasRaw.schemaVersion ?? meta.schemaVersion;
-  if (declaredSchema !== CANVAS_SCHEMA_VERSION) {
+  if (
+    typeof declaredSchema === "number" &&
+    !SUPPORTED_BUNDLE_SCHEMA_VERSIONS.includes(declaredSchema as 1 | 2)
+  ) {
     throw new BundleImportError(
       "schema-mismatch",
-      `Bundle schema v${declaredSchema} not supported (need v${CANVAS_SCHEMA_VERSION}).`,
+      `Bundle schema v${declaredSchema} not supported (need v${SUPPORTED_BUNDLE_SCHEMA_VERSIONS.join(" or v")}).`,
     );
   }
 
   validateCanvasUuids(canvasRaw);
+
+  // Restore user assets first so canvas refs (e.g. "user:<uuid>") resolve.
+  const manifestEntry = findManifestEntry(zip);
+  if (manifestEntry) {
+    const manifestText = await manifestEntry.async("string");
+    const manifest = parseJson<AssetManifest>(manifestText, "assets/manifest.json");
+    const assets = Array.isArray(manifest.assets) ? manifest.assets : [];
+    const restored: { asset: UserAsset; blob: Blob }[] = [];
+    for (const asset of assets) {
+      if (!asset || typeof asset.id !== "string") continue;
+      const blobEntry = findAssetBlob(zip, asset.id, asset.ext);
+      if (!blobEntry) {
+        console.warn(
+          `[engram] importBundle: asset blob missing for ${asset.id}; skipping`,
+        );
+        continue;
+      }
+      const blob = await blobEntry.async("blob");
+      const typed =
+        asset.mimeType && blob.type !== asset.mimeType
+          ? new Blob([blob], { type: asset.mimeType })
+          : blob;
+      restored.push({ asset, blob: typed });
+    }
+    if (restored.length > 0) {
+      await registerImportedUserAssets(restored);
+    }
+  }
 
   const reconciledCanvas = reconcileCanvas(canvasRaw, notesText);
 
@@ -125,6 +173,8 @@ export async function importBundle(
   };
 }
 
+void putBlob; // re-exported for tests
+
 /** Map basename → JSZipFile so we tolerate top-level slug folders or flat zips. */
 function collectFiles(zip: JSZip): Map<string, JSZip.JSZipObject> {
   const map = new Map<string, JSZip.JSZipObject>();
@@ -134,6 +184,39 @@ function collectFiles(zip: JSZip): Map<string, JSZip.JSZipObject> {
     if (!map.has(basename)) map.set(basename, entry);
   });
   return map;
+}
+
+function findManifestEntry(zip: JSZip): JSZip.JSZipObject | undefined {
+  let found: JSZip.JSZipObject | undefined;
+  zip.forEach((path, entry) => {
+    if (entry.dir) return;
+    if (found) return;
+    const norm = path.replace(/\\/g, "/");
+    if (norm.endsWith("/assets/manifest.json") || norm === "assets/manifest.json") {
+      found = entry;
+    }
+  });
+  return found;
+}
+
+function findAssetBlob(
+  zip: JSZip,
+  id: string,
+  ext: string,
+): JSZip.JSZipObject | undefined {
+  let found: JSZip.JSZipObject | undefined;
+  zip.forEach((path, entry) => {
+    if (entry.dir) return;
+    if (found) return;
+    const norm = path.replace(/\\/g, "/");
+    if (
+      norm.endsWith(`/assets/${id}.${ext}`) ||
+      norm === `assets/${id}.${ext}`
+    ) {
+      found = entry;
+    }
+  });
+  return found;
 }
 
 function parseJson<T>(text: string, label: string): T {
