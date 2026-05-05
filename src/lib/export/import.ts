@@ -5,8 +5,13 @@ import {
 } from "@/lib/constants";
 import { newId } from "@/lib/id";
 import { parseNotes } from "@/lib/notes/parse";
-import { emptyCanvas, type CanvasState } from "@/lib/types/canvas";
+import {
+  emptyCanvas,
+  normalizeCanvas,
+  type CanvasState,
+} from "@/lib/types/canvas";
 import type { Picmonic, PicmonicMeta } from "@/lib/types/picmonic";
+import { putBlob as putBackdropBlob } from "@/lib/user-assets/blob-store";
 import {
   putBlob,
   registerImportedUserAssets,
@@ -57,9 +62,16 @@ interface BundleMeta {
   exportedAt?: number;
 }
 
+interface ManifestBackdropEntry {
+  id?: string;
+  ext?: string;
+  mimeType?: string;
+}
+
 interface AssetManifest {
   version?: number;
   assets?: UserAsset[];
+  backdrops?: ManifestBackdropEntry[];
 }
 
 /**
@@ -148,6 +160,24 @@ export async function importBundle(
     }
     if (restored.length > 0) {
       await registerImportedUserAssets(restored);
+    }
+    // Restore backdrop blobs (separate manifest section, no symbol cache).
+    const backdrops = Array.isArray(manifest.backdrops) ? manifest.backdrops : [];
+    for (const bd of backdrops) {
+      if (!bd || typeof bd.id !== "string" || typeof bd.ext !== "string") continue;
+      const blobEntry = findAssetBlob(zip, bd.id, bd.ext);
+      if (!blobEntry) {
+        console.warn(
+          `[engram] importBundle: backdrop blob missing for ${bd.id}; skipping`,
+        );
+        continue;
+      }
+      const blob = await blobEntry.async("blob");
+      const typed =
+        bd.mimeType && blob.type !== bd.mimeType
+          ? new Blob([blob], { type: bd.mimeType })
+          : blob;
+      await putBackdropBlob(bd.id, typed);
     }
   }
 
@@ -248,9 +278,14 @@ function validateCanvasUuids(canvas: CanvasState): void {
 
 /** Drop hotspots whose factId no longer resolves in the re-parsed notes. */
 function reconcileCanvas(canvas: CanvasState, notes: string): CanvasState {
-  const base: CanvasState = {
+  // Run through `normalizeCanvas` so any field added since the bundle was
+  // exported (backdrop, opacity, factMeta, timeline) gets backfilled.
+  const normalized = normalizeCanvas({
     ...emptyCanvas(),
     ...canvas,
+  });
+  const base: CanvasState = {
+    ...normalized,
     symbols: Array.isArray(canvas.symbols) ? canvas.symbols : [],
     groups: Array.isArray(canvas.groups) ? canvas.groups : [],
     factHotspots: canvas.factHotspots ?? {},

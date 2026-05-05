@@ -13,12 +13,14 @@ import {
 import { useStore } from "@/lib/store";
 import { usePicmonic } from "@/lib/store/hooks";
 import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
+import { BackdropLayer } from "./backdrop-layer";
 import { CanvasTransformer } from "./canvas-transformer";
 import { setCurrentStage } from "./canvas-stage-ref";
 import { DotGrid } from "./dot-grid";
 import { ReplaceSymbolPopover } from "./replace-symbol-popover";
 import { SymbolContextMenu } from "./symbol-context-menu";
 import { SymbolNode } from "./symbol-node";
+import { useBackdropFileDrop } from "./use-backdrop-file-drop";
 import { useCanvasDrop } from "./use-canvas-drop";
 import { useThumbnailCapture } from "./use-thumbnail-capture";
 
@@ -75,6 +77,7 @@ export function CanvasStage() {
 
   const picmonic = usePicmonic();
   const symbols = picmonic?.canvas.symbols ?? EMPTY_SYMBOLS;
+  const backdrop = picmonic?.canvas.backdrop ?? null;
   const stageFill = useThemedCssVar("--stage", STAGE_PAPER_FALLBACK) ?? STAGE_PAPER_FALLBACK;
   const accent = useThemedCssVar("--accent", "#7dd3fc") ?? "#7dd3fc";
   const selectedIds = useStore((s) => s.selectedSymbolIds);
@@ -101,6 +104,7 @@ export function CanvasStage() {
   }, [selectedIds, symbols]);
 
   const { dragHover } = useCanvasDrop({ stageRef, containerRef });
+  const { fileHover } = useBackdropFileDrop({ containerRef });
   useThumbnailCapture(stageRef);
 
   React.useEffect(() => {
@@ -381,6 +385,9 @@ export function CanvasStage() {
               />
               <DotGrid />
             </Layer>
+            {backdrop && backdrop.uploadedBlobId && (
+              <BackdropLayer backdrop={backdrop} />
+            )}
             <Layer>
               {symbols.map((layer) => (
                 <SymbolNode
@@ -442,6 +449,21 @@ export function CanvasStage() {
               )}
             </Layer>
           </Stage>
+        </div>
+      )}
+      {fileHover && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-md border-2 border-dashed border-[var(--accent)]/80 bg-background/70 backdrop-blur-sm"
+        >
+          <div className="flex flex-col items-center gap-2 text-center">
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              Drop image
+            </span>
+            <span className="text-sm font-medium text-foreground">
+              Set as background
+            </span>
+          </div>
         </div>
       )}
       <CornerReadout scale={box.scale} />

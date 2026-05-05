@@ -1,9 +1,14 @@
 import type Konva from "konva";
 import type { Picmonic } from "@/lib/types/picmonic";
 import { buildAnkiCsv } from "./anki";
-import { buildBundleZip, type BundleAssetInput } from "./bundle";
+import {
+  buildBundleZip,
+  type BundleAssetInput,
+  type BundleBackdropInput,
+} from "./bundle";
 import { downloadBlob, downloadText, slugifyName } from "./download";
 import { exportStageToPng, rasterizePicmonicToPng } from "./png";
+import { extForMime } from "@/lib/user-assets/refs";
 import {
   assetIdFromSymbolRef,
   getBlob,
@@ -55,7 +60,13 @@ export async function exportBundle(
     }
   }
   const userAssets = await collectReferencedUserAssets(picmonic);
-  const zip = await buildBundleZip({ picmonic, pngBlob, userAssets });
+  const backdrops = await collectBackdropAssets(picmonic);
+  const zip = await buildBundleZip({
+    picmonic,
+    pngBlob,
+    userAssets,
+    backdrops,
+  });
   downloadBlob(zip, `${slugifyName(picmonic.meta.name)}.zip`);
 }
 
@@ -86,4 +97,24 @@ async function collectReferencedUserAssets(
     out.push({ asset, blob });
   }
   return out;
+}
+
+async function collectBackdropAssets(
+  picmonic: Picmonic,
+): Promise<BundleBackdropInput[]> {
+  const id = picmonic.canvas.backdrop?.uploadedBlobId;
+  if (!id) return [];
+  const blob = await getBlob(id);
+  if (!blob) {
+    console.warn(`[engram] export: missing backdrop blob for ${id}`);
+    return [];
+  }
+  return [
+    {
+      id,
+      ext: extForMime(blob.type),
+      mimeType: blob.type,
+      blob,
+    },
+  ];
 }

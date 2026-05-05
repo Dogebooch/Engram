@@ -18,6 +18,7 @@ import {
   type SymbolEntry,
 } from "@/lib/symbols";
 import { loadUserAssets, useUserAssets } from "@/lib/user-assets";
+import { BackdropCard } from "./backdrop-card";
 import {
   LibraryLoadingState,
   LibraryMissingIndexState,
@@ -132,6 +133,8 @@ export function SymbolLibrary() {
           <UploadButton />
         </div>
       </div>
+
+      <BackdropCard />
 
       <div className="border-b border-border p-2">
         <LibrarySearch value={query} onChange={setQuery} />

@@ -1,4 +1,5 @@
 import Konva from "konva";
+import { addBackdropToLayer } from "@/components/editor/canvas/render-backdrop";
 import { STAGE_HEIGHT, STAGE_WIDTH } from "@/lib/constants";
 import { imageCache } from "@/lib/image-cache";
 import { getSymbolById, loadSymbols } from "@/lib/symbols";
@@ -84,6 +85,7 @@ export async function rasterizePicmonicToPng(
     height: STAGE_HEIGHT,
   });
 
+  let backdropUrl: string | null = null;
   try {
     const bgLayer = new Konva.Layer({ listening: false });
     bgLayer.add(
@@ -96,6 +98,13 @@ export async function rasterizePicmonicToPng(
       }),
     );
     stage.add(bgLayer);
+
+    const backdropLayer = new Konva.Layer({ listening: false });
+    backdropUrl = await addBackdropToLayer(
+      backdropLayer,
+      picmonic.canvas.backdrop,
+    );
+    stage.add(backdropLayer);
 
     const symLayer = new Konva.Layer({ listening: false });
     for (const layer of picmonic.canvas.symbols) {
@@ -129,5 +138,6 @@ export async function rasterizePicmonicToPng(
   } finally {
     stage.destroy();
     container.remove();
+    if (backdropUrl) URL.revokeObjectURL(backdropUrl);
   }
 }

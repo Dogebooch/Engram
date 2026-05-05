@@ -38,7 +38,7 @@ describe("canvas state serialization", () => {
   it("round-trips a fully-populated canvas including override + non-override hotspots", () => {
     const original: CanvasState = {
       schemaVersion: 1,
-      backdrop: { ref: "openmoji:beach", uploadedBlobId: null },
+      backdrop: { ref: "openmoji:beach", uploadedBlobId: null, opacity: 1 },
       symbols: [
         makeSymbol("11111111-1111-4111-8111-111111111111"),
         makeSymbol("22222222-2222-4222-8222-222222222222", {

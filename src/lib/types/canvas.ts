@@ -3,8 +3,14 @@ import type { CANVAS_SCHEMA_VERSION } from "@/lib/constants";
 export type SymbolRef = string;
 
 export interface Backdrop {
+  /** Reserved for v2 built-in backdrop gallery; unused in v1. */
   ref: SymbolRef | null;
   uploadedBlobId: string | null;
+  opacity: number;
+}
+
+export function emptyBackdrop(): Backdrop {
+  return { ref: null, uploadedBlobId: null, opacity: 1 };
 }
 
 export interface SymbolLayer {
@@ -73,7 +79,7 @@ export interface CanvasState {
 export function emptyCanvas(): CanvasState {
   return {
     schemaVersion: 1,
-    backdrop: { ref: null, uploadedBlobId: null },
+    backdrop: emptyBackdrop(),
     symbols: [],
     groups: [],
     factHotspots: {},
@@ -88,9 +94,14 @@ export function emptyCanvas(): CanvasState {
  * when fields actually need defaulting.
  */
 export function normalizeCanvas(c: CanvasState): CanvasState {
-  if (c.factMeta && c.timeline) return c;
+  const needsBackdrop =
+    !c.backdrop || typeof c.backdrop.opacity !== "number";
+  if (c.factMeta && c.timeline && !needsBackdrop) return c;
   return {
     ...c,
+    backdrop: needsBackdrop
+      ? { ...emptyBackdrop(), ...(c.backdrop ?? {}) }
+      : c.backdrop,
     factMeta: c.factMeta ?? {},
     timeline: c.timeline ?? [],
   };

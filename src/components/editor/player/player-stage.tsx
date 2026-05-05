@@ -12,6 +12,7 @@ import { getFactAnchor } from "@/lib/canvas/centroid";
 import { parseNotes } from "@/lib/notes/parse";
 import { getOrderedFacts } from "@/lib/notes/fact-order";
 import type { FactHotspots, SymbolLayer } from "@/lib/types/canvas";
+import { BackdropLayer } from "../canvas/backdrop-layer";
 import { DotGrid } from "../canvas/dot-grid";
 import { SymbolNode } from "../canvas/symbol-node";
 import { HotspotCircle } from "./hotspot-circle";
@@ -42,6 +43,7 @@ export function PlayerStage() {
   const picmonic = usePicmonic();
   const symbols = picmonic?.canvas.symbols ?? EMPTY_SYMBOLS;
   const factHotspots = picmonic?.canvas.factHotspots ?? EMPTY_HOTSPOTS;
+  const backdrop = picmonic?.canvas.backdrop ?? null;
   const notes = picmonic?.notes ?? "";
 
   const player = useStore((s) => s.player);
@@ -251,6 +253,9 @@ export function PlayerStage() {
               />
               <DotGrid />
             </Layer>
+            {backdrop && backdrop.uploadedBlobId && (
+              <BackdropLayer backdrop={backdrop} />
+            )}
             <Layer>
               {symbols.map((layer) => {
                 const isLinked = currentLinkedSymbolIds.has(layer.id);

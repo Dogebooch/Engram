@@ -21,3 +21,8 @@ export {
   extForMime,
 } from "./refs";
 export { putBlob, getBlob, deleteBlob } from "./blob-store";
+export {
+  uploadBackdropImage,
+  type BackdropUploadResult,
+  type BackdropUploadReject,
+} from "./backdrop-upload";

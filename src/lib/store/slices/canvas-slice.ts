@@ -12,7 +12,18 @@ import {
   tagSymbolsWithNewFact as runBatchTagWithNewFact,
 } from "@/lib/notes/tag";
 import type { Picmonic } from "@/lib/types/picmonic";
-import type { CanvasState, FactHotspots, SymbolLayer, Group } from "@/lib/types/canvas";
+import {
+  emptyBackdrop,
+  type Backdrop,
+  type CanvasState,
+  type FactHotspots,
+  type SymbolLayer,
+  type Group,
+} from "@/lib/types/canvas";
+import {
+  uploadBackdropImage,
+  type BackdropUploadResult,
+} from "@/lib/user-assets";
 import type { RootState } from "../types";
 
 export interface AddSymbolInput {
@@ -65,6 +76,15 @@ export interface CanvasSlice {
    * computed centroid of its linked symbols.
    */
   clearHotspotOverride: (factId: string) => void;
+  /**
+   * Validate + persist an image as the current Picmonic's backdrop.
+   * Preserves opacity if a backdrop was already set. Single history entry.
+   */
+  setBackdropFromUpload: (file: File) => Promise<BackdropUploadResult>;
+  /** Clear the active Picmonic's backdrop (blob is left in IDB; orphan sweep is future work). */
+  clearBackdrop: () => void;
+  /** 0..1, clamped. Caller decides when to snapshot history (see notes-panel pattern). */
+  setBackdropOpacity: (opacity: number) => void;
 }
 
 function patchCanvas(p: Picmonic, patch: Partial<CanvasState>): Picmonic {
@@ -391,6 +411,71 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       delete next[factId];
       return {
         picmonics: { ...s.picmonics, [cid]: patchCanvas(p, { factHotspots: next }) },
+      };
+    });
+  },
+
+  setBackdropFromUpload: async (file) => {
+    const cid = get().currentPicmonicId;
+    if (!cid) {
+      return { kind: "rejected", filename: file.name, reason: "empty" };
+    }
+    const result = await uploadBackdropImage(file);
+    if (result.kind !== "ok") return result;
+    set((s) => {
+      const p = s.picmonics[cid];
+      if (!p) return s;
+      // TODO(orphan-sweep): old `uploadedBlobId` may now be unreferenced.
+      const prevOpacity = p.canvas.backdrop?.opacity ?? 1;
+      const next: Backdrop = {
+        ref: null,
+        uploadedBlobId: result.id,
+        opacity: prevOpacity,
+      };
+      return {
+        picmonics: {
+          ...s.picmonics,
+          [cid]: patchCanvas(p, { backdrop: next }),
+        },
+      };
+    });
+    return result;
+  },
+
+  clearBackdrop: () => {
+    const cid = get().currentPicmonicId;
+    if (!cid) return;
+    set((s) => {
+      const p = s.picmonics[cid];
+      if (!p) return s;
+      const cur = p.canvas.backdrop;
+      if (!cur || (cur.uploadedBlobId === null && cur.ref === null)) return s;
+      // TODO(orphan-sweep): leaves the blob in IDB.
+      return {
+        picmonics: {
+          ...s.picmonics,
+          [cid]: patchCanvas(p, { backdrop: emptyBackdrop() }),
+        },
+      };
+    });
+  },
+
+  setBackdropOpacity: (opacity) => {
+    const cid = get().currentPicmonicId;
+    if (!cid) return;
+    const clamped = Math.max(0, Math.min(1, opacity));
+    set((s) => {
+      const p = s.picmonics[cid];
+      if (!p) return s;
+      const cur = p.canvas.backdrop ?? emptyBackdrop();
+      if (cur.opacity === clamped) return s;
+      return {
+        picmonics: {
+          ...s.picmonics,
+          [cid]: patchCanvas(p, {
+            backdrop: { ...cur, opacity: clamped },
+          }),
+        },
       };
     });
   },
