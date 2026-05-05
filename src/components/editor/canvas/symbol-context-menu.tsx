@@ -91,6 +91,16 @@ function SymbolContextMenuInner({
     for (const id of targetIds) reorderSymbol(id, "toFront");
   };
 
+  const onBringForward = () => {
+    closeContextMenu();
+    for (const id of targetIds) reorderSymbol(id, "forward");
+  };
+
+  const onSendBackward = () => {
+    closeContextMenu();
+    for (const id of targetIds) reorderSymbol(id, "back");
+  };
+
   const onSendToBack = () => {
     closeContextMenu();
     for (const id of targetIds) reorderSymbol(id, "toBack");
@@ -163,6 +173,14 @@ function SymbolContextMenuInner({
         <DropdownMenuItem onClick={onBringToFront}>
           Bring to Front
           <DropdownMenuShortcut>{"}"}</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onBringForward}>
+          Bring Forward
+          <DropdownMenuShortcut>{"]"}</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onSendBackward}>
+          Send Backward
+          <DropdownMenuShortcut>{"["}</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onSendToBack}>
           Send to Back
