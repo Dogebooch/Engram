@@ -16,6 +16,7 @@ import { useCurrentPicmonicId, useUiPrefs } from "@/lib/store/hooks";
 import { useEditorKeybindings } from "@/lib/keybindings";
 import { useSaveFlowMonitor } from "@/lib/storage/use-save-flow-monitor";
 import { clearHistory } from "@/lib/store/temporal";
+import { useUpdaterCheck } from "@/lib/updater";
 import { CanvasErrorBoundary } from "./error-boundary";
 import { FactPicker } from "./dialogs/fact-picker";
 import { SymbolDeleteConfirm } from "./dialogs/symbol-delete-confirm";
@@ -39,6 +40,7 @@ export function EditorShell() {
   useEditorKeybindings();
   useSaveFlowMonitor();
   useAutoOpenRightPanel();
+  useUpdaterCheck();
 
   const ui = useUiPrefs();
   const currentId = useCurrentPicmonicId();
