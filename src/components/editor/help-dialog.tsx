@@ -8,6 +8,7 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
+import { APP_VERSION } from "@/lib/app-version";
 
 interface ShortcutRow {
   label: string;
@@ -105,7 +106,7 @@ function ManpageStamp() {
     <div className="flex items-center justify-center gap-2 px-5 pt-4 pb-3 text-[10px] uppercase tracking-[0.2em] font-mono text-muted-foreground/55">
       <span>engram(1)</span>
       <span className="text-muted-foreground/35">•</span>
-      <span>v0.1</span>
+      <span>v{APP_VERSION}</span>
       <span className="text-muted-foreground/35">•</span>
       <span>keyboard</span>
     </div>

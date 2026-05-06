@@ -3,6 +3,7 @@
 import { ArrowRightIcon, BrainIcon, FileTextIcon, ShapesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
+import { APP_VERSION } from "@/lib/app-version";
 
 const POINTS = [
   {
@@ -33,7 +34,7 @@ export function EmptyState() {
         <div className="space-y-3">
           <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/40 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
             <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />
-            v0.1 · phase 1
+            v{APP_VERSION}
           </span>
           <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground">
             Build your first mnemonic scene.
