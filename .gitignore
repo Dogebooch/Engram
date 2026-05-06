@@ -54,3 +54,13 @@ CLAUDE-*.md
 .vscode/
 .idea/
 .DS_Store
+
+# Tauri / Rust build artifacts
+/src-tauri/target/
+/src-tauri/gen/
+/src-tauri/WixTools/
+/src-tauri/.cargo/
+
+# Updater signing keys (paranoid — should never be in repo)
+*.key
+*.key.pub

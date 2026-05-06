@@ -10,7 +10,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "symbols:build": "node scripts/build-symbol-index.mjs",
-    "postinstall": "node scripts/build-symbol-index.mjs"
+    "postinstall": "node scripts/build-symbol-index.mjs",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "version:bump": "node scripts/bump-version.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -22,6 +26,8 @@
     "@codemirror/view": "^6.41.1",
     "@lezer/markdown": "^1.6.3",
     "@tanstack/react-virtual": "^3.13.24",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2.10.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -48,6 +54,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@tauri-apps/cli": "^2.11.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
