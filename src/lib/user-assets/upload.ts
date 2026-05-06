@@ -87,12 +87,13 @@ async function uploadOne(file: File): Promise<UploadOutcome> {
   }
 
   const sha256 = await sha256Hex(buf);
-  const existing = findAssetByHash(sha256);
+  const existing = findAssetByHash(sha256, "symbol");
   if (existing) return { kind: "duplicate", asset: existing };
 
   const id = newId();
   const asset: UserAsset = {
     id,
+    kind: "symbol",
     displayName: deriveDisplayName(file.name),
     tags: deriveTags(file.name),
     originalFilename: file.name,

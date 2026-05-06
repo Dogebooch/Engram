@@ -17,6 +17,25 @@ function normalizePicmonic(p: Picmonic): Picmonic {
   return canvas === p.canvas ? p : { ...p, canvas };
 }
 
+/**
+ * Lazy backwards-compat: scenes saved before backgrounds were indexed have
+ * a `uploadedBlobId` that lives in the user-asset blob store but has no
+ * entry in the asset index. On scene load, register it so it appears in
+ * the Backgrounds library tab. Best-effort — failures are logged.
+ */
+async function maybeIndexBackdrop(picmonic: Picmonic | undefined): Promise<void> {
+  const blobId = picmonic?.canvas.backdrop?.uploadedBlobId;
+  if (!blobId) return;
+  try {
+    const { ensureBackdropIndexed } = await import(
+      "@/lib/user-assets/backdrop-library"
+    );
+    await ensureBackdropIndexed(blobId);
+  } catch (err) {
+    console.warn("[engram] maybeIndexBackdrop failed", err);
+  }
+}
+
 export interface PicmonicSlice {
   picmonics: Record<string, Picmonic>;
   currentPicmonicId: string | null;
@@ -160,6 +179,7 @@ export const createPicmonicSlice: StateCreator<RootState, [], [], PicmonicSlice>
   loadPicmonicById: async (id) => {
     if (get().picmonics[id]) {
       set({ currentPicmonicId: id });
+      void maybeIndexBackdrop(get().picmonics[id]);
       return true;
     }
     try {
@@ -170,6 +190,7 @@ export const createPicmonicSlice: StateCreator<RootState, [], [], PicmonicSlice>
         picmonics: { ...s.picmonics, [data.id]: data },
         currentPicmonicId: data.id,
       }));
+      void maybeIndexBackdrop(data);
       return true;
     } catch (err) {
       console.error("[engram] load picmonic failed", err);
@@ -183,6 +204,7 @@ export const createPicmonicSlice: StateCreator<RootState, [], [], PicmonicSlice>
     set((s) => ({
       picmonics: { ...s.picmonics, [normalized.id]: normalized },
     }));
+    void maybeIndexBackdrop(normalized);
   },
   setNotes: (id, notes) =>
     set((s) => {

@@ -1,5 +1,8 @@
+export type UserAssetKind = "symbol" | "background";
+
 export interface UserAsset {
   id: string;
+  kind: UserAssetKind;
   displayName: string;
   tags: string[];
   originalFilename: string;
@@ -11,10 +14,10 @@ export interface UserAsset {
 }
 
 export interface UserAssetIndex {
-  version: 1;
+  version: 2;
   assets: UserAsset[];
 }
 
 export function emptyUserAssetIndex(): UserAssetIndex {
-  return { version: 1, assets: [] };
+  return { version: 2, assets: [] };
 }

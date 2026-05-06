@@ -37,6 +37,11 @@ export interface AddSymbolInput {
 
 export type ReorderMode = "back" | "forward" | "toBack" | "toFront";
 
+export interface SetBackdropFromAssetOptions {
+  /** Optional explicit opacity. Defaults to current backdrop's opacity, else 1. */
+  opacity?: number;
+}
+
 export interface CanvasSlice {
   addSymbol: (input: AddSymbolInput) => string | null;
   updateSymbol: (
@@ -81,6 +86,14 @@ export interface CanvasSlice {
    * Preserves opacity if a backdrop was already set. Single history entry.
    */
   setBackdropFromUpload: (file: File) => Promise<BackdropUploadResult>;
+  /**
+   * Apply an existing background asset (from the library) to the current
+   * scene without re-uploading. Single history entry.
+   */
+  setBackdropFromAsset: (
+    assetId: string,
+    opts?: SetBackdropFromAssetOptions,
+  ) => boolean;
   /** Clear the active Picmonic's backdrop (blob is left in IDB; orphan sweep is future work). */
   clearBackdrop: () => void;
   /** 0..1, clamped. Caller decides when to snapshot history (see notes-panel pattern). */
@@ -440,6 +453,34 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       };
     });
     return result;
+  },
+
+  setBackdropFromAsset: (assetId, opts) => {
+    const cid = get().currentPicmonicId;
+    if (!cid || !assetId) return false;
+    let changed = false;
+    set((s) => {
+      const p = s.picmonics[cid];
+      if (!p) return s;
+      const cur = p.canvas.backdrop;
+      const opacity = opts?.opacity ?? cur?.opacity ?? 1;
+      if (cur?.uploadedBlobId === assetId && cur.opacity === opacity) {
+        return s;
+      }
+      changed = true;
+      const next: Backdrop = {
+        ref: null,
+        uploadedBlobId: assetId,
+        opacity,
+      };
+      return {
+        picmonics: {
+          ...s.picmonics,
+          [cid]: patchCanvas(p, { backdrop: next }),
+        },
+      };
+    });
+    return changed;
   },
 
   clearBackdrop: () => {

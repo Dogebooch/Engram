@@ -4,6 +4,8 @@ import type { RootState } from "../types";
 
 export type PlayerMode = "hotspot" | "sequential";
 
+export type LibrarySegment = "symbols" | "backgrounds";
+
 export type QuotaThreshold = "80" | "95";
 
 export interface StorageQuotaState {
@@ -29,12 +31,23 @@ export interface UiState {
    */
   confirmSymbolDelete: boolean;
   /**
+   * Which segment of the left library panel is active. Persists across
+   * sessions so authors return to the segment they last used.
+   */
+  librarySegment: LibrarySegment;
+  /**
    * Transient (non-persisted): becomes true the first time we auto-open
    * the right panel for the active picmonic, so re-collapsing the panel
    * isn't fought by subsequent symbol adds. Resets on picmonic switch.
    * Excluded from persistence via [persist partialize].
    */
   autoOpenedRightForActivePicmonic: boolean;
+  /**
+   * Transient (non-persisted): when set, the matching background tile in
+   * the Backgrounds grid scrolls into view and pulses an accent ring once.
+   * Cleared after the grid consumes it.
+   */
+  highlightAssetId: string | null;
 }
 
 export interface UiSlice {
@@ -56,6 +69,8 @@ export interface UiSlice {
    */
   ensureRightPanelOpenedOnce: () => void;
   resetAutoOpenedRight: () => void;
+  setLibrarySegment: (seg: LibrarySegment) => void;
+  setHighlightAssetId: (id: string | null) => void;
 }
 
 export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => ({
@@ -68,7 +83,9 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
     lastPlayerMode: "hotspot",
     storageQuota: { percent: null, lastWarned: null },
     confirmSymbolDelete: true,
+    librarySegment: "symbols",
     autoOpenedRightForActivePicmonic: false,
+    highlightAssetId: null,
   },
   setLeftPanelSize: (size) =>
     set((s) => ({ ui: { ...s.ui, leftPanelSize: size } })),
@@ -114,5 +131,17 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
       s.ui.autoOpenedRightForActivePicmonic
         ? { ui: { ...s.ui, autoOpenedRightForActivePicmonic: false } }
         : s,
+    ),
+  setLibrarySegment: (seg) =>
+    set((s) =>
+      s.ui.librarySegment === seg
+        ? s
+        : { ui: { ...s.ui, librarySegment: seg } },
+    ),
+  setHighlightAssetId: (id) =>
+    set((s) =>
+      s.ui.highlightAssetId === id
+        ? s
+        : { ui: { ...s.ui, highlightAssetId: id } },
     ),
 });

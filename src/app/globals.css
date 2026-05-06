@@ -332,6 +332,34 @@
   border-radius: 1px;
 }
 
+/* ---- Backdrop chip first-visit pulse ---- */
+
+@keyframes engram-bg-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--accent) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in oklch, var(--accent) 22%, transparent);
+  }
+}
+
+.engram-bg-pulse {
+  animation: engram-bg-pulse 1500ms ease-in-out 2;
+}
+
+@keyframes engram-pulse-once {
+  0%, 100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--accent) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--accent) 40%, transparent);
+  }
+}
+
+.animate-pulse-once {
+  animation: engram-pulse-once 1.4s ease-in-out 1;
+}
+
 /* ---- Heading marker styling (CodeMirror tokens) ---- */
 
 .eng-notes-host .cm-content .cm-line:has(.tok-heading-1)::before {

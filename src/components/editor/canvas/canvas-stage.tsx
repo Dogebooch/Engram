@@ -13,6 +13,7 @@ import {
 import { useStore } from "@/lib/store";
 import { usePicmonic } from "@/lib/store/hooks";
 import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
+import { BackdropChip } from "./backdrop-chip";
 import { BackdropLayer } from "./backdrop-layer";
 import { CanvasTransformer } from "./canvas-transformer";
 import { setCurrentStage } from "./canvas-stage-ref";
@@ -466,6 +467,7 @@ export function CanvasStage() {
           </div>
         </div>
       )}
+      <BackdropChip faded={fileHover || marquee.kind === "active"} />
       <CornerReadout scale={box.scale} />
       <SymbolContextMenu />
       <ReplaceSymbolPopover />

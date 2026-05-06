@@ -1,4 +1,4 @@
-export type { UserAsset, UserAssetIndex } from "./types";
+export type { UserAsset, UserAssetIndex, UserAssetKind } from "./types";
 export {
   uploadUserAssets,
   type UploadResult,
@@ -26,3 +26,9 @@ export {
   type BackdropUploadResult,
   type BackdropUploadReject,
 } from "./backdrop-upload";
+export {
+  ensureBackdropIndexed,
+  renameBackgroundAsset,
+  deleteBackgroundAsset,
+} from "./backdrop-library";
+export { useBlobPreviewUrl } from "./use-blob-preview";

@@ -53,7 +53,11 @@ export const useStore = create<RootState>()(
           storage: createJSONStorage(() => idbStateStorage),
           partialize: (s): PersistedShape => ({
             currentPicmonicId: s.currentPicmonicId,
-            ui: { ...s.ui, autoOpenedRightForActivePicmonic: false },
+            ui: {
+              ...s.ui,
+              autoOpenedRightForActivePicmonic: false,
+              highlightAssetId: null,
+            },
           }),
           version: STORE_VERSION,
           migrate: (state) => state as PersistedShape,

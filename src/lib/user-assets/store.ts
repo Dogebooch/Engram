@@ -40,8 +40,13 @@ export function removeUserAssetFromStore(assetId: string): void {
   notify();
 }
 
-export function findAssetByHash(sha256: string): UserAsset | undefined {
-  return assets.find((a) => a.sha256 === sha256);
+export function findAssetByHash(
+  sha256: string,
+  kind?: UserAsset["kind"],
+): UserAsset | undefined {
+  return assets.find(
+    (a) => a.sha256 === sha256 && (kind === undefined || a.kind === kind),
+  );
 }
 
 function subscribe(fn: () => void): () => void {

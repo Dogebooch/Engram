@@ -43,7 +43,9 @@ async function doLoad(): Promise<UserAsset[]> {
     const url = URL.createObjectURL(blob);
     addUserAssetToStore(asset, url);
     hydrated.push(asset);
-    entries.push(toSymbolEntry(asset, url));
+    if (asset.kind === "symbol") {
+      entries.push(toSymbolEntry(asset, url));
+    }
   }
   // addUserAssetToStore appends one-by-one with newest-first; reset to
   // canonical newest-first order from the index.

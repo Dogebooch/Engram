@@ -25,14 +25,16 @@ export async function registerImportedUserAssets(
   const existingIds = new Set(index.assets.map((a) => a.id));
   const additions: UserAsset[] = [];
   for (const { asset, blob } of entries) {
-    if (existingIds.has(asset.id)) {
-      // Already on disk — still ensure blob URL + cache exist for live render.
-      ensureLive(asset, blob);
+    // Older bundles predate the `kind` field; default to "symbol" since
+    // backgrounds were stored in a separate manifest section.
+    const normalized: UserAsset = { ...asset, kind: asset.kind ?? "symbol" };
+    if (existingIds.has(normalized.id)) {
+      ensureLive(normalized, blob);
       continue;
     }
-    await putBlob(asset.id, blob);
-    additions.push(asset);
-    ensureLive(asset, blob);
+    await putBlob(normalized.id, blob);
+    additions.push(normalized);
+    ensureLive(normalized, blob);
   }
   if (additions.length > 0) {
     await saveIndex({
@@ -45,5 +47,7 @@ export async function registerImportedUserAssets(
 function ensureLive(asset: UserAsset, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   addUserAssetToStore(asset, url);
-  registerUserSymbols([toSymbolEntry(asset, url)]);
+  if (asset.kind === "symbol") {
+    registerUserSymbols([toSymbolEntry(asset, url)]);
+  }
 }

@@ -79,6 +79,10 @@ async function collectReferencedUserAssets(
     const id = assetIdFromSymbolRef(layer.ref);
     if (id) referencedIds.add(id);
   }
+  // Bundle the backdrop's asset metadata too, if it's been registered.
+  // The blob itself still travels via the `backdrops` channel.
+  const backdropId = picmonic.canvas.backdrop?.uploadedBlobId ?? null;
+  if (backdropId) referencedIds.add(backdropId);
   if (referencedIds.size === 0) return [];
   const snapshot = getUserAssetsSnapshot();
   const byId = new Map(snapshot.map((a) => [a.id, a]));
@@ -86,7 +90,11 @@ async function collectReferencedUserAssets(
   for (const id of referencedIds) {
     const asset = byId.get(id);
     if (!asset) {
-      console.warn(`[engram] export: missing user asset metadata for ${id}`);
+      // Backdrop blobs that predate background indexing won't have metadata
+      // — that's fine; the legacy `backdrops` section still carries the blob.
+      if (id !== backdropId) {
+        console.warn(`[engram] export: missing user asset metadata for ${id}`);
+      }
       continue;
     }
     const blob = await getBlob(id);
@@ -109,6 +117,10 @@ async function collectBackdropAssets(
     console.warn(`[engram] export: missing backdrop blob for ${id}`);
     return [];
   }
+  // If the backdrop has been registered as a `kind: "background"` asset,
+  // its name/tags travel inside `userAssets`. The `backdrops` channel is
+  // retained for backwards compatibility with older importers and as a
+  // fallback when the asset metadata is missing.
   return [
     {
       id,
