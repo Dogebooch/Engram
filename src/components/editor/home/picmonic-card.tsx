@@ -69,6 +69,8 @@ export function PicmonicCard({
             <img
               src={entry.thumbDataUrl}
               alt=""
+              width={800}
+              height={450}
               className="h-full w-full object-cover"
               draggable={false}
             />
