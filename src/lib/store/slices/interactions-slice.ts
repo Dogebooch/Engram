@@ -17,6 +17,18 @@ export interface SymbolContextMenuState {
   symbolId: string;
 }
 
+/**
+ * Right-click on empty canvas (away from any symbol). `x/y` are viewport
+ * coords for menu placement; `stageX/stageY` are stage-local coords used to
+ * place pasted symbols at the click position.
+ */
+export interface StageContextMenuState {
+  x: number;
+  y: number;
+  stageX: number;
+  stageY: number;
+}
+
 export interface ReplacePickerState {
   x: number;
   y: number;
@@ -30,6 +42,7 @@ export interface PendingSymbolDeleteState {
 export interface InteractionsSlice {
   factPicker: FactPickerState | null;
   contextMenu: SymbolContextMenuState | null;
+  stageContextMenu: StageContextMenuState | null;
   replacePicker: ReplacePickerState | null;
   /** Ephemeral; intentionally outside `ui` so reload defaults to closed. */
   helpOpen: boolean;
@@ -46,6 +59,13 @@ export interface InteractionsSlice {
     symbolId: string,
   ) => void;
   closeSymbolContextMenu: () => void;
+  openStageContextMenu: (
+    x: number,
+    y: number,
+    stageX: number,
+    stageY: number,
+  ) => void;
+  closeStageContextMenu: () => void;
   openReplacePicker: (x: number, y: number, symbolId: string) => void;
   closeReplacePicker: () => void;
   setHelpOpen: (open: boolean) => void;
@@ -69,6 +89,7 @@ export const createInteractionsSlice: StateCreator<
 > = (set, get) => ({
   factPicker: null,
   contextMenu: null,
+  stageContextMenu: null,
   replacePicker: null,
   helpOpen: false,
   pendingSymbolDelete: null,
@@ -80,6 +101,9 @@ export const createInteractionsSlice: StateCreator<
   openSymbolContextMenu: (x, y, symbolId) =>
     set({ contextMenu: { x, y, symbolId } }),
   closeSymbolContextMenu: () => set({ contextMenu: null }),
+  openStageContextMenu: (x, y, stageX, stageY) =>
+    set({ stageContextMenu: { x, y, stageX, stageY } }),
+  closeStageContextMenu: () => set({ stageContextMenu: null }),
   openReplacePicker: (x, y, symbolId) =>
     set({ replacePicker: { x, y, symbolId } }),
   closeReplacePicker: () => set({ replacePicker: null }),
