@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/schema.json",
   "productName": "Engram",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "identifier": "com.dogebooch.engram",
   "build": {
     "beforeBuildCommand": "npm run build",

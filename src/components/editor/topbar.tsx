@@ -17,6 +17,8 @@ import { PicmonicName } from "./picmonic-name";
 import { SaveStatus } from "./save-status";
 import { ThemeToggle } from "./theme-toggle";
 
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
+
 export function Topbar() {
   const ui = useUiPrefs();
   const currentId = useCurrentPicmonicId();
@@ -186,6 +188,12 @@ function Brand({ canGoHome, onHome }: { canGoHome: boolean; onHome: () => void }
       </span>
       <span className="font-mono text-[12px] font-medium tracking-[0.18em] text-foreground/85">
         engram
+      </span>
+      <span
+        aria-label={`version ${APP_VERSION}`}
+        className="font-mono text-[10px] tracking-[0.12em] text-muted-foreground/45"
+      >
+        v{APP_VERSION}
       </span>
     </>
   );
