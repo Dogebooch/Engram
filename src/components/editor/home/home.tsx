@@ -13,6 +13,8 @@ import { TagEditor } from "@/components/editor/dialogs/tag-editor";
 import { HomeExportDialog } from "./export-menu";
 import { ImportButton } from "./import-button";
 import { PicmonicCard } from "./picmonic-card";
+
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
 import { TagFilter } from "./tag-filter";
 
 const POINTS = [
@@ -234,7 +236,7 @@ function EmptyHero({ onCreate }: { onCreate: () => void }) {
         <div className="space-y-3">
           <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/40 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
             <span aria-hidden className="size-1.5 rounded-full bg-accent" />
-            v0.1 · phase 6
+            v{APP_VERSION} · phase 6
           </span>
           <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground">
             Build your first mnemonic scene.
