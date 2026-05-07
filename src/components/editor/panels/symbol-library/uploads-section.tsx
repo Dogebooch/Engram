@@ -1,12 +1,20 @@
 "use client";
 
 import * as React from "react";
-import { ImageIcon, Trash2Icon } from "lucide-react";
+import {
+  ImageIcon,
+  Loader2Icon,
+  RotateCcwIcon,
+  ScissorsIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   deleteUserAsset,
   findPicmonicsUsingSymbol,
   getUserAssetBlobUrl,
+  removeBackgroundForAsset,
+  restoreOriginalBackground,
   userAssetSymbolId,
   type UserAsset,
 } from "@/lib/user-assets";
@@ -56,6 +64,7 @@ function UploadCard({ asset, onActivate }: UploadCardProps) {
   const entry = getSymbolById(symbolId);
   const fallbackUrl = getUserAssetBlobUrl(asset.id);
   const [busy, setBusy] = React.useState(false);
+  const [bgBusy, setBgBusy] = React.useState(false);
 
   const handleDelete = React.useCallback(
     async (e: React.MouseEvent) => {
@@ -88,10 +97,45 @@ function UploadCard({ asset, onActivate }: UploadCardProps) {
     [asset.id, asset.displayName, symbolId, busy],
   );
 
+  const isProcessed = !!asset.originalBackupId;
+  const canProcess = asset.mimeType !== "image/svg+xml";
+
+  const handleBgAction = React.useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (bgBusy) return;
+      setBgBusy(true);
+      try {
+        if (isProcessed) {
+          await restoreOriginalBackground(asset.id);
+          toast.success(`Restored original "${asset.displayName}"`);
+        } else {
+          await removeBackgroundForAsset(asset.id);
+          toast.success(`Removed background from "${asset.displayName}"`);
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error(
+          isProcessed ? "Could not restore original" : "Could not remove background",
+        );
+      } finally {
+        setBgBusy(false);
+      }
+    },
+    [asset.id, asset.displayName, bgBusy, isProcessed],
+  );
+
   if (entry) {
     return (
       <div className="group/upload relative">
         <LibraryCard entry={entry} size="small" onActivate={onActivate} />
+        {canProcess ? (
+          <BackgroundOverlay
+            onClick={handleBgAction}
+            busy={bgBusy}
+            isProcessed={isProcessed}
+          />
+        ) : null}
         <DeleteOverlay onClick={handleDelete} />
       </div>
     );
@@ -152,6 +196,50 @@ function DeleteOverlay({
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={4}>
         Delete from library
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function BackgroundOverlay({
+  onClick,
+  busy,
+  isProcessed,
+}: {
+  onClick: (e: React.MouseEvent) => void;
+  busy: boolean;
+  isProcessed: boolean;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            onClick={onClick}
+            disabled={busy}
+            aria-label={isProcessed ? "Restore original background" : "Remove background"}
+            className={cn(
+              "absolute -left-1 -top-1 z-10 flex size-4 items-center justify-center rounded-full",
+              "bg-card text-foreground shadow-sm border border-border/70",
+              "opacity-0 transition-opacity duration-150 group-hover/upload:opacity-100 focus-visible:opacity-100",
+              isProcessed && "opacity-100",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40",
+              "disabled:cursor-progress",
+            )}
+          />
+        }
+      >
+        {busy ? (
+          <Loader2Icon className="size-2.5 animate-spin" />
+        ) : isProcessed ? (
+          <RotateCcwIcon className="size-2.5" />
+        ) : (
+          <ScissorsIcon className="size-2.5" />
+        )}
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={4}>
+        {isProcessed ? "Restore original background" : "Remove background"}
       </TooltipContent>
     </Tooltip>
   );

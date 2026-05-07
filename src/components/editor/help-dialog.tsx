@@ -29,6 +29,7 @@ const SECTIONS: ShortcutSection[] = [
       { label: "Toggle library", keys: ["⌘", "B"] },
       { label: "Toggle notes", keys: ["⌘", "\\"] },
       { label: "Focus library search", keys: ["/"] },
+      { label: "Paste image as symbol", hint: "drops at canvas center", keys: ["⌘", "V"] },
       { label: "Show this help", keys: ["?"] },
     ],
   },

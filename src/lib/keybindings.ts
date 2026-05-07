@@ -71,6 +71,7 @@ export function useEditorKeybindings(): void {
   const openFactPicker = useStore((s) => s.openFactPicker);
   const closeFactPicker = useStore((s) => s.closeFactPicker);
   const closeContextMenu = useStore((s) => s.closeSymbolContextMenu);
+  const closeStageContextMenu = useStore((s) => s.closeStageContextMenu);
   const closeReplacePicker = useStore((s) => s.closeReplacePicker);
   const requestSymbolDelete = useStore((s) => s.requestSymbolDelete);
   const cancelSymbolDelete = useStore((s) => s.cancelSymbolDelete);
@@ -213,6 +214,10 @@ export function useEditorKeybindings(): void {
       closeContextMenu();
       return;
     }
+    if (s.stageContextMenu) {
+      closeStageContextMenu();
+      return;
+    }
     if (cancelMarqueeIfActive()) return;
     if (s.selectedSymbolIds.length > 0) {
       clearSelection();
@@ -221,6 +226,7 @@ export function useEditorKeybindings(): void {
     cancelSymbolDelete,
     clearSelection,
     closeContextMenu,
+    closeStageContextMenu,
     closeFactPicker,
     closeReplacePicker,
     setHelpOpen,

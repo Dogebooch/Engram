@@ -18,6 +18,7 @@ import { CanvasTransformer } from "./canvas-transformer";
 import { setCurrentStage } from "./canvas-stage-ref";
 import { DotGrid } from "./dot-grid";
 import { ReplaceSymbolPopover } from "./replace-symbol-popover";
+import { StageContextMenu } from "./stage-context-menu";
 import { SymbolContextMenu } from "./symbol-context-menu";
 import { SymbolNode } from "./symbol-node";
 import { useBackdropFileDrop } from "./use-backdrop-file-drop";
@@ -213,6 +214,21 @@ export function CanvasStage() {
     [],
   );
 
+  const openStageContextMenu = useStore((s) => s.openStageContextMenu);
+
+  const handleStageContextMenu = React.useCallback(
+    (e: KonvaEventObject<PointerEvent>) => {
+      // Only fire for clicks on empty stage; per-symbol and Transformer
+      // handlers stop propagation via cancelBubble.
+      if (e.target !== e.target.getStage()) return;
+      e.evt.preventDefault();
+      const local = stageLocalFromClient(e.evt.clientX, e.evt.clientY);
+      if (!local) return;
+      openStageContextMenu(e.evt.clientX, e.evt.clientY, local.x, local.y);
+    },
+    [openStageContextMenu, stageLocalFromClient],
+  );
+
   const handleStageMouseDown = React.useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
       if (e.target !== e.target.getStage()) return;
@@ -374,6 +390,7 @@ export function CanvasStage() {
             scaleX={box.scale}
             scaleY={box.scale}
             onMouseDown={handleStageMouseDown}
+            onContextMenu={handleStageContextMenu}
           >
             <Layer listening={false}>
               <Rect
@@ -468,6 +485,7 @@ export function CanvasStage() {
       )}
       <CornerReadout scale={box.scale} />
       <SymbolContextMenu />
+      <StageContextMenu />
       <ReplaceSymbolPopover />
     </div>
   );
