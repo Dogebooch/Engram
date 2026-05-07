@@ -9,6 +9,7 @@ import { useStore } from "@/lib/store";
 import { useCurrentPicmonicId, useUiPrefs } from "@/lib/store/hooks";
 import { flushPendingSave } from "@/lib/store/debounced-save";
 import { flushIndexPersist } from "@/lib/store/index-store";
+import { AppMenu } from "./app-menu";
 import { EditMenu } from "./edit-menu";
 import { EditorExportMenu } from "./editor-export-menu";
 import { FileMenu } from "./file-menu";
@@ -129,6 +130,8 @@ export function Topbar() {
         </Tooltip>
 
         <ThemeToggle />
+
+        <AppMenu />
 
         <Tooltip>
           <TooltipTrigger
