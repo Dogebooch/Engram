@@ -5,7 +5,7 @@ import { ImagePlusIcon, RefreshCwIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import {
   USER_ASSET_ACCEPT,
-  USER_ASSET_MAX_BYTES,
+  USER_BACKDROP_MAX_BYTES,
 } from "@/lib/constants";
 import { useStore } from "@/lib/store";
 import { usePicmonic } from "@/lib/store/hooks";
@@ -314,7 +314,7 @@ function rejectMessage(reason: string): string {
     case "mime":
       return "Unsupported format. Use PNG, JPG, WebP, SVG, or GIF.";
     case "size":
-      return `File exceeds ${(USER_ASSET_MAX_BYTES / 1024 / 1024).toFixed(0)} MB.`;
+      return `File exceeds ${(USER_BACKDROP_MAX_BYTES / 1024 / 1024).toFixed(0)} MB.`;
     case "quota":
       return "Storage is nearly full. Delete unused Picmonics or uploads first.";
     case "empty":
