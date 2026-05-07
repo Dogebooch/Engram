@@ -2,7 +2,7 @@
 
 import {
   USER_ASSET_ALLOWED_MIMES,
-  USER_ASSET_MAX_BYTES,
+  USER_BACKDROP_MAX_BYTES,
 } from "@/lib/constants";
 import { newId } from "@/lib/id";
 import { checkStorageQuota, thresholdAt } from "@/lib/storage/quota";
@@ -43,7 +43,7 @@ export async function uploadBackdropImage(
   if (!USER_ASSET_ALLOWED_MIMES.includes(file.type)) {
     return { kind: "rejected", filename: file.name, reason: "mime" };
   }
-  if (file.size > USER_ASSET_MAX_BYTES) {
+  if (file.size > USER_BACKDROP_MAX_BYTES) {
     return { kind: "rejected", filename: file.name, reason: "size" };
   }
 

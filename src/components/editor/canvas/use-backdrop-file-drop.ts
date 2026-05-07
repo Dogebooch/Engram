@@ -4,7 +4,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import {
   USER_ASSET_ALLOWED_MIMES,
-  USER_ASSET_MAX_BYTES,
+  USER_BACKDROP_MAX_BYTES,
 } from "@/lib/constants";
 import { useStore } from "@/lib/store";
 
@@ -76,9 +76,9 @@ export function useBackdropFileDrop({ containerRef }: Args): {
         });
         return;
       }
-      if (file.size > USER_ASSET_MAX_BYTES) {
+      if (file.size > USER_BACKDROP_MAX_BYTES) {
         toast.error("File is too large", {
-          description: `Backdrops must be under ${(USER_ASSET_MAX_BYTES / 1024 / 1024).toFixed(0)} MB.`,
+          description: `Backdrops must be under ${(USER_BACKDROP_MAX_BYTES / 1024 / 1024).toFixed(0)} MB.`,
         });
         return;
       }
@@ -117,7 +117,7 @@ function rejectMessage(reason: string): string {
     case "mime":
       return "Unsupported format. Use PNG, JPG, WebP, SVG, or GIF.";
     case "size":
-      return `File exceeds ${(USER_ASSET_MAX_BYTES / 1024 / 1024).toFixed(0)} MB.`;
+      return `File exceeds ${(USER_BACKDROP_MAX_BYTES / 1024 / 1024).toFixed(0)} MB.`;
     case "quota":
       return "Storage is nearly full. Delete unused Picmonics or uploads first.";
     case "empty":

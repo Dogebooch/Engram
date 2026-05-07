@@ -25,6 +25,7 @@ export const SUPPORTED_BUNDLE_SCHEMA_VERSIONS = [1, 2] as const;
 export const USER_ASSETS_DB = "engram-user-assets";
 export const USER_ASSETS_STORE = "blobs";
 export const USER_ASSET_MAX_BYTES = 5 * 1024 * 1024;
+export const USER_BACKDROP_MAX_BYTES = 30 * 1024 * 1024;
 export const USER_ASSET_ACCEPT =
   "image/png,image/jpeg,image/webp,image/svg+xml,image/gif";
 export const USER_ASSET_ALLOWED_MIMES: ReadonlyArray<string> = [
