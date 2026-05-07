@@ -41,6 +41,7 @@ export function CanvasTransformer({
 }: CanvasTransformerProps) {
   const transformerRef = React.useRef<Konva.Transformer | null>(null);
   const updateSymbol = useStore((s) => s.updateSymbol);
+  const openSymbolContextMenu = useStore((s) => s.openSymbolContextMenu);
   const accent = useThemedCssVar("--accent", ACCENT_FALLBACK) ?? ACCENT_FALLBACK;
   const anchorFill = useThemedCssVar("--stage", STAGE_FALLBACK) ?? STAGE_FALLBACK;
 
@@ -53,6 +54,21 @@ export function CanvasTransformer({
     tr.nodes(nodes);
     tr.getLayer()?.batchDraw();
   }, [selectedIds, symbolsKey, getNode]);
+
+  // `shouldOverdrawWholeArea` makes the Transformer eat pointer events inside
+  // its bounding box (so drag-to-move works between anchors). Without this
+  // handler, right-click on a selected symbol hits the Transformer overlay
+  // and never reaches the underlying SymbolNode's onContextMenu.
+  const handleContextMenu = React.useCallback(
+    (e: KonvaEventObject<PointerEvent>) => {
+      e.evt.preventDefault();
+      e.cancelBubble = true;
+      const sel = useStore.getState().selectedSymbolIds;
+      if (sel.length === 0) return;
+      openSymbolContextMenu(e.evt.clientX, e.evt.clientY, sel[0]);
+    },
+    [openSymbolContextMenu],
+  );
 
   const handleTransformEnd = React.useCallback(
     (e: KonvaEventObject<Event>) => {
@@ -96,6 +112,7 @@ export function CanvasTransformer({
       keepRatio={false}
       ignoreStroke
       shouldOverdrawWholeArea
+      onContextMenu={handleContextMenu}
       onTransformEnd={handleTransformEnd}
       boundBoxFunc={(_oldBox, newBox) => {
         if (newBox.width < 8 || newBox.height < 8) return _oldBox;

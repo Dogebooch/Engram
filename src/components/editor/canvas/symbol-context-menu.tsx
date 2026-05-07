@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +12,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useStore } from "@/lib/store";
 import type { SymbolContextMenuState } from "@/lib/store/slices/interactions-slice";
+import {
+  assetIdFromSymbolRef,
+  removeBackgroundForAsset,
+  restoreOriginalBackground,
+  useUserAssets,
+} from "@/lib/user-assets";
 
 function isMac(): boolean {
   if (typeof navigator === "undefined") return false;
@@ -55,6 +62,9 @@ function SymbolContextMenuInner({
       (sy) => idSet.has(sy.id) && sy.groupId !== null,
     );
   });
+  // Subscribe so the menu re-renders when an asset's `originalBackupId`
+  // flips between Remove → Restore states.
+  const userAssets = useUserAssets();
 
   const mac = isMac();
   const cmd = mac ? "⌘" : "Ctrl";
@@ -62,6 +72,56 @@ function SymbolContextMenuInner({
 
   const targetIds =
     selectedSymbolIds.length > 0 ? selectedSymbolIds : [symbolId];
+
+  // Read the single-target layer ref as a primitive — returning a fresh object
+  // from a Zustand selector causes infinite re-renders under reference equality.
+  const targetLayerRef = useStore((s) => {
+    if (targetIds.length !== 1) return null;
+    const cid = s.currentPicmonicId;
+    if (!cid) return null;
+    return (
+      s.picmonics[cid]?.canvas.symbols.find((sy) => sy.id === targetIds[0])
+        ?.ref ?? null
+    );
+  });
+
+  const bgTarget = React.useMemo(() => {
+    if (!targetLayerRef) return null;
+    const assetId = assetIdFromSymbolRef(targetLayerRef);
+    if (!assetId) return null;
+    const asset = userAssets.find((a) => a.id === assetId);
+    if (!asset) return null;
+    if (asset.mimeType === "image/svg+xml") return null;
+    return {
+      assetId,
+      displayName: asset.displayName,
+      hasBackup: !!asset.originalBackupId,
+    };
+  }, [targetLayerRef, userAssets]);
+
+  const onRemoveBackground = async () => {
+    closeContextMenu();
+    if (!bgTarget) return;
+    try {
+      await removeBackgroundForAsset(bgTarget.assetId);
+      toast.success(`Removed background from "${bgTarget.displayName}"`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not remove background");
+    }
+  };
+
+  const onRestoreBackground = async () => {
+    closeContextMenu();
+    if (!bgTarget) return;
+    try {
+      await restoreOriginalBackground(bgTarget.assetId);
+      toast.success(`Restored original "${bgTarget.displayName}"`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not restore original");
+    }
+  };
 
   const tagWithFact = () => {
     closeContextMenu();
@@ -156,6 +216,17 @@ function SymbolContextMenuInner({
         <DropdownMenuItem onClick={onReplace} disabled={!canReplace}>
           Replace symbol…
         </DropdownMenuItem>
+        {bgTarget ? (
+          bgTarget.hasBackup ? (
+            <DropdownMenuItem onClick={onRestoreBackground}>
+              Restore original background
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onClick={onRemoveBackground}>
+              Remove background
+            </DropdownMenuItem>
+          )
+        ) : null}
         <DropdownMenuItem onClick={tagWithFact}>
           Tag with Fact…
           <DropdownMenuShortcut>F</DropdownMenuShortcut>

@@ -26,3 +26,7 @@ export {
   type BackdropUploadResult,
   type BackdropUploadReject,
 } from "./backdrop-upload";
+export {
+  removeBackgroundForAsset,
+  restoreOriginalBackground,
+} from "./process-asset";
