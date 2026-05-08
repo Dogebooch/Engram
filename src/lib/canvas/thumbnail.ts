@@ -1,7 +1,6 @@
 import type Konva from "konva";
-import { STAGE_WIDTH } from "@/lib/constants";
 
-const THUMB_WIDTH = 320;
+const THUMB_WIDTH = 960;
 
 export function captureThumbnail(stage: Konva.Stage | null): string | null {
   if (!stage) return null;
@@ -17,10 +16,16 @@ export function captureThumbnail(stage: Konva.Stage | null): string | null {
   }
   if (hidden.length > 0) stage.draw();
   try {
+    // Konva's toDataURL outputs `pixelRatio × stage.width()` pixels wide.
+    // The stage is sized to the viewport (not the logical 1920px canvas),
+    // so derive pixelRatio from the actual stage width to land on a
+    // consistent THUMB_WIDTH-wide raster regardless of zoom level.
+    const stageW = stage.width();
+    if (!stageW) return null;
     return stage.toDataURL({
-      pixelRatio: THUMB_WIDTH / STAGE_WIDTH,
+      pixelRatio: THUMB_WIDTH / stageW,
       mimeType: "image/jpeg",
-      quality: 0.7,
+      quality: 0.85,
     });
   } catch (err) {
     console.warn("[engram] thumbnail capture failed", err);
