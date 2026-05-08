@@ -166,13 +166,13 @@ describe("tag integration — bulk + cross-section", () => {
   it("mixed bulk: existing-fact + new-fact tagging in one sequence", () => {
     // Start with one fact, add to it, then create a new fact for two more.
     let notes = `## A\n`;
-    let r1 = tagId(notes, UUID_A, parseNotes(notes).rootFacts[0].factId);
+    const r1 = tagId(notes, UUID_A, parseNotes(notes).rootFacts[0].factId);
     notes = r1.newNotes;
-    let r2 = tagId(notes, UUID_B, parseNotes(notes).rootFacts[0].factId);
+    const r2 = tagId(notes, UUID_B, parseNotes(notes).rootFacts[0].factId);
     notes = r2.newNotes;
-    let r3 = tagNew(notes, UUID_C, "B");
+    const r3 = tagNew(notes, UUID_C, "B");
     notes = r3.newNotes;
-    let r4 = tagId(notes, UUID_D, parseNotes(notes).factsById.get(r3.factId)!.factId);
+    const r4 = tagId(notes, UUID_D, parseNotes(notes).factsById.get(r3.factId)!.factId);
     notes = r4.newNotes;
 
     const final = parseNotes(notes);
