@@ -21,7 +21,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-export function BackdropCard() {
+interface BackdropCardProps {
+  /**
+   * When true and no backdrop is set, render only the dashed "Add background"
+   * button (no section wrapper, no header) so the parent can place it inside
+   * a shared layout (see AddRow). Ignored when a backdrop IS set — the full
+   * preview/opacity/actions layout always renders inside its own section.
+   */
+  compact?: boolean;
+}
+
+export function BackdropCard({ compact = false }: BackdropCardProps = {}) {
   const picmonic = usePicmonic();
   const backdrop = picmonic?.canvas.backdrop ?? null;
   const setBackdropFromUpload = useStore((s) => s.setBackdropFromUpload);
@@ -134,6 +144,44 @@ export function BackdropCard() {
   }, []);
 
   const opacityPct = Math.round((backdrop?.opacity ?? 1) * 100);
+
+  // Compact + empty: render bare button only; parent (AddRow) provides the
+  // section wrapper and pairs us with AddSymbolCard.
+  if (compact && !hasBackdrop) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={handlePick}
+          disabled={busy}
+          className={cn(
+            "group flex w-full flex-col items-center justify-center gap-1.5",
+            "aspect-video rounded-md border border-dashed border-border/80",
+            "bg-card/30 text-muted-foreground transition-all",
+            "hover:border-[var(--accent)]/60 hover:bg-[var(--accent)]/[0.04] hover:text-foreground",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40",
+            "disabled:opacity-50",
+          )}
+          aria-label="Add background"
+        >
+          <ImagePlusIcon className="size-4 transition-transform group-hover:scale-110" />
+          <span className="text-[11px] font-medium">Add background</span>
+          <span className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground/50">
+            Or drop on canvas
+          </span>
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={USER_ASSET_ACCEPT}
+          onChange={handleChange}
+          className="sr-only"
+          aria-hidden
+          tabIndex={-1}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="border-b border-border bg-card/60 px-3 py-2.5">

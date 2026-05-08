@@ -4,7 +4,7 @@ import * as React from "react";
 import { UploadIcon } from "lucide-react";
 import { uploadUserAssets } from "@/lib/user-assets";
 import { cn } from "@/lib/utils";
-import { reportUploadResult } from "./upload-button";
+import { reportUploadResult } from "./upload-result-toasts";
 
 interface UploadDropZoneProps {
   onUploaded?: () => void;
