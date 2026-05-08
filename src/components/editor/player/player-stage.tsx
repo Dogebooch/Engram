@@ -38,6 +38,7 @@ export function PlayerStage() {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const stageRef = React.useRef<Konva.Stage | null>(null);
   const [box, setBox] = React.useState<FitBox>(ZERO_BOX);
+  const [containerSize, setContainerSize] = React.useState({ width: 0, height: 0 });
   const stageFill = useThemedCssVar("--stage", STAGE_FALLBACK) ?? STAGE_FALLBACK;
 
   const picmonic = usePicmonic();
@@ -117,6 +118,19 @@ export function PlayerStage() {
           return prev;
         }
         return next;
+      });
+      // clientWidth/Height = padding box (matches CSS absolute-positioning
+      // containing block). The reveal card uses this for smart-flip clamping.
+      const innerW = el.clientWidth;
+      const innerH = el.clientHeight;
+      setContainerSize((prev) => {
+        if (
+          Math.abs(prev.width - innerW) < 0.5 &&
+          Math.abs(prev.height - innerH) < 0.5
+        ) {
+          return prev;
+        }
+        return { width: innerW, height: innerH };
       });
     };
     const rect = el.getBoundingClientRect();
@@ -296,17 +310,14 @@ export function PlayerStage() {
           </Stage>
         </div>
       )}
-      {revealData && revealAnchor && containerRef.current && (
+      {revealData && revealAnchor && containerSize.width > 0 && (
         <HotspotRevealCard
           fact={revealData.fact}
           ordinal={revealData.ordinal}
           notes={notes}
           canvasSymbols={symbols}
           anchor={revealAnchor}
-          viewport={{
-            width: containerRef.current.clientWidth,
-            height: containerRef.current.clientHeight,
-          }}
+          viewport={containerSize}
         />
       )}
       <HotspotContextMenu

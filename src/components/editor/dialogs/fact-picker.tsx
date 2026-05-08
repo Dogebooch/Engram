@@ -58,10 +58,11 @@ export function FactPicker() {
   const symbolIds = factPicker?.symbolIds ?? [];
 
   const [query, setQuery] = React.useState("");
-
-  React.useEffect(() => {
+  const [prevOpen, setPrevOpen] = React.useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
     if (!open) setQuery("");
-  }, [open]);
+  }
 
   const rows = React.useMemo(() => (open ? buildRows(notes) : []), [
     open,
