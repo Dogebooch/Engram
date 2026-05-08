@@ -26,10 +26,11 @@ export function SymbolDeleteConfirm() {
   const confirmPending = useStore((s) => s.confirmPendingSymbolDelete);
 
   const [dontAskAgain, setDontAskAgain] = React.useState(false);
-
-  React.useEffect(() => {
+  const [prevPending, setPrevPending] = React.useState(pending);
+  if (prevPending !== pending) {
+    setPrevPending(pending);
     if (pending) setDontAskAgain(false);
-  }, [pending]);
+  }
 
   const open = pending !== null;
   const count = pending?.ids.length ?? 0;

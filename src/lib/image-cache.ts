@@ -50,26 +50,25 @@ export type UseImageState =
   | { status: "ready"; image: HTMLImageElement }
   | { status: "error"; error: Error };
 
+function initialStateFor(url: string | null | undefined): UseImageState {
+  if (!url) return { status: "error", error: new Error("no url") };
+  const cached = imageCache.peek(url);
+  if (cached) return { status: "ready", image: cached };
+  return { status: "loading" };
+}
+
 export function useImage(url: string | null | undefined): UseImageState {
-  const [state, setState] = useState<UseImageState>(() => {
-    if (!url) return { status: "error", error: new Error("no url") };
-    const cached = imageCache.peek(url);
-    if (cached) return { status: "ready", image: cached };
-    return { status: "loading" };
-  });
+  const [state, setState] = useState<UseImageState>(() => initialStateFor(url));
+  const [prevUrl, setPrevUrl] = useState(url);
+  if (prevUrl !== url) {
+    setPrevUrl(url);
+    setState(initialStateFor(url));
+  }
 
   useEffect(() => {
-    if (!url) {
-      setState({ status: "error", error: new Error("no url") });
-      return;
-    }
-    const cached = imageCache.peek(url);
-    if (cached) {
-      setState({ status: "ready", image: cached });
-      return;
-    }
+    if (!url) return;
+    if (imageCache.peek(url)) return;
     let cancelled = false;
-    setState({ status: "loading" });
     imageCache.get(url).then(
       (image) => {
         if (!cancelled) setState({ status: "ready", image });

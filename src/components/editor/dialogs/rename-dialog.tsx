@@ -29,16 +29,20 @@ export function RenameDialog({
   const [name, setName] = React.useState(initialName);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
+  const [prevOpen, setPrevOpen] = React.useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
+    if (open) setName(initialName);
+  }
+
   React.useEffect(() => {
-    if (open) {
-      setName(initialName);
-      const t = setTimeout(() => {
-        inputRef.current?.focus();
-        inputRef.current?.select();
-      }, 30);
-      return () => clearTimeout(t);
-    }
-  }, [open, initialName]);
+    if (!open) return;
+    const t = setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 30);
+    return () => clearTimeout(t);
+  }, [open]);
 
   const onSave = () => {
     const trimmed = name.trim();

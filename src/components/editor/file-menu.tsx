@@ -40,7 +40,12 @@ export function FileMenu() {
   const setCurrentPicmonic = useStore((s) => s.setCurrentPicmonic);
   const loadPicmonicById = useStore((s) => s.loadPicmonicById);
   const index = useIndexStore((s) => s.index);
-  const bundleImport = useBundleImport();
+  const {
+    inputRef: bundleInputRef,
+    onFile: bundleOnFile,
+    pick: bundlePick,
+    busy: bundleBusy,
+  } = useBundleImport();
   const exportActions = useExportActions();
 
   const others = React.useMemo(() => {
@@ -123,8 +128,8 @@ export function FileMenu() {
           </DropdownMenuSub>
 
           <DropdownMenuItem
-            onClick={bundleImport.pick}
-            disabled={bundleImport.busy}
+            onClick={bundlePick}
+            disabled={bundleBusy}
           >
             <ImportIcon />
             Import…
@@ -189,11 +194,11 @@ export function FileMenu() {
         </DropdownMenuContent>
       </DropdownMenu>
       <input
-        ref={bundleImport.inputRef}
+        ref={bundleInputRef}
         type="file"
         accept=".zip,application/zip"
         className="hidden"
-        onChange={bundleImport.onFile}
+        onChange={bundleOnFile}
       />
     </>
   );

@@ -49,15 +49,21 @@ export function TagEditor({
   const [draft, setDraft] = React.useState("");
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
-  React.useEffect(() => {
+  const [prevOpen, setPrevOpen] = React.useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
     if (open) {
       setTags(initialTags ?? []);
       setDraft("");
-      // focus after a tick so dialog mount completes
-      const t = setTimeout(() => inputRef.current?.focus(), 30);
-      return () => clearTimeout(t);
     }
-  }, [open, initialTags]);
+  }
+
+  React.useEffect(() => {
+    if (!open) return;
+    // focus after a tick so dialog mount completes
+    const t = setTimeout(() => inputRef.current?.focus(), 30);
+    return () => clearTimeout(t);
+  }, [open]);
 
   const allKnownTags = React.useMemo(() => {
     if (!allEntries) return [];
