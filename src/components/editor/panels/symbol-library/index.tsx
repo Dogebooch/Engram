@@ -18,7 +18,7 @@ import {
   type SymbolEntry,
 } from "@/lib/symbols";
 import { loadUserAssets, useUserAssets } from "@/lib/user-assets";
-import { BackdropCard } from "./backdrop-card";
+import { AddRow } from "./add-row";
 import {
   LibraryLoadingState,
   LibraryMissingIndexState,
@@ -27,7 +27,6 @@ import {
 import { LibraryGrid } from "./library-grid";
 import { LibrarySearch } from "./library-search";
 import { RecentStrip } from "./recent-strip";
-import { UploadButton } from "./upload-button";
 import { UploadDropZone } from "./upload-drop-zone";
 import { UploadsSection } from "./uploads-section";
 
@@ -124,17 +123,14 @@ export function SymbolLibrary() {
         <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Library
         </span>
-        <div className="flex items-center gap-2">
-          {totalLabel && (
-            <span className="font-mono text-[10px] text-muted-foreground/60">
-              {totalLabel}
-            </span>
-          )}
-          <UploadButton />
-        </div>
+        {totalLabel && (
+          <span className="font-mono text-[10px] text-muted-foreground/60">
+            {totalLabel}
+          </span>
+        )}
       </div>
 
-      <BackdropCard />
+      <AddRow />
 
       <div className="border-b border-border p-2">
         <LibrarySearch value={query} onChange={setQuery} />

@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { reportUploadResult } from "@/components/editor/panels/symbol-library/upload-button";
+import { reportUploadResult } from "@/components/editor/panels/symbol-library/upload-result-toasts";
 import { addSymbolWithNoteSync } from "@/lib/canvas/add-symbol-with-note-sync";
 import { clampToStage } from "@/lib/canvas/clamp-stage";
 import {
