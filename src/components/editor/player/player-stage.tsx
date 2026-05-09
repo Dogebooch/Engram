@@ -90,6 +90,17 @@ export function PlayerStage() {
     return new Set(fact.symbolRefs.map((r) => r.symbolId));
   }, [currentFactId, parsed]);
 
+  // 1-based ordinal among region-typed symbols. Mirrors canvas-stage so the
+  // chip number stays the same in study mode as in edit mode.
+  const regionOrdinals = React.useMemo(() => {
+    const map = new Map<string, number>();
+    let n = 1;
+    for (const sy of symbols) {
+      if (sy.ref.startsWith("region:")) map.set(sy.id, n++);
+    }
+    return map;
+  }, [symbols]);
+
   const [contextMenu, setContextMenu] =
     React.useState<HotspotContextMenuState | null>(null);
 
@@ -285,6 +296,7 @@ export function PlayerStage() {
                     onMount={noopMount}
                     interactive={false}
                     dimFactor={dim}
+                    regionOrdinal={regionOrdinals.get(layer.id)}
                   />
                 );
               })}

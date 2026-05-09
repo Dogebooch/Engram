@@ -150,8 +150,13 @@ function SelectedBulletFormInner({
     if (!p) return null;
     return p.canvas.symbols.find((sy) => sy.id === symbolId) ?? null;
   });
-  const entry = layer ? getSymbolById(layer.ref) : null;
-  const displayName = entry?.displayName ?? layer?.ref ?? "symbol";
+  const isRegion = !!layer && layer.ref.startsWith("region:");
+  const entry = layer && !isRegion ? getSymbolById(layer.ref) : null;
+  const regionLabel = isRegion
+    ? parsedBullet.description.trim() || "Region"
+    : null;
+  const displayName =
+    regionLabel ?? entry?.displayName ?? layer?.ref ?? "symbol";
   const imageUrl = entry?.imageUrl ?? null;
 
   const clearSelection = useStore((s) => s.clearSelection);
@@ -191,9 +196,6 @@ function SelectedBulletFormInner({
     >
       {/* Identity strip */}
       <div className="flex h-8 items-center gap-2 px-3">
-        <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground/55">
-          editing
-        </span>
         {imageUrl ? (
           <span className="flex size-[18px] items-center justify-center overflow-hidden rounded-sm bg-foreground/[0.04]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -204,6 +206,11 @@ function SelectedBulletFormInner({
               draggable={false}
             />
           </span>
+        ) : isRegion ? (
+          <span
+            className="size-[18px] rounded-sm border-2 border-accent/55 bg-accent/[0.06]"
+            aria-hidden
+          />
         ) : (
           <span className="size-[18px] rounded-sm bg-foreground/[0.06]" />
         )}

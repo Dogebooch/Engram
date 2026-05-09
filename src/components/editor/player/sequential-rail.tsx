@@ -36,12 +36,14 @@ export function SequentialRail({
       const line = lines[ref.bulletLine - 1] ?? "";
       const parts = parseBullet(line);
       const layer = symbolsById.get(ref.symbolId);
-      const lib = layer ? getSymbolById(layer.ref) : undefined;
+      const isRegion = !!layer && layer.ref.startsWith("region:");
+      const lib = layer && !isRegion ? getSymbolById(layer.ref) : undefined;
       return {
         symbolId: ref.symbolId,
         bulletLine: ref.bulletLine,
         symbolName: lib?.displayName ?? null,
         imageUrl: lib?.imageUrl ?? null,
+        isRegion,
         description: parts.description,
         meaning: parts.meaning,
         encoding: parts.encoding,
@@ -98,6 +100,11 @@ export function SequentialRail({
                         alt=""
                         className="eng-player-rail__tile-img"
                       />
+                    ) : e.isRegion ? (
+                      <span
+                        className="eng-player-rail__tile-img-region"
+                        aria-hidden
+                      />
                     ) : (
                       <span
                         className="eng-player-rail__tile-img-missing"
@@ -107,7 +114,7 @@ export function SequentialRail({
                       </span>
                     )}
                     <span className="eng-player-rail__tile-caption">
-                      {e.symbolName ?? "missing"}
+                      {e.symbolName ?? (e.isRegion ? "Region" : "missing")}
                     </span>
                   </div>
                 ))}

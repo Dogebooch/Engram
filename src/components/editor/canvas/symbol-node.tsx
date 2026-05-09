@@ -21,7 +21,7 @@ interface SymbolNodeProps {
   layer: SymbolLayer;
   selected: boolean;
   glowing: boolean;
-  onMount: (id: string, node: Konva.Image | null) => void;
+  onMount: (id: string, node: Konva.Node | null) => void;
   /**
    * When false, disables drag/click/contextMenu/tagDrag handlers. Used by the
    * Player view to render symbols read-only.
@@ -32,7 +32,18 @@ interface SymbolNodeProps {
    * Sequential mode to dim symbols not linked to the current fact.
    */
   dimFactor?: number;
+  /**
+   * 1-based ordinal among region-typed symbols. Drives the small numbered
+   * chip rendered at a region marker's top-left corner. Undefined for
+   * non-region SymbolLayers.
+   */
+  regionOrdinal?: number;
 }
+
+const REGION_REF_PREFIX = "region:";
+const BADGE_W = 22;
+const BADGE_H = 14;
+const BADGE_MARGIN = 4;
 
 export const SymbolNode = React.memo(function SymbolNode({
   layer,
@@ -41,6 +52,7 @@ export const SymbolNode = React.memo(function SymbolNode({
   onMount,
   interactive = true,
   dimFactor = 1,
+  regionOrdinal,
 }: SymbolNodeProps) {
   const symbolsReady = useSymbolsReady();
   const entry = getSymbolById(layer.ref);
@@ -68,10 +80,18 @@ export const SymbolNode = React.memo(function SymbolNode({
     PLACEHOLDER_FILL_STRONG_FALLBACK;
 
   const imageRef = React.useRef<Konva.Image | null>(null);
+  const [regionHovered, setRegionHovered] = React.useState(false);
 
   const handleRef = React.useCallback(
     (node: Konva.Image | null) => {
       imageRef.current = node;
+      onMount(layer.id, node);
+    },
+    [layer.id, onMount],
+  );
+
+  const handleRegionGroupRef = React.useCallback(
+    (node: Konva.Group | null) => {
       onMount(layer.id, node);
     },
     [layer.id, onMount],
@@ -88,12 +108,40 @@ export const SymbolNode = React.memo(function SymbolNode({
       e.cancelBubble = true;
       if (e.evt.shiftKey) {
         toggleGroupAware(layer.id);
-      } else if (e.evt.altKey) {
-        // Alt-click bypasses group expansion (single-symbol select).
-        setSelectedSymbolIds([layer.id]);
-      } else {
-        selectGroupAware(layer.id);
+        return;
       }
+      if (e.evt.altKey) {
+        // Alt-click: if multiple symbols are stacked under the cursor, cycle
+        // to the next one in z-order so any region in a pile is reachable.
+        // Falls through to single-symbol select (bypassing group expansion)
+        // when nothing else is stacked here.
+        const stage = e.target.getStage();
+        const pointer = stage?.getRelativePointerPosition();
+        const state = useStore.getState();
+        const cid = state.currentPicmonicId;
+        const all = cid ? (state.picmonics[cid]?.canvas.symbols ?? []) : [];
+        if (pointer && all.length > 1) {
+          const hits = all
+            .filter(
+              (s) =>
+                pointer.x >= s.x &&
+                pointer.x <= s.x + s.width &&
+                pointer.y >= s.y &&
+                pointer.y <= s.y + s.height,
+            )
+            .sort((a, b) => b.layerIndex - a.layerIndex);
+          if (hits.length > 1) {
+            const curId = state.selectedSymbolIds[0];
+            const curIdx = hits.findIndex((h) => h.id === curId);
+            const nextIdx = curIdx === -1 ? 0 : (curIdx + 1) % hits.length;
+            setSelectedSymbolIds([hits[nextIdx].id]);
+            return;
+          }
+        }
+        setSelectedSymbolIds([layer.id]);
+        return;
+      }
+      selectGroupAware(layer.id);
     },
     [layer.id, selectGroupAware, setSelectedSymbolIds, toggleGroupAware],
   );
@@ -128,6 +176,112 @@ export const SymbolNode = React.memo(function SymbolNode({
     },
     [],
   );
+
+  // Region marker: a SymbolLayer whose `ref` starts with `region:` renders as
+  // a Konva.Group (the click/drag/transform target) containing:
+  //   - a faint outline Rect that brightens on hover/select/glow
+  //   - a small numbered chip in the top-left so the marker is discoverable
+  //     without making the painting underneath unreadable
+  if (layer.ref.startsWith(REGION_REF_PREFIX)) {
+    const showRegionGlow = glowing && !selected;
+    const active = selected || glowing;
+    const outlineStroke = active
+      ? accent
+      : regionHovered
+        ? accent
+        : placeholderFillWeak;
+    const outlineWidth = active ? 4 : regionHovered ? 2 : 1;
+    // Chip styling: the chip is the always-visible badge. It's small and
+    // dim by default, accent-filled when active, slightly brighter on hover.
+    const chipFill = active
+      ? accent
+      : regionHovered
+        ? `color-mix(in oklch, ${accent} 70%, transparent)`
+        : `color-mix(in oklch, ${accent} 28%, transparent)`;
+    const chipStroke = active
+      ? accent
+      : `color-mix(in oklch, ${accent} 45%, transparent)`;
+    const chipTextColor = active
+      ? "var(--accent-foreground, oklch(0.15 0 0))"
+      : "var(--background, oklch(0.98 0 0))";
+    const handleRegionMouseEnter = (e: KonvaEventObject<MouseEvent>) => {
+      setRegionHovered(true);
+      handleMouseEnter(e);
+    };
+    const handleRegionMouseLeave = (e: KonvaEventObject<MouseEvent>) => {
+      setRegionHovered(false);
+      handleMouseLeave(e);
+    };
+    return (
+      <Group
+        ref={handleRegionGroupRef}
+        id={layer.id}
+        x={layer.x}
+        y={layer.y}
+        width={layer.width}
+        height={layer.height}
+        rotation={layer.rotation}
+        opacity={dimFactor}
+        draggable={interactive}
+        listening={interactive}
+        onClick={interactive ? handleClick : undefined}
+        onContextMenu={interactive ? handleContextMenu : undefined}
+        onMouseEnter={interactive ? handleRegionMouseEnter : undefined}
+        onMouseLeave={interactive ? handleRegionMouseLeave : undefined}
+        onDragStart={interactive ? tagDrag.onDragStart : undefined}
+        onDragEnd={interactive ? tagDrag.onDragEnd : undefined}
+      >
+        <Rect
+          x={0}
+          y={0}
+          width={layer.width}
+          height={layer.height}
+          stroke={outlineStroke}
+          strokeWidth={outlineWidth}
+          cornerRadius={4}
+          listening={false}
+          perfectDrawEnabled={showRegionGlow}
+          shadowEnabled={showRegionGlow}
+          shadowColor={accent}
+          shadowBlur={28}
+          shadowOpacity={showRegionGlow ? 1 : 0}
+          shadowOffsetX={0}
+          shadowOffsetY={0}
+        />
+        {regionOrdinal != null && (
+          <>
+            <Rect
+              x={BADGE_MARGIN}
+              y={BADGE_MARGIN}
+              width={BADGE_W}
+              height={BADGE_H}
+              fill={chipFill}
+              stroke={chipStroke}
+              strokeWidth={1}
+              cornerRadius={3}
+              listening={false}
+              perfectDrawEnabled={false}
+              opacity={active ? 1 : regionHovered ? 0.95 : 0.85}
+            />
+            <Text
+              x={BADGE_MARGIN}
+              y={BADGE_MARGIN}
+              width={BADGE_W}
+              height={BADGE_H}
+              text={String(regionOrdinal)}
+              fontSize={10}
+              fontStyle="600"
+              fill={chipTextColor}
+              align="center"
+              verticalAlign="middle"
+              listening={false}
+              perfectDrawEnabled={false}
+            />
+          </>
+        )}
+      </Group>
+    );
+  }
 
   // Library cache hasn't populated yet — hold rendering as a neutral
   // placeholder rather than flashing the destructive "broken" state.

@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { CircleHelpIcon, PanelLeftIcon, PanelRightIcon, PlayIcon, PlusIcon } from "lucide-react";
+import { CircleHelpIcon, PanelLeftIcon, PanelRightIcon, PlayIcon, PlusIcon, SparklesIcon } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -9,6 +10,7 @@ import { useStore } from "@/lib/store";
 import { useCurrentPicmonicId, useUiPrefs } from "@/lib/store/hooks";
 import { flushPendingSave } from "@/lib/store/debounced-save";
 import { flushIndexPersist } from "@/lib/store/index-store";
+import { applyPESeed } from "@/lib/scripts/apply-pe-seed";
 import { AppMenu } from "./app-menu";
 import { EditMenu } from "./edit-menu";
 import { EditorExportMenu } from "./editor-export-menu";
@@ -18,6 +20,7 @@ import { SaveStatus } from "./save-status";
 import { ThemeToggle } from "./theme-toggle";
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
+const IS_DEV = process.env.NODE_ENV !== "production";
 
 export function Topbar() {
   const ui = useUiPrefs();
@@ -93,6 +96,30 @@ export function Topbar() {
           <>
             <SaveStatus />
             <EditorExportMenu />
+            {IS_DEV ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const n = applyPESeed();
+                        if (n == null) toast.error("No Picmonic open");
+                        else toast.success(`Seeded ${n} PE labels`);
+                      }}
+                      aria-label="Seed PE labels (dev)"
+                    >
+                      <SparklesIcon />
+                      <span className="hidden md:inline">Seed PE</span>
+                    </Button>
+                  }
+                />
+                <TooltipContent>
+                  Replace notes & symbols with the PE seed dataset (dev only)
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
             <Tooltip>
               <TooltipTrigger
                 render={

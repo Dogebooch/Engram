@@ -73,7 +73,7 @@ export function cancelMarqueeIfActive(): boolean {
 export function CanvasStage() {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const stageRef = React.useRef<Konva.Stage | null>(null);
-  const symbolRefs = React.useRef<Map<string, Konva.Image>>(new Map());
+  const symbolRefs = React.useRef<Map<string, Konva.Node>>(new Map());
   const [box, setBox] = React.useState<FitBox>(ZERO_BOX);
 
   const picmonic = usePicmonic();
@@ -103,6 +103,17 @@ export function CanvasStage() {
     if (activeGroupIds.size === 0) return EMPTY_SYMBOLS;
     return symbols.filter((sy) => sy.groupId && activeGroupIds.has(sy.groupId));
   }, [selectedIds, symbols]);
+
+  // 1-based ordinal among region-typed symbols, in canvas iteration order.
+  // Powers the small numbered chip rendered at each region's top-left.
+  const regionOrdinals = React.useMemo(() => {
+    const map = new Map<string, number>();
+    let n = 1;
+    for (const sy of symbols) {
+      if (sy.ref.startsWith("region:")) map.set(sy.id, n++);
+    }
+    return map;
+  }, [symbols]);
 
   const { dragHover } = useCanvasDrop({ stageRef, containerRef });
   const { fileHover } = useBackdropFileDrop({ containerRef });
@@ -168,7 +179,7 @@ export function CanvasStage() {
   }, []);
 
   const handleSymbolMount = React.useCallback(
-    (id: string, node: Konva.Image | null) => {
+    (id: string, node: Konva.Node | null) => {
       if (node) {
         symbolRefs.current.set(id, node);
       } else {
@@ -413,6 +424,7 @@ export function CanvasStage() {
                   selected={selectedSet.has(layer.id)}
                   glowing={glowSet.has(layer.id)}
                   onMount={handleSymbolMount}
+                  regionOrdinal={regionOrdinals.get(layer.id)}
                 />
               ))}
             </Layer>
