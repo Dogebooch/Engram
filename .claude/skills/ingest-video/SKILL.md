@@ -98,7 +98,13 @@ Resolution per symbol: matched `intro_phrases` → `timestamp_ms` → order. Ref
 ```
 This merges a `polygon` (8–24 vertices, backdrop-frame pixels) and a `sam:{mask_score,status,...}`
 block into each symbol, and renders the overlay. `make_bundle` emits `shape:"polygon"` regions from
-these automatically.
+these automatically. Useful flags:
+- `--model small` (or `tiny`) — ~2-3x faster CPU encode than the default `large`, slightly looser
+  masks; good while iterating, switch to `large` for the final pass.
+- `--pad-px N` — dilate every outline outward by N frame px (default 3) so a slightly under-segmented
+  mask still fully contains the object. Bump it if outlines clip; set 0 for skin-tight.
+- The backdrop encoding is **cached** next to the frame, so step 7 re-runs (`--only-orders`) skip the
+  slow encoder. The cache is keyed to the checkpoint; changing `--model` re-encodes once.
 
 ### 7. Verification loop (required, before building)
 `Read` `sam_overlay.jpg`. For every outline that doesn't hug its object — or any symbol with

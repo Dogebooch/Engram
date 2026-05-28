@@ -52,6 +52,13 @@ class MaskToPolygonTest(unittest.TestCase):
         # External contour ~ the 120x120 outer square, hole ignored.
         self.assertGreater(_poly_area(poly), 13000)
 
+    def test_padding_grows_the_outline(self) -> None:
+        mask = np.zeros((200, 200), dtype=np.uint8)
+        mask[40:160, 60:140] = 1
+        tight = _poly_area(mask_to_polygon(mask, pad_px=0))
+        padded = _poly_area(mask_to_polygon(mask, pad_px=8))
+        self.assertGreater(padded, tight)
+
     def test_speck_rejected(self) -> None:
         mask = np.zeros((200, 200), dtype=np.uint8)
         mask[0:3, 0:3] = 1

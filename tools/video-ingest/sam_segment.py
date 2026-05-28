@@ -29,6 +29,19 @@ import numpy as np
 DEFAULT_CHECKPOINT = "tools/video-ingest/models/sam2/sam2.1_hiera_large.pt"
 DEFAULT_CONFIG = "configs/sam2.1/sam2.1_hiera_l.yaml"
 
+# --model alias -> (checkpoint, config). "large" = best masks; "small"/"tiny" are
+# ~3-4x faster to encode on CPU with slightly looser masks (good for iterating).
+_MODELS = "tools/video-ingest/models/sam2"
+MODEL_ALIASES = {
+    "large": (f"{_MODELS}/sam2.1_hiera_large.pt", "configs/sam2.1/sam2.1_hiera_l.yaml"),
+    "base": (
+        f"{_MODELS}/sam2.1_hiera_base_plus.pt",
+        "configs/sam2.1/sam2.1_hiera_b+.yaml",
+    ),
+    "small": (f"{_MODELS}/sam2.1_hiera_small.pt", "configs/sam2.1/sam2.1_hiera_s.yaml"),
+    "tiny": (f"{_MODELS}/sam2.1_hiera_tiny.pt", "configs/sam2.1/sam2.1_hiera_t.yaml"),
+}
+
 
 # --------------------------------------------------------------------------- #
 # Pure geometry helpers (no torch)
@@ -53,11 +66,14 @@ def mask_to_polygon(
     min_vertices: int = 8,
     max_vertices: int = 24,
     min_area_frac: float = 0.0005,
+    pad_px: int = 0,
 ) -> list[list[int]] | None:
     """Largest external contour of a binary mask, simplified (approxPolyDP) to
     the most detail that fits the vertex budget. Concavity is preserved (no
-    convex hull). Returns [[x,y],...] in mask pixel space, or None for an empty
-    / speck / degenerate mask."""
+    convex hull). `pad_px` dilates the silhouette outward first, so a slightly
+    under-segmented mask still fully contains the object (a small safety halo).
+    Returns [[x,y],...] in mask pixel space, or None for an empty / speck /
+    degenerate mask."""
     m = (np.asarray(mask) > 0).astype(np.uint8)
     if m.ndim != 2:
         return None
@@ -67,6 +83,11 @@ def mask_to_polygon(
 
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, kernel)
+    if pad_px > 0:
+        d = cv2.getStructuringElement(
+            cv2.MORPH_ELLIPSE, (2 * pad_px + 1, 2 * pad_px + 1)
+        )
+        m = cv2.dilate(m, d)
     contours, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
         return None
@@ -198,6 +219,7 @@ def segment_symbol(
     min_vertices: int,
     max_vertices: int,
     min_score: float,
+    pad_px: int = 0,
 ) -> dict[str, Any]:
     prompt = choose_prompt(symbol)
     point = symbol.get("point") if prompt in ("point", "box+point") else None
@@ -215,7 +237,7 @@ def segment_symbol(
             }
         }
 
-    polygon = mask_to_polygon(mask, min_vertices, max_vertices)
+    polygon = mask_to_polygon(mask, min_vertices, max_vertices, pad_px=pad_px)
     if polygon is None:
         return {
             "sam": {
@@ -239,6 +261,58 @@ def segment_symbol(
     }
 
 
+def _cache_path(backdrop_path: Path) -> Path:
+    return Path(str(backdrop_path) + ".samfeat")
+
+
+def set_image_cached(
+    predictor,
+    rgb: np.ndarray,
+    backend: str,
+    device: str,
+    checkpoint: str,
+    backdrop_path: Path,
+    use_cache: bool,
+) -> str:
+    """Encode the backdrop once and cache SAM2's image features to disk so the
+    verification-loop re-runs (--only-orders) skip the slow encoder. Returns
+    "cache" or "computed". Falls back to a fresh encode on any cache miss/error.
+    Only sam2's features are cached (mobilesam internals differ)."""
+    import torch
+
+    cache = _cache_path(backdrop_path)
+    ckpt_name = Path(checkpoint).name
+    if use_cache and backend == "sam2" and cache.exists():
+        try:
+            blob = torch.load(cache, map_location=device, weights_only=False)
+            if blob.get("checkpoint") == ckpt_name:
+                feats = blob["features"]
+                predictor._features = {
+                    "image_embed": feats["image_embed"].to(device),
+                    "high_res_feats": [t.to(device) for t in feats["high_res_feats"]],
+                }
+                predictor._orig_hw = blob["orig_hw"]
+                predictor._is_image_set = True
+                predictor._is_batch = False
+                return "cache"
+        except Exception:
+            pass
+    predictor.set_image(rgb)
+    if use_cache and backend == "sam2":
+        try:
+            torch.save(
+                {
+                    "checkpoint": ckpt_name,
+                    "features": predictor._features,
+                    "orig_hw": predictor._orig_hw,
+                },
+                cache,
+            )
+        except Exception:
+            pass
+    return "computed"
+
+
 def run(
     draft_path: Path,
     backdrop_path: Path,
@@ -252,6 +326,8 @@ def run(
     min_score: float = 0.5,
     min_vertices: int = 8,
     max_vertices: int = 24,
+    pad_px: int = 3,
+    use_cache: bool = True,
 ) -> dict[str, Any]:
     import torch
 
@@ -265,7 +341,9 @@ def run(
     predictor = load_predictor(backend, checkpoint, config, device)
     n_ok = n_failed = 0
     with torch.inference_mode():
-        predictor.set_image(rgb)
+        encode = set_image_cached(
+            predictor, rgb, backend, device, checkpoint, backdrop_path, use_cache
+        )
         for symbol in symbols:
             if (
                 only_orders is not None
@@ -275,7 +353,13 @@ def run(
             if not symbol.get("bbox"):
                 continue
             patch = segment_symbol(
-                predictor, symbol, backend, min_vertices, max_vertices, min_score
+                predictor,
+                symbol,
+                backend,
+                min_vertices,
+                max_vertices,
+                min_score,
+                pad_px,
             )
             symbol.update(patch)
             if patch.get("sam", {}).get("status") == "ok":
@@ -296,6 +380,8 @@ def run(
         "backend": backend,
         "checkpoint": str(checkpoint),
         "device": device,
+        "pad_px": pad_px,
+        "encode": encode,
         "n_ok": n_ok,
         "n_failed": n_failed,
     }
@@ -312,6 +398,12 @@ def main() -> int:
     parser.add_argument("--draft", required=True, type=Path)
     parser.add_argument("--backdrop", required=True, type=Path)
     parser.add_argument("--backend", choices=["sam2", "mobilesam"], default="sam2")
+    parser.add_argument(
+        "--model",
+        choices=list(MODEL_ALIASES),
+        default=None,
+        help="SAM2 size alias (sets checkpoint+config). large=best masks; small/tiny=faster encode.",
+    )
     parser.add_argument("--checkpoint", default=DEFAULT_CHECKPOINT)
     parser.add_argument("--config", default=DEFAULT_CONFIG)
     parser.add_argument(
@@ -329,7 +421,20 @@ def main() -> int:
     parser.add_argument("--min-score", type=float, default=0.5)
     parser.add_argument("--min-vertices", type=int, default=8)
     parser.add_argument("--max-vertices", type=int, default=24)
+    parser.add_argument(
+        "--pad-px",
+        type=int,
+        default=3,
+        help="Dilate each outline outward by N frame px (safety halo).",
+    )
+    parser.add_argument(
+        "--no-cache", action="store_true", help="Disable the cached backdrop encoding."
+    )
     args = parser.parse_args()
+
+    checkpoint, config = args.checkpoint, args.config
+    if args.model:
+        checkpoint, config = MODEL_ALIASES[args.model]
 
     only = (
         {int(x) for x in str(args.only_orders).split(",") if x.strip() != ""}
@@ -340,8 +445,8 @@ def main() -> int:
         draft_path=args.draft,
         backdrop_path=args.backdrop,
         backend=args.backend,
-        checkpoint=args.checkpoint,
-        config=args.config,
+        checkpoint=checkpoint,
+        config=config,
         device=args.device,
         only_orders=only,
         retighten_bbox=args.retighten_bbox,
@@ -349,6 +454,8 @@ def main() -> int:
         min_score=args.min_score,
         min_vertices=args.min_vertices,
         max_vertices=args.max_vertices,
+        pad_px=args.pad_px,
+        use_cache=not args.no_cache,
     )
     print(json.dumps(summary, indent=2))
     return 0
