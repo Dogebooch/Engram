@@ -79,6 +79,42 @@ describe("importBundle round-trip", () => {
     expect(imported.canvas.factHotspots).toEqual(source.canvas.factHotspots);
   });
 
+  it("preserves polygon region points through export/import", async () => {
+    const source = makeSourcePicmonic({
+      notes: `# Section\n## Fact\n* {sym:${UUID_B}} outlined symbol -> meaning; encoding\n`,
+      canvas: {
+        ...emptyCanvas(),
+        symbols: [
+          {
+            id: UUID_B,
+            kind: "region",
+            ref: null,
+            shape: "polygon",
+            points: [
+              { x: 0, y: 0 },
+              { x: 90, y: 12 },
+              { x: 20, y: 70 },
+            ],
+            x: 30,
+            y: 40,
+            width: 90,
+            height: 70,
+            rotation: 0,
+            layerIndex: 0,
+            groupId: null,
+            animation: null,
+            animationDelay: null,
+            animationDuration: null,
+          },
+        ],
+      },
+    });
+
+    const imported = await importBundle(await buildAndBlob(source));
+
+    expect(imported.canvas.symbols).toEqual(source.canvas.symbols);
+  });
+
   it("regenerates root id (UUID v4 shape)", async () => {
     const source = makeSourcePicmonic();
     const imported = await importBundle(await buildAndBlob(source));

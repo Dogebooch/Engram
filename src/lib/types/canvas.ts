@@ -2,7 +2,12 @@ import type { CANVAS_SCHEMA_VERSION } from "@/lib/constants";
 
 export type SymbolRef = string;
 export type SymbolKind = "image" | "region";
-export type RegionShape = "rect";
+export type RegionShape = "rect" | "polygon";
+
+export interface RegionPoint {
+  x: number;
+  y: number;
+}
 
 export interface Backdrop {
   /** Reserved for v2 built-in backdrop gallery; unused in v1. */
@@ -38,6 +43,7 @@ export interface RegionSymbolLayer extends BaseSymbolLayer {
   kind: "region";
   ref: null;
   shape: RegionShape;
+  points?: RegionPoint[];
 }
 
 export type SymbolLayer = ImageSymbolLayer | RegionSymbolLayer;
@@ -135,7 +141,8 @@ export function normalizeCanvas(c: CanvasState): CanvasState {
 type UnknownSymbolLayer = Partial<BaseSymbolLayer> & {
   kind?: SymbolKind;
   ref?: SymbolRef | null;
-  shape?: RegionShape;
+  shape?: unknown;
+  points?: unknown;
 };
 
 function normalizeSymbolLayers(
@@ -144,13 +151,23 @@ function normalizeSymbolLayers(
   let changed = false;
   const normalized = layers.map((layer) => {
     if (layer.kind === "region") {
+      const rawShape = isRegionShape(layer.shape) ? layer.shape : "rect";
+      const points = normalizeRegionPoints(layer.points);
+      const shape = rawShape === "polygon" && points ? "polygon" : "rect";
       const next = {
         ...layer,
         kind: "region",
         ref: null,
-        shape: layer.shape ?? "rect",
+        shape,
+        points: shape === "polygon" ? points : undefined,
       } as RegionSymbolLayer;
-      if (layer.ref !== null || layer.shape !== next.shape) changed = true;
+      if (
+        layer.ref !== null ||
+        layer.shape !== next.shape ||
+        layer.points !== next.points
+      ) {
+        changed = true;
+      }
       return next;
     }
 
@@ -163,4 +180,28 @@ function normalizeSymbolLayers(
     return next;
   });
   return changed ? normalized : (layers as SymbolLayer[]);
+}
+
+function isRegionShape(shape: unknown): shape is RegionShape {
+  return shape === "rect" || shape === "polygon";
+}
+
+function normalizeRegionPoints(points: unknown): RegionPoint[] | null {
+  if (!Array.isArray(points) || points.length < 3) return null;
+  const out: RegionPoint[] = [];
+  for (const point of points) {
+    if (
+      typeof point !== "object" ||
+      point === null ||
+      !Number.isFinite((point as { x?: unknown }).x) ||
+      !Number.isFinite((point as { y?: unknown }).y)
+    ) {
+      return null;
+    }
+    out.push({
+      x: (point as { x: number }).x,
+      y: (point as { y: number }).y,
+    });
+  }
+  return out;
 }

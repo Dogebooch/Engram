@@ -12,7 +12,7 @@ const POINTS = [
   },
   {
     icon: FileTextIcon,
-    title: "Annotate",
+    title: "Outline",
     body: "A markdown panel mirrors the canvas. Sections → Facts → Symbol bullets, Obsidian-friendly.",
   },
   {

@@ -3,7 +3,7 @@
 import * as React from "react";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { Layer, Rect, Stage } from "react-konva";
+import { Layer, Line, Rect, Stage } from "react-konva";
 import { STAGE_HEIGHT, STAGE_WIDTH } from "@/lib/constants";
 import {
   marqueeHitTest,
@@ -14,6 +14,7 @@ import { addRegionWithNoteSync } from "@/lib/canvas/add-symbol-with-note-sync";
 import { useStore } from "@/lib/store";
 import { usePicmonic } from "@/lib/store/hooks";
 import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
+import type { RegionPoint } from "@/lib/types/canvas";
 import { BackdropLayer } from "./backdrop-layer";
 import { CanvasTransformer } from "./canvas-transformer";
 import { setCurrentStage } from "./canvas-stage-ref";
@@ -65,17 +66,21 @@ const IDLE_MARQUEE: MarqueeState = { kind: "idle" };
 
 type RegionDraftState =
   | { kind: "idle" }
-  | { kind: "pending"; downX: number; downY: number }
-  | { kind: "active"; startX: number; startY: number; endX: number; endY: number };
+  | { kind: "active"; points: RegionPoint[]; hover: RegionPoint | null };
 
 const IDLE_REGION_DRAFT: RegionDraftState = { kind: "idle" };
 
 // Module-scoped cancel hook so the global Escape handler in keybindings.ts
 // can abort an in-flight marquee without prop drilling.
 let marqueeCancelHandler: (() => boolean) | null = null;
+let regionDraftCancelHandler: (() => boolean) | null = null;
 
 export function cancelMarqueeIfActive(): boolean {
   return marqueeCancelHandler ? marqueeCancelHandler() : false;
+}
+
+export function cancelRegionDraftIfActive(): boolean {
+  return regionDraftCancelHandler ? regionDraftCancelHandler() : false;
 }
 
 function clampStageX(x: number): number {
@@ -86,10 +91,46 @@ function clampStageY(y: number): number {
   return Math.max(0, Math.min(STAGE_HEIGHT, y));
 }
 
+function closePolygonPoints(points: readonly RegionPoint[]): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  points: RegionPoint[];
+} | null {
+  if (points.length < 3) return null;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const p of points) {
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
+  }
+  const width = maxX - minX;
+  const height = maxY - minY;
+  if (width < 8 || height < 8) return null;
+  return {
+    x: minX,
+    y: minY,
+    width,
+    height,
+    points: points.map((p) => ({ x: p.x - minX, y: p.y - minY })),
+  };
+}
+
+function samePoint(a: RegionPoint, b: RegionPoint): boolean {
+  return Math.hypot(a.x - b.x, a.y - b.y) < 3;
+}
+
 export function CanvasStage() {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const stageRef = React.useRef<Konva.Stage | null>(null);
-  const symbolRefs = React.useRef<Map<string, Konva.Image | Konva.Rect>>(new Map());
+  const symbolRefs = React.useRef<
+    Map<string, Konva.Image | Konva.Rect | Konva.Line>
+  >(new Map());
   const [box, setBox] = React.useState<FitBox>(ZERO_BOX);
 
   const picmonic = usePicmonic();
@@ -186,7 +227,7 @@ export function CanvasStage() {
   }, []);
 
   const handleSymbolMount = React.useCallback(
-    (id: string, node: Konva.Image | Konva.Rect | null) => {
+    (id: string, node: Konva.Image | Konva.Rect | Konva.Line | null) => {
       if (node) {
         symbolRefs.current.set(id, node);
       } else {
@@ -251,6 +292,23 @@ export function CanvasStage() {
 
   const openStageContextMenu = useStore((s) => s.openStageContextMenu);
 
+  const cancelRegionDraft = React.useCallback(() => {
+    setRegionDraft(IDLE_REGION_DRAFT);
+  }, [setRegionDraft]);
+
+  const closeRegionDraft = React.useCallback(() => {
+    const draft = regionDraftRef.current;
+    if (draft.kind !== "active") return false;
+    const region = closePolygonPoints(draft.points);
+    if (!region) return false;
+    addRegionWithNoteSync({
+      ...region,
+      shape: "polygon",
+    });
+    setRegionDraft(IDLE_REGION_DRAFT);
+    return true;
+  }, [setRegionDraft]);
+
   const handleStageContextMenu = React.useCallback(
     (e: KonvaEventObject<PointerEvent>) => {
       // Only fire for clicks on empty stage; per-symbol and Transformer
@@ -273,10 +331,19 @@ export function CanvasStage() {
       const local = stageLocalFromClient(e.evt.clientX, e.evt.clientY);
       if (!local) return;
       if (annotationMode && backdrop?.uploadedBlobId) {
-        setRegionDraft({
-          kind: "pending",
-          downX: clampStageX(local.x),
-          downY: clampStageY(local.y),
+        if (e.evt.detail > 1) return;
+        const point = { x: clampStageX(local.x), y: clampStageY(local.y) };
+        setRegionDraft((prev) => {
+          if (prev.kind === "idle") {
+            return { kind: "active", points: [point], hover: point };
+          }
+          const last = prev.points[prev.points.length - 1];
+          if (last && samePoint(last, point)) return prev;
+          return {
+            kind: "active",
+            points: [...prev.points, point],
+            hover: point,
+          };
         });
         return;
       }
@@ -295,6 +362,16 @@ export function CanvasStage() {
       setRegionDraft,
       stageLocalFromClient,
     ],
+  );
+
+  const handleStageDoubleClick = React.useCallback(
+    (e: KonvaEventObject<MouseEvent>) => {
+      if (e.target !== e.target.getStage()) return;
+      if (!annotationMode || !backdrop?.uploadedBlobId) return;
+      e.evt.preventDefault();
+      closeRegionDraft();
+    },
+    [annotationMode, backdrop?.uploadedBlobId, closeRegionDraft],
   );
 
   // Document-level mousemove/mouseup so the user can drag past the stage
@@ -394,49 +471,39 @@ export function CanvasStage() {
     const onMove = (e: MouseEvent) => {
       const local = stageLocalFromClient(e.clientX, e.clientY);
       if (!local) return;
-      const x = clampStageX(local.x);
-      const y = clampStageY(local.y);
+      const hover = { x: clampStageX(local.x), y: clampStageY(local.y) };
       setRegionDraft((prev) => {
         if (prev.kind === "idle") return prev;
-        if (prev.kind === "pending") {
-          const dx = x - prev.downX;
-          const dy = y - prev.downY;
-          if (Math.hypot(dx, dy) < MARQUEE_DRAG_THRESHOLD) return prev;
-          return {
-            kind: "active",
-            startX: prev.downX,
-            startY: prev.downY,
-            endX: x,
-            endY: y,
-          };
-        }
-        return { ...prev, endX: x, endY: y };
+        return { ...prev, hover };
       });
     };
 
-    const onUp = () => {
-      const prev = regionDraftRef.current;
-      if (prev.kind === "active") {
-        const rect = normalizeRect(prev.startX, prev.startY, prev.endX, prev.endY);
-        if (rect.width >= 8 && rect.height >= 8) {
-          addRegionWithNoteSync({
-            x: rect.x,
-            y: rect.y,
-            width: rect.width,
-            height: rect.height,
-          });
-        }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        closeRegionDraft();
       }
-      setRegionDraft(IDLE_REGION_DRAFT);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        cancelRegionDraft();
+      }
     };
 
     document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
+    document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
+      document.removeEventListener("keydown", onKeyDown);
     };
-  }, [regionDraft.kind, setRegionDraft, stageLocalFromClient]);
+  }, [
+    cancelRegionDraft,
+    closeRegionDraft,
+    regionDraft.kind,
+    setRegionDraft,
+    stageLocalFromClient,
+  ]);
 
   // Register the global marquee-cancel hook for the Escape ladder.
   React.useEffect(() => {
@@ -456,6 +523,23 @@ export function CanvasStage() {
     };
   }, [setMarquee]);
 
+  React.useEffect(() => {
+    regionDraftCancelHandler = () => {
+      let cancelled = false;
+      setRegionDraft((prev) => {
+        if (prev.kind === "active") {
+          cancelled = true;
+          return IDLE_REGION_DRAFT;
+        }
+        return prev;
+      });
+      return cancelled;
+    };
+    return () => {
+      regionDraftCancelHandler = null;
+    };
+  }, [setRegionDraft]);
+
   const symbolsKey = React.useMemo(
     () => symbols.map((s) => s.id).join("|"),
     [symbols],
@@ -466,14 +550,16 @@ export function CanvasStage() {
     marquee.kind === "active"
       ? normalizeRect(marquee.startX, marquee.startY, marquee.endX, marquee.endY)
       : null;
-  const regionDraftRect: MarqueeRect | null =
+  const regionDraftPreview =
     regionDraft.kind === "active"
-      ? normalizeRect(
-          regionDraft.startX,
-          regionDraft.startY,
-          regionDraft.endX,
-          regionDraft.endY,
-        )
+      ? [
+          ...regionDraft.points,
+          ...(regionDraft.hover ? [regionDraft.hover] : []),
+        ]
+      : null;
+  const regionDraftPreviewPoints =
+    regionDraftPreview && regionDraftPreview.length > 1
+      ? regionDraftPreview.flatMap((p) => [p.x, p.y])
       : null;
   const canAnnotate = annotationMode && !!backdrop?.uploadedBlobId;
 
@@ -513,6 +599,7 @@ export function CanvasStage() {
             scaleX={box.scale}
             scaleY={box.scale}
             onMouseDown={handleStageMouseDown}
+            onDblClick={handleStageDoubleClick}
             onContextMenu={handleStageContextMenu}
           >
             <Layer listening={false}>
@@ -558,26 +645,43 @@ export function CanvasStage() {
               ))}
             </Layer>
             <Layer name="region-draft" listening={false}>
-              {regionDraftRect && (
+              {regionDraft.kind === "active" && (
                 <>
-                  <Rect
-                    x={regionDraftRect.x}
-                    y={regionDraftRect.y}
-                    width={regionDraftRect.width}
-                    height={regionDraftRect.height}
-                    fill={accent}
-                    opacity={0.08}
-                  />
-                  <Rect
-                    x={regionDraftRect.x}
-                    y={regionDraftRect.y}
-                    width={regionDraftRect.width}
-                    height={regionDraftRect.height}
-                    stroke={accent}
-                    strokeWidth={1 / box.scale}
-                    dash={[6 / box.scale, 4 / box.scale]}
-                    opacity={0.9}
-                  />
+                  {regionDraftPreviewPoints &&
+                    regionDraftPreview &&
+                    regionDraftPreview.length >= 3 && (
+                      <Line
+                        points={regionDraftPreviewPoints}
+                        closed
+                        fill={accent}
+                        opacity={0.06}
+                        perfectDrawEnabled={false}
+                      />
+                    )}
+                  {regionDraftPreviewPoints && (
+                    <Line
+                      points={regionDraftPreviewPoints}
+                      stroke={accent}
+                      strokeWidth={1.5 / box.scale}
+                      dash={[6 / box.scale, 4 / box.scale]}
+                      lineCap="round"
+                      lineJoin="round"
+                      opacity={0.95}
+                      perfectDrawEnabled={false}
+                    />
+                  )}
+                  {regionDraft.points.map((p, i) => (
+                    <Rect
+                      key={`region-point-${i}`}
+                      x={p.x - 3 / box.scale}
+                      y={p.y - 3 / box.scale}
+                      width={6 / box.scale}
+                      height={6 / box.scale}
+                      fill={accent}
+                      cornerRadius={1 / box.scale}
+                      opacity={0.95}
+                    />
+                  ))}
                 </>
               )}
             </Layer>
@@ -671,7 +775,7 @@ function AnnotationModeBadge({
   return (
     <div className="pointer-events-none absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-2 rounded-md border border-border/70 bg-card/90 px-2.5 py-1.5 shadow-lg backdrop-blur">
       <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-        {canAnnotate ? "Draw region" : "Add background first"}
+        {canAnnotate ? "Outline symbol" : "Add background first"}
       </span>
       <button
         type="button"

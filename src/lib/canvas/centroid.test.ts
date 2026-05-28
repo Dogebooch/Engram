@@ -45,6 +45,32 @@ describe("symbolCenter", () => {
     expect(c.x).toBeCloseTo(70);
     expect(c.y).toBeCloseTo(80);
   });
+
+  it("uses polygon region bounds for center calculation", () => {
+    const c = symbolCenter({
+      id: "poly",
+      kind: "region",
+      ref: null,
+      shape: "polygon",
+      points: [
+        { x: 0, y: 0 },
+        { x: 80, y: 10 },
+        { x: 20, y: 60 },
+      ],
+      x: 10,
+      y: 20,
+      width: 80,
+      height: 60,
+      rotation: 0,
+      layerIndex: 0,
+      groupId: null,
+      animation: null,
+      animationDelay: null,
+      animationDuration: null,
+    });
+    expect(c.x).toBeCloseTo(50);
+    expect(c.y).toBeCloseTo(50);
+  });
 });
 
 describe("meanCenter", () => {

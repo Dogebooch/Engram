@@ -46,10 +46,12 @@ next-env.d.ts
 # Claude Code working memory
 CLAUDE.md
 CLAUDE-*.md
+.claude/worktrees/
 
 # Local env
 .env*.local
 .venv-video-ingest/
+.mcp.json
 __pycache__/
 
 # IDE

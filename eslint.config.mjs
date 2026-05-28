@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local/generated project artifacts:
+    ".claude/**",
+    "coverage/**",
+    "src-tauri/target/**",
+    "public/symbols/openmoji/**",
   ]),
 ]);
 

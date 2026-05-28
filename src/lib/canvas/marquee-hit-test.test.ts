@@ -162,4 +162,31 @@ describe("marqueeHitTest", () => {
     );
     expect(hits).toEqual(["c", "b", "a"]);
   });
+  it("uses polygon region bounding boxes for selection", () => {
+    const region: SymbolLayer = {
+      id: "poly",
+      kind: "region",
+      ref: null,
+      shape: "polygon",
+      points: [
+        { x: 0, y: 0 },
+        { x: 80, y: 10 },
+        { x: 20, y: 60 },
+      ],
+      x: 300,
+      y: 300,
+      width: 80,
+      height: 60,
+      rotation: 0,
+      layerIndex: 0,
+      groupId: null,
+      animation: null,
+      animationDelay: null,
+      animationDuration: null,
+    };
+
+    expect(
+      marqueeHitTest({ x: 290, y: 290, width: 30, height: 30 }, [region]),
+    ).toEqual(["poly"]);
+  });
 });

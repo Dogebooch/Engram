@@ -6,6 +6,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { Transformer } from "react-konva";
 import { useStore } from "@/lib/store";
 import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
+import { isRegionSymbolLayer } from "@/lib/types/canvas";
 
 const ACCENT_FALLBACK = "oklch(0.78 0.13 75)";
 const STAGE_FALLBACK = "oklch(0.105 0 0)";
@@ -13,7 +14,7 @@ const STAGE_FALLBACK = "oklch(0.105 0 0)";
 interface CanvasTransformerProps {
   selectedIds: string[];
   symbolsKey: string;
-  getNode: (id: string) => Konva.Image | Konva.Rect | null;
+  getNode: (id: string) => Konva.Image | Konva.Rect | Konva.Line | null;
 }
 
 const ANCHOR_SIZE = 9;
@@ -50,7 +51,7 @@ export function CanvasTransformer({
     if (!tr) return;
     const nodes = selectedIds
       .map((id) => getNode(id))
-      .filter((n): n is Konva.Image | Konva.Rect => n !== null);
+      .filter((n): n is Konva.Image | Konva.Rect | Konva.Line => n !== null);
     tr.nodes(nodes);
     tr.getLayer()?.batchDraw();
   }, [selectedIds, symbolsKey, getNode]);
@@ -72,11 +73,37 @@ export function CanvasTransformer({
 
   const handleTransformEnd = React.useCallback(
     (e: KonvaEventObject<Event>) => {
-      const node = e.target as Konva.Image | Konva.Rect;
+      const node = e.target as Konva.Image | Konva.Rect | Konva.Line;
       const id = node.id();
       if (!id) return;
-      const newWidth = Math.max(8, node.width() * node.scaleX());
-      const newHeight = Math.max(8, node.height() * node.scaleY());
+      const sx = node.scaleX();
+      const sy = node.scaleY();
+      const state = useStore.getState();
+      const cid = state.currentPicmonicId;
+      const existing = cid
+        ? state.picmonics[cid]?.canvas.symbols.find((sy) => sy.id === id)
+        : null;
+      if (existing && isRegionSymbolLayer(existing) && existing.shape === "polygon") {
+        const newWidth = Math.max(8, existing.width * sx);
+        const newHeight = Math.max(8, existing.height * sy);
+        const points = existing.points?.map((p) => ({
+          x: p.x * sx,
+          y: p.y * sy,
+        }));
+        node.scaleX(1);
+        node.scaleY(1);
+        updateSymbol(id, {
+          x: node.x(),
+          y: node.y(),
+          width: newWidth,
+          height: newHeight,
+          rotation: node.rotation(),
+          points,
+        });
+        return;
+      }
+      const newWidth = Math.max(8, node.width() * sx);
+      const newHeight = Math.max(8, node.height() * sy);
       node.scaleX(1);
       node.scaleY(1);
       updateSymbol(id, {
@@ -110,6 +137,7 @@ export function CanvasTransformer({
       rotationSnaps={ROTATION_SNAPS}
       rotationSnapTolerance={4}
       keepRatio={false}
+      flipEnabled={false}
       ignoreStroke
       shouldOverdrawWholeArea
       onContextMenu={handleContextMenu}

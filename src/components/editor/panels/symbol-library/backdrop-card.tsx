@@ -244,8 +244,8 @@ export function BackdropCard({ compact = false }: BackdropCardProps = {}) {
               onClick={handleAnnotate}
               disabled={busy}
               icon={<MousePointer2Icon className="size-3" />}
-              label="Annotate"
-              tooltip="Draw regions on background"
+              label="Outline"
+              tooltip="Outline symbols on background"
             />
             <ActionButton
               onClick={handlePick}

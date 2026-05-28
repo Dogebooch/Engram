@@ -4,11 +4,35 @@ import {
   emptyCanvas,
   type CanvasState,
   type ImageSymbolLayer,
+  type RegionSymbolLayer,
   type SymbolLayer,
 } from "@/lib/types/canvas";
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
+}
+
+function makeRegion(
+  id: string,
+  overrides: Partial<RegionSymbolLayer> = {},
+): RegionSymbolLayer {
+  return {
+    id,
+    kind: "region",
+    ref: null,
+    shape: "rect",
+    x: 100,
+    y: 200,
+    width: 300,
+    height: 250,
+    rotation: 0,
+    layerIndex: 0,
+    groupId: null,
+    animation: null,
+    animationDelay: null,
+    animationDuration: null,
+    ...overrides,
+  };
 }
 
 function makeSymbol(
@@ -111,6 +135,28 @@ describe("canvas state serialization", () => {
     expect(sy.animation).toBeNull();
     expect(sy.animationDelay).toBeNull();
     expect(sy.animationDuration).toBeNull();
+  });
+
+  it("round-trips polygon region points", () => {
+    const c: CanvasState = {
+      ...emptyCanvas(),
+      symbols: [
+        makeRegion("11111111-1111-4111-8111-111111111111", {
+          shape: "polygon",
+          x: 10,
+          y: 20,
+          width: 80,
+          height: 60,
+          points: [
+            { x: 0, y: 0 },
+            { x: 80, y: 10 },
+            { x: 20, y: 60 },
+          ],
+        }),
+      ],
+    };
+    const restored = clone(c);
+    expect(restored.symbols[0]).toEqual(c.symbols[0]);
   });
 
   it("preserves unknown forward-compat fields through JSON.parse(JSON.stringify(...))", () => {

@@ -63,7 +63,7 @@ Source ranks: user-uploaded (0) > OpenMoji (1) > Game-Icons (2) > Twemoji (3, op
 Downstream animation/video pipeline needs uniform bullet output, but markdown stays canonical. Resolution: **lint + selection-bound form**, both inside notes-panel. No parallel structured state, no third panel, no bullet content in `canvas.json`.
 
 - **Pipeline export schema** ([docs/PIPELINE-SCHEMA.md](PIPELINE-SCHEMA.md)) defines the JSON shape one exported mnemonic produces and which fields are mandatory; drives the lint rule list. Authoring rule: prose-shaped → bullet; machine-state (timing, animation cues, scene roles, narration refs) → `canvas.json` alongside `animation*` / `factMeta` / `timeline`.
-- **CodeMirror linter** validates each bullet on edit: malformed `{sym:UUID}`, missing `→` or `;`, empty meaning, unknown symbol UUIDs, untagged symbols. Surfaces as gutter markers, tooltips, header-badge count.
+- **CodeMirror linter** validates each bullet on edit: malformed `{sym:UUID}`, empty description, missing `→`, unknown symbol UUIDs, untagged symbols. Surfaces as gutter markers, tooltips, header-badge count.
 - **Selection-bound mini-form** renders in notes-panel when exactly one canvas symbol is selected and bound to ≥1 Facts. Inputs expose `description / meaning / encoding` for the active Fact's bullet. Edits round-trip through existing notes write helpers (`tag`, `bullet`, `insert`); form repopulates from re-parsed bullet on external change.
 
 ## Editor UX

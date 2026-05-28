@@ -7,7 +7,12 @@ import { parseNotes } from "@/lib/notes/parse";
 import { useStore } from "@/lib/store";
 import type { AddSymbolInput } from "@/lib/store/slices/canvas-slice";
 import type { Picmonic } from "@/lib/types/picmonic";
-import type { RegionSymbolLayer, SymbolLayer } from "@/lib/types/canvas";
+import type {
+  RegionPoint,
+  RegionShape,
+  RegionSymbolLayer,
+  SymbolLayer,
+} from "@/lib/types/canvas";
 
 /**
  * Add a library symbol to the canvas AND insert a `* {sym:UUID}` bullet
@@ -78,6 +83,8 @@ export interface AddRegionInput {
   y: number;
   width: number;
   height: number;
+  shape?: RegionShape;
+  points?: RegionPoint[];
   rotation?: number;
 }
 
@@ -87,6 +94,9 @@ export interface AddRegionInput {
  * the prose source of truth.
  */
 export function addRegionWithNoteSync(input: AddRegionInput): string | null {
+  if (input.shape === "polygon" && (!input.points || input.points.length < 3)) {
+    return null;
+  }
   const cid = useStore.getState().currentPicmonicId;
   if (!cid) return null;
   const picmonic = useStore.getState().picmonics[cid];
@@ -96,7 +106,8 @@ export function addRegionWithNoteSync(input: AddRegionInput): string | null {
     id: newId(),
     kind: "region",
     ref: null,
-    shape: "rect",
+    shape: input.shape ?? "rect",
+    points: input.shape === "polygon" ? input.points : undefined,
     x: input.x,
     y: input.y,
     width: input.width,

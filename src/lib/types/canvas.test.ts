@@ -127,4 +127,73 @@ describe("normalizeCanvas backdrop backfill", () => {
       height: 90,
     });
   });
+
+  it("preserves valid polygon region points", () => {
+    const regionSymbol = {
+      id: "22222222-2222-4222-8222-222222222222",
+      kind: "region",
+      ref: null,
+      shape: "polygon",
+      points: [
+        { x: 0, y: 0 },
+        { x: 80, y: 10 },
+        { x: 20, y: 60 },
+      ],
+      x: 10,
+      y: 20,
+      width: 80,
+      height: 60,
+      rotation: 0,
+      layerIndex: 0,
+      groupId: null,
+      animation: null,
+      animationDelay: null,
+      animationDuration: null,
+    };
+    const c = {
+      ...emptyCanvas(),
+      symbols: [regionSymbol],
+    } as unknown as CanvasState;
+
+    const out = normalizeCanvas(c);
+
+    expect(out.symbols[0]).toMatchObject({
+      kind: "region",
+      ref: null,
+      shape: "polygon",
+      points: regionSymbol.points,
+    });
+  });
+
+  it("falls malformed polygon regions back to rect", () => {
+    const regionSymbol = {
+      id: "22222222-2222-4222-8222-222222222222",
+      kind: "region",
+      ref: null,
+      shape: "polygon",
+      points: [{ x: 0, y: 0 }, { x: 80, y: 10 }],
+      x: 10,
+      y: 20,
+      width: 80,
+      height: 60,
+      rotation: 0,
+      layerIndex: 0,
+      groupId: null,
+      animation: null,
+      animationDelay: null,
+      animationDuration: null,
+    };
+    const c = {
+      ...emptyCanvas(),
+      symbols: [regionSymbol],
+    } as unknown as CanvasState;
+
+    const out = normalizeCanvas(c);
+
+    expect(out.symbols[0]).toMatchObject({
+      kind: "region",
+      shape: "rect",
+      points: undefined,
+    });
+  });
 });

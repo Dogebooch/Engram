@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import { cancelMarqueeIfActive } from "@/components/editor/canvas/canvas-stage";
+import {
+  cancelMarqueeIfActive,
+  cancelRegionDraftIfActive,
+} from "@/components/editor/canvas/canvas-stage";
 import { useStore } from "@/lib/store";
 import { flushPendingSave } from "@/lib/store/debounced-save";
 import { saveCurrentPicmonicNow } from "@/lib/store/save-now";
@@ -194,7 +197,8 @@ export function useEditorKeybindings(): void {
   const onEscape = useCallback(() => {
     const s = useStore.getState();
     // Esc ladder: help → delete-confirm → fact picker → replace picker →
-    // context menu → in-flight marquee → clear selection.
+    // context menu → outline draft → in-flight marquee → annotation mode →
+    // clear selection.
     if (s.helpOpen) {
       setHelpOpen(false);
       return;
@@ -219,11 +223,12 @@ export function useEditorKeybindings(): void {
       closeStageContextMenu();
       return;
     }
+    if (cancelRegionDraftIfActive()) return;
+    if (cancelMarqueeIfActive()) return;
     if (s.annotationMode) {
       setAnnotationMode(false);
       return;
     }
-    if (cancelMarqueeIfActive()) return;
     if (s.selectedSymbolIds.length > 0) {
       clearSelection();
     }
