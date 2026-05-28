@@ -47,6 +47,7 @@ class SymbolChipWidget extends WidgetType {
   constructor(
     readonly uuid: string,
     readonly resolved: ResolvedSymbolChip,
+    readonly cueLabel: string | null,
   ) {
     super();
   }
@@ -56,7 +57,8 @@ class SymbolChipWidget extends WidgetType {
       other.uuid === this.uuid &&
       other.resolved.displayName === this.resolved.displayName &&
       other.resolved.imageUrl === this.resolved.imageUrl &&
-      other.resolved.broken === this.resolved.broken
+      other.resolved.broken === this.resolved.broken &&
+      other.cueLabel === this.cueLabel
     );
   }
 
@@ -68,6 +70,8 @@ class SymbolChipWidget extends WidgetType {
     span.setAttribute("tabindex", "-1");
 
     const resolved = this.resolved;
+    const cueLabel = this.cueLabel?.trim() ?? "";
+    const hasCueLabel = cueLabel.length > 0;
 
     if (resolved.broken) {
       span.classList.add("eng-sym-chip-broken");
@@ -79,7 +83,23 @@ class SymbolChipWidget extends WidgetType {
       label.textContent = "missing";
       span.appendChild(label);
       span.title = `Symbol ${this.uuid.slice(0, 8)}… not on canvas`;
+      span.setAttribute("aria-label", span.title);
     } else {
+      if (hasCueLabel) {
+        span.classList.add("eng-sym-chip-compact");
+        span.title = `${cueLabel} (${resolved.displayName})`;
+        span.setAttribute(
+          "aria-label",
+          `Select symbol: ${cueLabel} (${resolved.displayName})`,
+        );
+      } else {
+        span.classList.add("eng-sym-chip-fallback");
+        span.title = `${resolved.displayName} — add visual description`;
+        span.setAttribute(
+          "aria-label",
+          `Select symbol: ${resolved.displayName}. Description missing.`,
+        );
+      }
       if (resolved.imageUrl) {
         const img = document.createElement("img");
         img.className = "eng-sym-chip__img";
@@ -88,12 +108,17 @@ class SymbolChipWidget extends WidgetType {
         img.draggable = false;
         img.loading = "lazy";
         span.appendChild(img);
+      } else if (hasCueLabel) {
+        const handle = document.createElement("span");
+        handle.className = "eng-sym-chip__handle";
+        span.appendChild(handle);
       }
-      const label = document.createElement("span");
-      label.className = "eng-sym-chip__label";
-      label.textContent = resolved.displayName;
-      span.appendChild(label);
-      span.title = resolved.displayName;
+      if (!hasCueLabel) {
+        const label = document.createElement("span");
+        label.className = "eng-sym-chip__label";
+        label.textContent = resolved.displayName;
+        span.appendChild(label);
+      }
     }
 
     span.addEventListener("mousedown", (e) => {
@@ -114,6 +139,125 @@ class SymbolChipWidget extends WidgetType {
   override ignoreEvent(): boolean {
     return false;
   }
+}
+
+interface BulletRanges {
+  isBullet: boolean;
+  cueLabel: string | null;
+  marker: { from: number; to: number } | null;
+  description: { from: number; to: number } | null;
+  arrow: { from: number; to: number } | null;
+  meaning: { from: number; to: number } | null;
+  semicolon: { from: number; to: number } | null;
+  encoding: { from: number; to: number } | null;
+  emptyDescription: boolean;
+}
+
+const BULLET_MARKER_RE = /^(\s*)([*\-+])(\s+)/;
+const NEXT_SYM_TOKEN_RE =
+  /\{sym:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}/gi;
+
+function skipInlineWs(text: string, pos: number, end: number): number {
+  let next = pos;
+  while (next < end && (text.charCodeAt(next) === 32 || text.charCodeAt(next) === 9)) {
+    next++;
+  }
+  return next;
+}
+
+function trimRangeEnd(text: string, from: number, to: number): number {
+  let next = to;
+  while (next > from && (text.charCodeAt(next - 1) === 32 || text.charCodeAt(next - 1) === 9)) {
+    next--;
+  }
+  return next;
+}
+
+function firstArrow(text: string, from: number, to: number): { from: number; to: number } | null {
+  const unicode = text.indexOf("→", from);
+  const ascii = text.indexOf("->", from);
+  const unicodeInRange = unicode !== -1 && unicode < to;
+  const asciiInRange = ascii !== -1 && ascii < to;
+  if (!unicodeInRange && !asciiInRange) return null;
+  if (unicodeInRange && (!asciiInRange || unicode < ascii)) {
+    return { from: unicode, to: unicode + 1 };
+  }
+  return { from: ascii, to: ascii + 2 };
+}
+
+function nextSymbolStart(lineText: string, from: number): number {
+  NEXT_SYM_TOKEN_RE.lastIndex = from;
+  const next = NEXT_SYM_TOKEN_RE.exec(lineText);
+  return next ? next.index : lineText.length;
+}
+
+function rangeOrNull(from: number, to: number): { from: number; to: number } | null {
+  return to > from ? { from, to } : null;
+}
+
+function parseBulletRanges(lineText: string, tokenEnd: number): BulletRanges {
+  const markerMatch = BULLET_MARKER_RE.exec(lineText);
+  if (!markerMatch) {
+    return {
+      isBullet: false,
+      cueLabel: null,
+      marker: null,
+      description: null,
+      arrow: null,
+      meaning: null,
+      semicolon: null,
+      encoding: null,
+      emptyDescription: false,
+    };
+  }
+
+  const marker = {
+    from: markerMatch[1].length,
+    to: markerMatch[1].length + markerMatch[2].length,
+  };
+
+  const limit = nextSymbolStart(lineText, tokenEnd);
+  const bodyStart = skipInlineWs(lineText, tokenEnd, limit);
+  const bodyEnd = trimRangeEnd(lineText, bodyStart, limit);
+  const arrow = firstArrow(lineText, bodyStart, bodyEnd);
+
+  if (!arrow) {
+    const description = rangeOrNull(bodyStart, bodyEnd);
+    return {
+      isBullet: true,
+      cueLabel: description ? lineText.slice(description.from, description.to).trim() : null,
+      marker,
+      description,
+      arrow: null,
+      meaning: null,
+      semicolon: null,
+      encoding: null,
+      emptyDescription: !description,
+    };
+  }
+
+  const descriptionEnd = trimRangeEnd(lineText, bodyStart, arrow.from);
+  const description = rangeOrNull(bodyStart, descriptionEnd);
+  const afterArrowStart = skipInlineWs(lineText, arrow.to, bodyEnd);
+  const semi = lineText.indexOf(";", afterArrowStart);
+  const hasSemi = semi !== -1 && semi < bodyEnd;
+  const meaningEnd = trimRangeEnd(lineText, afterArrowStart, hasSemi ? semi : bodyEnd);
+  const meaning = rangeOrNull(afterArrowStart, meaningEnd);
+  const semicolon = hasSemi ? { from: semi, to: semi + 1 } : null;
+  const encodingStart = hasSemi ? skipInlineWs(lineText, semi + 1, bodyEnd) : bodyEnd;
+  const encoding = hasSemi ? rangeOrNull(encodingStart, bodyEnd) : null;
+
+  return {
+    isBullet: true,
+    cueLabel: description ? lineText.slice(description.from, description.to).trim() : null,
+    marker,
+    description,
+    arrow,
+    meaning,
+    semicolon,
+    encoding,
+    emptyDescription: !description,
+  };
 }
 
 function isInsideCode(view: EditorView, pos: number): boolean {
@@ -143,11 +287,70 @@ function buildDecorations(view: EditorView): DecorationSet {
       const matchTo = matchFrom + m[0].length;
       if (isInsideCode(view, matchFrom)) continue;
       const uuid = m[1].toLowerCase();
+      const line = view.state.doc.lineAt(matchFrom);
+      const lineText = line.text;
+      const ranges = parseBulletRanges(
+        lineText,
+        matchTo - line.from,
+      );
       const resolved = activeResolver(uuid);
       const deco = Decoration.replace({
-        widget: new SymbolChipWidget(uuid, resolved),
+        widget: new SymbolChipWidget(uuid, resolved, ranges.cueLabel),
         inclusive: false,
       });
+      if (ranges.isBullet) {
+        decorations.push({
+          from: line.from,
+          to: line.from,
+          deco: Decoration.line({
+            class: ranges.emptyDescription
+              ? "eng-note-symbol-line eng-note-symbol-line-empty-desc"
+              : "eng-note-symbol-line",
+          }),
+        });
+      }
+      if (ranges.marker) {
+        decorations.push({
+          from: line.from + ranges.marker.from,
+          to: line.from + ranges.marker.to,
+          deco: Decoration.mark({ class: "eng-note-bullet-marker" }),
+        });
+      }
+      if (ranges.description) {
+        decorations.push({
+          from: line.from + ranges.description.from,
+          to: line.from + ranges.description.to,
+          deco: Decoration.mark({ class: "eng-note-bullet-desc" }),
+        });
+      }
+      if (ranges.arrow) {
+        decorations.push({
+          from: line.from + ranges.arrow.from,
+          to: line.from + ranges.arrow.to,
+          deco: Decoration.mark({ class: "eng-note-bullet-arrow" }),
+        });
+      }
+      if (ranges.meaning) {
+        decorations.push({
+          from: line.from + ranges.meaning.from,
+          to: line.from + ranges.meaning.to,
+          deco: Decoration.mark({ class: "eng-note-bullet-meaning" }),
+        });
+      }
+      if (ranges.semicolon) {
+        decorations.push({
+          from: line.from + ranges.semicolon.from,
+          to: line.from + ranges.semicolon.to,
+          deco: Decoration.mark({ class: "eng-note-bullet-separator" }),
+        });
+      }
+      if (ranges.encoding) {
+        decorations.push({
+          from: line.from + ranges.encoding.from,
+          to: line.from + ranges.encoding.to,
+          deco: Decoration.mark({ class: "eng-note-bullet-encoding" }),
+        });
+      }
       decorations.push({ from: matchFrom, to: matchTo, deco });
     }
   }

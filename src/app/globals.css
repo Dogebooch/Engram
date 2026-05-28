@@ -217,17 +217,19 @@
 .eng-sym-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 1px 6px 1px 4px;
-  margin: 0 1px;
-  border-radius: 3px;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin: 0 5px 0 1px;
+  border-radius: 4px;
   border: 1px solid color-mix(in oklch, var(--accent) 28%, transparent);
-  background: color-mix(in oklch, var(--accent) 7%, transparent);
+  background: color-mix(in oklch, var(--accent) 8%, transparent);
   color: color-mix(in oklch, var(--accent) 55%, var(--foreground) 60%);
-  font-size: 11px;
   font-family: var(--font-sans);
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: -0.005em;
+  letter-spacing: 0;
   line-height: 1.4;
   cursor: pointer;
   transition:
@@ -256,8 +258,8 @@
 }
 
 .eng-sym-chip__img {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
   object-fit: contain;
   flex-shrink: 0;
   filter: saturate(0.85) brightness(1.05);
@@ -278,9 +280,44 @@
   white-space: nowrap;
 }
 
+.eng-sym-chip__handle {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  border: 1px solid color-mix(in oklch, var(--accent) 70%, transparent);
+  background: color-mix(in oklch, var(--accent) 45%, transparent);
+  box-shadow:
+    0 0 0 3px color-mix(in oklch, var(--accent) 9%, transparent),
+    inset 0 1px 0 color-mix(in oklch, var(--foreground) 30%, transparent);
+}
+
+.eng-sym-chip-fallback {
+  width: auto;
+  max-width: 11rem;
+  justify-content: flex-start;
+  gap: 5px;
+  padding: 1px 6px 1px 4px;
+  border-style: dashed;
+  border-color: color-mix(in oklch, var(--muted-foreground) 38%, transparent);
+  background: color-mix(in oklch, var(--muted-foreground) 7%, transparent);
+  color: color-mix(in oklch, var(--muted-foreground) 92%, transparent);
+}
+
+.eng-sym-chip-fallback::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--destructive) 70%, transparent);
+}
+
 /* Broken ref — tighter, dimmer, mono label, dashed hairline */
 
 .eng-sym-chip-broken {
+  width: auto;
+  gap: 5px;
+  padding: 1px 6px 1px 4px;
   border-color: color-mix(in oklch, var(--destructive) 38%, transparent);
   background: color-mix(in oklch, var(--destructive) 7%, transparent);
   color: color-mix(in oklch, var(--destructive) 55%, var(--muted-foreground));
@@ -341,6 +378,105 @@
 /* The HighlightStyle handles base colors; these add structural marks. */
 .eng-notes-host .ͼ1 .cm-line {
   position: relative;
+}
+
+.eng-notes-host .cm-line.eng-note-section-line {
+  margin: 10px 0 8px;
+  padding: 7px 4px 8px 8px;
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
+  background: linear-gradient(
+    to right,
+    color-mix(in oklch, var(--accent) 8%, transparent),
+    transparent 88%
+  );
+}
+
+.eng-notes-host .cm-line.eng-note-section-line > span {
+  font-family: var(--font-sans);
+  font-size: 15.5px;
+  font-weight: 650;
+  letter-spacing: 0;
+  color: color-mix(in oklch, var(--foreground) 98%, transparent);
+}
+
+.eng-notes-host .cm-line.eng-note-section-line > span:first-child {
+  color: color-mix(in oklch, var(--accent) 72%, transparent);
+}
+
+.eng-notes-host .cm-line.eng-note-fact-line {
+  padding-left: 10px;
+  box-shadow: inset 2px 0 0
+    color-mix(in oklch, var(--accent) 14%, transparent);
+}
+
+.eng-notes-host .cm-line.eng-note-fact-heading-line {
+  margin: 8px 0 2px;
+  padding: 5px 6px 5px 10px;
+  border-radius: 4px;
+  background: color-mix(in oklch, var(--foreground) 4%, transparent);
+  box-shadow: inset 2px 0 0
+    color-mix(in oklch, var(--accent) 45%, transparent);
+}
+
+.eng-notes-host .cm-line.eng-note-fact-heading-line > span {
+  font-family: var(--font-sans);
+  font-size: 12.75px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: color-mix(in oklch, var(--foreground) 88%, transparent);
+}
+
+.eng-notes-host .cm-line.eng-note-fact-heading-line > span:first-child {
+  color: color-mix(in oklch, var(--accent) 62%, transparent);
+}
+
+.eng-notes-host .cm-line.eng-note-symbol-line {
+  margin: 1px 0 4px;
+  padding-left: 20px !important;
+  text-indent: -11px;
+  line-height: 1.65;
+}
+
+.eng-note-bullet-marker {
+  color: color-mix(in oklch, var(--muted-foreground) 42%, transparent);
+}
+
+.eng-note-bullet-desc {
+  font-family: var(--font-sans);
+  font-size: 12.75px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: color-mix(in oklch, var(--foreground) 84%, transparent);
+}
+
+.eng-note-bullet-arrow,
+.eng-note-bullet-separator {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: color-mix(in oklch, var(--accent) 78%, transparent);
+}
+
+.eng-note-bullet-meaning {
+  font-family: var(--font-sans);
+  font-size: 12.85px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: color-mix(in oklch, var(--foreground) 96%, transparent);
+}
+
+.eng-note-bullet-encoding {
+  font-family: var(--font-sans);
+  font-size: 12.2px;
+  font-style: italic;
+  letter-spacing: 0;
+  color: color-mix(in oklch, var(--muted-foreground) 92%, transparent);
+}
+
+.eng-notes-host .cm-line.eng-note-symbol-line-empty-desc {
+  background: color-mix(in oklch, var(--destructive) 5%, transparent);
+  box-shadow: inset 2px 0 0
+    color-mix(in oklch, var(--destructive) 36%, transparent);
 }
 
 /* ---- Active-line accent rail (tracks editor cursor) ---- */
@@ -436,12 +572,14 @@
   position: relative;
   display: flex;
   align-items: center;
+  min-width: 0;
   height: 22px;
   padding: 0 12px 0 14px;
   background: color-mix(in oklch, var(--card) 60%, transparent);
   font-size: 10px;
   letter-spacing: 0.04em;
   color: color-mix(in oklch, var(--muted-foreground) 90%, transparent);
+  overflow: hidden;
 }
 
 .eng-notes-breadcrumb::before {
@@ -475,6 +613,11 @@
 }
 
 .eng-notes-breadcrumb__section {
+  min-width: 0;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: 9.5px;
   text-transform: uppercase;
@@ -483,6 +626,7 @@
 }
 
 .eng-notes-breadcrumb__sep {
+  flex: 0 0 auto;
   color: color-mix(in oklch, var(--muted-foreground) 35%, transparent);
   font-family: var(--font-mono);
   margin: 0 8px;
@@ -491,9 +635,14 @@
 }
 
 .eng-notes-breadcrumb__fact {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: color-mix(in oklch, var(--foreground) 90%, transparent);
   font-weight: 500;
-  letter-spacing: -0.005em;
+  letter-spacing: 0;
   text-transform: none;
   font-size: 11px;
 }

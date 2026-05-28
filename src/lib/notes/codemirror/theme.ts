@@ -18,7 +18,7 @@ export const engramEditorTheme = EditorView.theme(
     ".cm-scroller": {
       fontFamily: fontStack,
       lineHeight: "1.7",
-      padding: "14px 18px 80px",
+      padding: "12px 18px 80px",
       overflowY: "auto",
     },
     ".cm-content": {
@@ -64,7 +64,7 @@ export const engramHighlightStyle = HighlightStyle.define([
     fontFamily: sansStack,
     fontWeight: "600",
     fontSize: "15.5px",
-    letterSpacing: "-0.018em",
+    letterSpacing: "0",
     lineHeight: "1.4",
   },
   // h2 = Fact. Distinctly demoted: monospace caps-style title, amber tint.
@@ -74,7 +74,7 @@ export const engramHighlightStyle = HighlightStyle.define([
     fontFamily: sansStack,
     fontWeight: "550",
     fontSize: "12.5px",
-    letterSpacing: "0.005em",
+    letterSpacing: "0",
     lineHeight: "1.5",
   },
   {

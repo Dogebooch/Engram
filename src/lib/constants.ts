@@ -39,12 +39,12 @@ export const USER_SYMBOL_PREFIX = "user:";
 
 export const PANEL_DEFAULTS = {
   leftSize: 18,
-  rightSize: 24,
-  centerMin: 30,
+  rightSize: 28,
+  centerMin: 28,
   leftMin: 14,
   leftMax: 32,
-  rightMin: 18,
-  rightMax: 40,
+  rightMin: 22,
+  rightMax: 44,
 } as const;
 
 export const SYMBOL_DEFAULT_SIZE = 220;

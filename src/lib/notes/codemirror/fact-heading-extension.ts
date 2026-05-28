@@ -79,6 +79,20 @@ function buildDecorations(state: EditorState): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const doc = state.doc;
   const parsed = parseNotes(doc.toString());
+  for (const section of parsed.sections) {
+    if (section.headingLine < 1 || section.headingLine > doc.lines) continue;
+    const line = doc.line(section.headingLine);
+    builder.add(
+      line.from,
+      line.from,
+      Decoration.line({
+        attributes: {
+          class: "eng-note-section-line",
+        },
+      }),
+    );
+  }
+
   const facts = Array.from(parsed.factsById.values()).sort(
     (a, b) => a.headingLine - b.headingLine,
   );
@@ -108,6 +122,10 @@ function buildDecorations(state: EditorState): DecorationSet {
         line.from,
         Decoration.line({
           attributes: {
+            class:
+              l === startLine
+                ? "eng-note-fact-line eng-note-fact-heading-line"
+                : "eng-note-fact-line",
             "data-fact-block": factId,
             "data-fact-id": factId,
             "data-fact-block-position": position,

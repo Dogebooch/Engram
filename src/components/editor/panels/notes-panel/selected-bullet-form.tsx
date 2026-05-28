@@ -179,6 +179,11 @@ function SelectedBulletFormInner({
   };
 
   const descEmpty = draft.description.trim().length === 0;
+  const identityDescription = draft.description.trim();
+  const identityTitle = identityDescription || displayName;
+  const identityMeta = identityDescription
+    ? displayName
+    : "missing visual description";
 
   const factName = fact?.name ?? "";
   const showSelector = factIds.length > 1;
@@ -191,7 +196,7 @@ function SelectedBulletFormInner({
       onKeyDown={handleKeyDown}
     >
       {/* Identity strip */}
-      <div className="flex h-8 items-center gap-2 px-3">
+      <div className="flex min-h-10 items-center gap-2 px-3 py-1">
         <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground/55">
           editing
         </span>
@@ -208,8 +213,18 @@ function SelectedBulletFormInner({
         ) : (
           <span className="size-[18px] rounded-sm bg-foreground/[0.06]" />
         )}
-        <span className="truncate text-[12px] font-medium text-foreground/90">
-          {displayName}
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-[12px] font-medium leading-tight text-foreground/92">
+            {identityTitle}
+          </span>
+          <span
+            className={cn(
+              "truncate font-mono text-[9px] uppercase leading-tight tracking-[0.14em]",
+              descEmpty ? "text-destructive/70" : "text-muted-foreground/55",
+            )}
+          >
+            {identityMeta}
+          </span>
         </span>
         {showSelector && !useDropdown && (
           <span className="ml-1 text-muted-foreground/40">·</span>
