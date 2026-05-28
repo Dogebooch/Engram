@@ -54,6 +54,7 @@ CLAUDE-*.md
 .venv-video-ingest/
 .mcp.json
 __pycache__/
+tools/video-ingest/models/
 
 # IDE
 .vscode/

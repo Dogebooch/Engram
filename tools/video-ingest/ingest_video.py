@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import argparse
 import base64
+import contextlib
 import socket
 import json
-import math
 import re
 import shutil
 import subprocess
@@ -19,11 +19,34 @@ from typing import Any
 
 import cv2
 
+from captions import get_transcript
+
 
 STAGE_WIDTH = 1920
 STAGE_HEIGHT = 1080
 CANVAS_SCHEMA_VERSION = 1
 BUNDLE_SCHEMA_VERSION = 2
+
+
+class StageTimer:
+    """Accumulate wall-clock seconds per pipeline stage for timing.json."""
+
+    def __init__(self) -> None:
+        self.stages: dict[str, float] = {}
+
+    def record(self, name: str, seconds: float) -> None:
+        self.stages[name] = round(self.stages.get(name, 0.0) + seconds, 2)
+
+    @contextlib.contextmanager
+    def time(self, name: str):
+        start = time.time()
+        try:
+            yield
+        finally:
+            self.record(name, time.time() - start)
+
+    def total(self) -> float:
+        return round(sum(self.stages.values()), 2)
 
 
 @dataclass
@@ -108,6 +131,10 @@ def write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def read_json(path: Path) -> Any:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def save_frame(cap: cv2.VideoCapture, frame_number: int, out_path: Path) -> bool:
     cap.set(cv2.CAP_PROP_POS_FRAMES, max(frame_number, 0))
     ok, frame = cap.read()
@@ -183,7 +210,9 @@ def extract_keyframes(
         after: list[str] = []
         if save_frame(cap, max(0, frame_number - context_frames), before_path):
             before.append(str(before_path))
-        if save_frame(cap, min(total_frames - 1, frame_number + context_frames), after_path):
+        if save_frame(
+            cap, min(total_frames - 1, frame_number + context_frames), after_path
+        ):
             after.append(str(after_path))
         keyframes.append(
             Keyframe(
@@ -260,21 +289,24 @@ def srt_time(ms: int) -> str:
     return f"{h:02d}:{m:02d}:{s:02d},{milli:03d}"
 
 
-def transcript_context(transcript: dict[str, Any], timestamp_ms: int, radius_ms: int) -> str:
+def transcript_context(
+    transcript: dict[str, Any], timestamp_ms: int, radius_ms: int
+) -> str:
     lines = []
     for segment in transcript.get("segments", []):
         start = int(segment.get("start_ms", 0))
         end = int(segment.get("end_ms", 0))
         if end < timestamp_ms - radius_ms or start > timestamp_ms + radius_ms:
             continue
-        lines.append(f"[{ms_to_stamp(start)}-{ms_to_stamp(end)}] {segment.get('text', '')}")
+        lines.append(
+            f"[{ms_to_stamp(start)}-{ms_to_stamp(end)}] {segment.get('text', '')}"
+        )
     return "\n".join(lines).strip()
 
 
 def transcript_text(transcript: dict[str, Any]) -> str:
     return "\n".join(
-        clean_text(segment.get("text"))
-        for segment in transcript.get("segments", [])
+        clean_text(segment.get("text")) for segment in transcript.get("segments", [])
     ).strip()
 
 
@@ -406,7 +438,10 @@ def thiamine_transcript_symbols(
             "symbol_key": "branch-chain-key",
             "symbol_description": "Tree branch, chain, and key weapon stuck in the hydra",
             "meaning": "branched-chain ketoacid dehydrogenase",
-            "phrases": ["tree branch attached to a chain", "Branched-chain keto-acid dehydrogenase"],
+            "phrases": [
+                "tree branch attached to a chain",
+                "Branched-chain keto-acid dehydrogenase",
+            ],
             "fallback_ms": 310_000,
             "bbox": (260, 250, 145, 230),
             "evidence": "Transcript decodes branched as branch, chain as chain, and keto as key.",
@@ -428,7 +463,10 @@ def thiamine_transcript_symbols(
             "symbol_key": "key-train",
             "symbol_description": "Key-carrying train",
             "meaning": "erythrocyte transketolase activity rises after vitamin B1 in deficiency",
-            "phrases": ["diagnosis of a vitamin B1 deficiency", "measurable increase in the activity"],
+            "phrases": [
+                "diagnosis of a vitamin B1 deficiency",
+                "measurable increase in the activity",
+            ],
             "fallback_ms": 399_000,
             "bbox": (0, 585, 455, 135),
             "evidence": "Transcript says B1 administration increases transketolase activity in deficient patients.",
@@ -482,7 +520,9 @@ def extract_transcript_symbols(
                 "image": backdrop.image,
                 "symbols": symbols,
             }
-        ] if symbols else [],
+        ]
+        if symbols
+        else [],
         "symbols": symbols,
     }
 
@@ -491,7 +531,9 @@ def image_to_base64(path: Path) -> str:
     return base64.b64encode(path.read_bytes()).decode("ascii")
 
 
-def make_vlm_image(source: Path, out_dir: Path, max_width: int) -> tuple[Path, int, int]:
+def make_vlm_image(
+    source: Path, out_dir: Path, max_width: int
+) -> tuple[Path, int, int]:
     image = cv2.imread(str(source))
     if image is None:
         return source, 0, 0
@@ -511,7 +553,9 @@ def make_vlm_image(source: Path, out_dir: Path, max_width: int) -> tuple[Path, i
     return out_path, rw, rh
 
 
-def call_ollama(model: str, prompt: str, image_path: Path, timeout: int) -> dict[str, Any]:
+def call_ollama(
+    model: str, prompt: str, image_path: Path, timeout: int
+) -> dict[str, Any]:
     payload = {
         "model": model,
         "prompt": prompt,
@@ -543,7 +587,12 @@ def call_ollama(model: str, prompt: str, image_path: Path, timeout: int) -> dict
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError:
-        return {"status": "error", "reason": "model returned non-json", "raw": text, "symbols": []}
+        return {
+            "status": "error",
+            "reason": "model returned non-json",
+            "raw": text,
+            "symbols": [],
+        }
     parsed["status"] = "ok"
     parsed["elapsed_seconds"] = raw.get("total_duration", 0) / 1_000_000_000
     return parsed
@@ -606,7 +655,9 @@ Transcript near this frame:
 
 def has_valid_box(box: dict[str, Any]) -> bool:
     try:
-        return float(box.get("width", 0) or 0) > 1 and float(box.get("height", 0) or 0) > 1
+        return (
+            float(box.get("width", 0) or 0) > 1 and float(box.get("height", 0) or 0) > 1
+        )
     except (TypeError, ValueError):
         return False
 
@@ -636,6 +687,45 @@ def clamp_box(box: dict[str, Any], src_w: int, src_h: int) -> dict[str, float]:
     w = max(1, min(src_w - x, w))
     h = max(1, min(src_h - y, h))
     return {"x": x, "y": y, "width": w, "height": h}
+
+
+def scaled_polygon(
+    points: Any,
+    scale_x: float,
+    scale_y: float,
+) -> dict[str, Any] | None:
+    """Convert frame-pixel polygon points into a stage-space region layer
+    patch. Accepts a list of [x, y] pairs or {x, y} objects (>= 3 points).
+    Returns shape/x/y/width/height/points with points relative to x/y, or
+    None when there is no usable polygon."""
+    if not isinstance(points, list) or len(points) < 3:
+        return None
+    scaled: list[tuple[float, float]] = []
+    for point in points:
+        if isinstance(point, dict):
+            px, py = point.get("x"), point.get("y")
+        elif isinstance(point, (list, tuple)) and len(point) >= 2:
+            px, py = point[0], point[1]
+        else:
+            return None
+        try:
+            scaled.append((float(px) * scale_x, float(py) * scale_y))
+        except (TypeError, ValueError):
+            return None
+    min_x = min(p[0] for p in scaled)
+    min_y = min(p[1] for p in scaled)
+    max_x = max(p[0] for p in scaled)
+    max_y = max(p[1] for p in scaled)
+    return {
+        "shape": "polygon",
+        "x": round(min_x, 2),
+        "y": round(min_y, 2),
+        "width": round(max_x - min_x, 2),
+        "height": round(max_y - min_y, 2),
+        "points": [
+            {"x": round(px - min_x, 2), "y": round(py - min_y, 2)} for px, py in scaled
+        ],
+    }
 
 
 def synthesize_fact_id(section: str | None, fact: str, occurrence: int) -> str:
@@ -698,16 +788,23 @@ def make_bundle(
         box_height = int(symbol.get("vlm_height") or info.height)
         bullet_key = (
             slugify(clean_text(symbol.get("fact"))),
-            clean_text(symbol.get("symbol_key")) or slugify(clean_text(symbol.get("symbol_description"))),
+            clean_text(symbol.get("symbol_key"))
+            or slugify(clean_text(symbol.get("symbol_description"))),
         )
         if bullet_key in seen_bullets:
             continue
         if not localized_to_backdrop and source_keyframe != backdrop.index:
-            rejected = {**symbol, "rejection_reason": "not localized to the representative frame"}
+            rejected = {
+                **symbol,
+                "rejection_reason": "not localized to the representative frame",
+            }
             rejected_symbols.append(rejected)
             continue
         if not is_placeable_symbol(symbol, box_width, box_height):
-            rejected = {**symbol, "rejection_reason": "missing or whole-frame bounding box"}
+            rejected = {
+                **symbol,
+                "rejection_reason": "missing or whole-frame bounding box",
+            }
             rejected_symbols.append(rejected)
             continue
         seen_bullets.add(bullet_key)
@@ -740,24 +837,26 @@ def make_bundle(
         box = clamp_box(symbol.get("bbox") or {}, box_width, box_height)
         scale_x = STAGE_WIDTH / max(1, box_width)
         scale_y = STAGE_HEIGHT / max(1, box_height)
-        canvas_symbols.append(
-            {
-                "id": layer_id,
-                "kind": "region",
-                "ref": None,
-                "shape": "rect",
-                "x": round(box["x"] * scale_x, 2),
-                "y": round(box["y"] * scale_y, 2),
-                "width": round(box["width"] * scale_x, 2),
-                "height": round(box["height"] * scale_y, 2),
-                "rotation": 0,
-                "layerIndex": len(canvas_symbols),
-                "groupId": None,
-                "animation": None,
-                "animationDelay": None,
-                "animationDuration": None,
-            }
-        )
+        layer = {
+            "id": layer_id,
+            "kind": "region",
+            "ref": None,
+            "shape": "rect",
+            "x": round(box["x"] * scale_x, 2),
+            "y": round(box["y"] * scale_y, 2),
+            "width": round(box["width"] * scale_x, 2),
+            "height": round(box["height"] * scale_y, 2),
+            "rotation": 0,
+            "layerIndex": len(canvas_symbols),
+            "groupId": None,
+            "animation": None,
+            "animationDelay": None,
+            "animationDuration": None,
+        }
+        polygon = scaled_polygon(symbol.get("polygon"), scale_x, scale_y)
+        if polygon:
+            layer.update(polygon)
+        canvas_symbols.append(layer)
 
     for fact in fact_order:
         notes_lines.append(f"## {fact}")
@@ -766,9 +865,14 @@ def make_bundle(
                 clean_text(symbol.get("symbol_description")) or "visible-region"
             )
             layer_id = layer_id_by_key[symbol_key]
-            description = clean_text(symbol.get("symbol_description")) or "visible region"
+            description = (
+                clean_text(symbol.get("symbol_description")) or "visible region"
+            )
             meaning = clean_text(symbol.get("meaning")) or fact
-            evidence = clean_text(symbol.get("evidence")) or "Detected from the video transcript and representative frame."
+            evidence = (
+                clean_text(symbol.get("evidence"))
+                or "Detected from the video transcript and representative frame."
+            )
             timestamp = int(symbol.get("timestamp_ms") or backdrop.timestamp_ms)
             notes_lines.append(
                 f"* {{sym:{layer_id}}} {description} -> {meaning}; {evidence} @ {ms_to_stamp(timestamp)}"
@@ -819,18 +923,28 @@ def write_review(
     keyframes: list[Keyframe],
     draft: dict[str, Any],
     bundle_path: Path | None,
+    timing: dict[str, Any] | None = None,
 ) -> None:
     lines = [
         f"# {info.title}",
         "",
         f"- Duration: {ms_to_stamp(info.duration_ms)}",
         f"- Resolution: {info.width}x{info.height}",
-        f"- Transcript: {transcript.get('status')}",
+        f"- Transcript: {transcript.get('status')} ({transcript.get('source') or transcript.get('model')})",
         f"- Keyframes: {len(keyframes)}",
         f"- Draft symbols: {len(draft.get('symbols', []))}",
         f"- Rejected symbols: {len(draft.get('rejected_symbols', []))}",
         f"- Bundle: {bundle_path if bundle_path else 'not generated'}",
         "",
+    ]
+    if timing:
+        lines.append("## Timing")
+        lines.append("")
+        for name, seconds in timing.get("stages", {}).items():
+            lines.append(f"- {name}: {seconds}s")
+        lines.append(f"- total: {timing.get('total')}s")
+        lines.append("")
+    lines += [
         "## Medical source checks",
         "",
         "- NIH ODS Thiamin fact sheet: thiamin functions as thiamine pyrophosphate in energy metabolism.",
@@ -842,7 +956,9 @@ def write_review(
     ]
     for keyframe in keyframes:
         marker = " (backdrop)" if keyframe.selected_as_backdrop else ""
-        lines.append(f"- {keyframe.index}: {ms_to_stamp(keyframe.timestamp_ms)}{marker} - `{keyframe.image}`")
+        lines.append(
+            f"- {keyframe.index}: {ms_to_stamp(keyframe.timestamp_ms)}{marker} - `{keyframe.image}`"
+        )
     lines.extend(["", "## Draft Symbols", ""])
     for symbol in draft.get("symbols", []):
         lines.append(
@@ -874,6 +990,34 @@ def main() -> int:
     parser.add_argument("--whisper-model", default="small.en")
     parser.add_argument("--skip-transcript", action="store_true")
     parser.add_argument("--skip-vlm", action="store_true")
+    parser.add_argument(
+        "--captions",
+        type=Path,
+        default=None,
+        help="Explicit caption file (.srt/.vtt) to use as the transcript (skips Whisper).",
+    )
+    parser.add_argument(
+        "--prefer-captions",
+        action="store_true",
+        help="Try a sidecar/embedded caption track before falling back to Whisper.",
+    )
+    parser.add_argument(
+        "--draft-symbols",
+        type=Path,
+        default=None,
+        help="Load this draft JSON ({model, symbols:[...]}) and skip rule/VLM analysis.",
+    )
+    parser.add_argument(
+        "--reuse-run",
+        action="store_true",
+        help="Reuse existing video_info.json/keyframes.json/transcript.json in out_dir; skip extraction.",
+    )
+    parser.add_argument(
+        "--backdrop-index",
+        type=int,
+        default=None,
+        help="Force this keyframe index to be the backdrop.",
+    )
     parser.add_argument("--ollama-model", default="gemma3:4b")
     parser.add_argument("--pull-ollama-model", action="store_true")
     parser.add_argument("--max-keyframes", type=int, default=18)
@@ -887,45 +1031,88 @@ def main() -> int:
     args = parser.parse_args()
 
     video = args.video
-    if not video.exists():
-        raise FileNotFoundError(video)
-    info = read_video_info(video)
-    out_dir = args.out_root / slugify(info.title)
-    ensure_clean_dir(out_dir)
-    write_json(out_dir / "video_info.json", asdict(info))
-
-    keyframes = extract_keyframes(
-        video=video,
-        out_dir=out_dir,
-        sample_seconds=args.sample_seconds,
-        min_gap_seconds=args.min_gap_seconds,
-        max_keyframes=args.max_keyframes,
-        context_seconds=args.context_seconds,
-        diff_threshold=args.diff_threshold,
-    )
-    write_json(out_dir / "keyframes.json", [asdict(k) for k in keyframes])
-
-    transcript = {"status": "skipped", "segments": []}
-    if not args.skip_transcript:
-        transcript = transcribe(video, out_dir, args.whisper_model)
-    write_json(out_dir / "transcript.json", transcript)
-
-    draft = extract_transcript_symbols(info, transcript, keyframes)
-    if not draft.get("symbols") and not args.skip_vlm:
-        ensure_ollama_model(args.ollama_model, args.pull_ollama_model)
-        draft = analyze_keyframes(
-            keyframes=keyframes,
-            transcript=transcript,
-            model=args.ollama_model,
-            max_analyzed=args.max_analyzed_keyframes,
-            timeout=args.ollama_timeout,
-            vlm_image_width=args.vlm_image_width,
+    timer = StageTimer()
+    if args.reuse_run:
+        out_dir = args.out_root / slugify(video.stem)
+        info = VideoInfo(**read_json(out_dir / "video_info.json"))
+        keyframes = [Keyframe(**k) for k in read_json(out_dir / "keyframes.json")]
+        transcript_path = out_dir / "transcript.json"
+        transcript = (
+            read_json(transcript_path)
+            if transcript_path.exists()
+            else {"status": "skipped", "segments": []}
         )
-    bundle_path = make_bundle(out_dir, info, keyframes, draft)
-    write_json(out_dir / "draft_symbols.json", draft)
-    write_review(out_dir, info, transcript, keyframes, draft, bundle_path)
+    else:
+        if not video.exists():
+            raise FileNotFoundError(video)
+        info = read_video_info(video)
+        out_dir = args.out_root / slugify(info.title)
+        ensure_clean_dir(out_dir)
+        write_json(out_dir / "video_info.json", asdict(info))
 
-    print(json.dumps({"out_dir": str(out_dir), "bundle": str(bundle_path) if bundle_path else None}, indent=2))
+        with timer.time("keyframes"):
+            keyframes = extract_keyframes(
+                video=video,
+                out_dir=out_dir,
+                sample_seconds=args.sample_seconds,
+                min_gap_seconds=args.min_gap_seconds,
+                max_keyframes=args.max_keyframes,
+                context_seconds=args.context_seconds,
+                diff_threshold=args.diff_threshold,
+            )
+        write_json(out_dir / "keyframes.json", [asdict(k) for k in keyframes])
+
+        with timer.time("transcript"):
+            transcript = get_transcript(
+                video,
+                out_dir,
+                args.whisper_model,
+                captions_path=args.captions,
+                prefer_captions=args.prefer_captions,
+                skip_transcript=args.skip_transcript,
+            )
+        write_json(out_dir / "transcript.json", transcript)
+
+    if args.backdrop_index is not None:
+        for keyframe in keyframes:
+            keyframe.selected_as_backdrop = keyframe.index == args.backdrop_index
+
+    with timer.time("draft"):
+        if args.draft_symbols is not None:
+            draft = read_json(args.draft_symbols)
+        else:
+            draft = extract_transcript_symbols(info, transcript, keyframes)
+            if not draft.get("symbols") and not args.skip_vlm:
+                ensure_ollama_model(args.ollama_model, args.pull_ollama_model)
+                draft = analyze_keyframes(
+                    keyframes=keyframes,
+                    transcript=transcript,
+                    model=args.ollama_model,
+                    max_analyzed=args.max_analyzed_keyframes,
+                    timeout=args.ollama_timeout,
+                    vlm_image_width=args.vlm_image_width,
+                )
+    with timer.time("bundle"):
+        bundle_path = make_bundle(out_dir, info, keyframes, draft)
+    write_json(out_dir / "draft_symbols.json", draft)
+    timing = {
+        "video": slugify(info.title),
+        "stages": timer.stages,
+        "transcript_source": transcript.get("source") or transcript.get("model"),
+        "total": timer.total(),
+    }
+    write_json(out_dir / "timing.json", timing)
+    write_review(out_dir, info, transcript, keyframes, draft, bundle_path, timing)
+
+    print(
+        json.dumps(
+            {
+                "out_dir": str(out_dir),
+                "bundle": str(bundle_path) if bundle_path else None,
+            },
+            indent=2,
+        )
+    )
     return 0
 
 

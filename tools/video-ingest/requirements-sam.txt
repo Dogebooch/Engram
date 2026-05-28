@@ -1,0 +1,22 @@
+# SAM-assisted outlines (sam_segment.py) — install INTO the same .venv-video-ingest
+# AFTER tools/video-ingest/requirements.txt.
+#
+# torch + torchvision must come from the AMD ROCm index FIRST (they are not on
+# PyPI for gfx1100). Per the project's hardware notes:
+#
+#   .\.venv-video-ingest\Scripts\python.exe -m pip install --pre torch torchvision \
+#     --index-url https://rocm.nightlies.amd.com/v2/gfx110X-dgpu/
+#
+# Then:  .\.venv-video-ingest\Scripts\python.exe -m pip install -r tools\video-ingest\requirements-sam.txt
+#
+# NOTE (verified 2026-05-28, ROCm 7.10 nightly / RX 7900 XTX): SAM2's Hiera image
+# encoder SDPA is numerically broken / crashes on the GPU, so sam_segment.py runs
+# on CPU by default (--device cpu): correct, pixel-perfect masks, ~50s set_image
+# once per video, instant per-symbol predicts. Re-test --device cuda when ROCm
+# matures. CPU SAM works with any torch build.
+
+sam2 @ git+https://github.com/facebookresearch/sam2.git
+pillow
+
+# Fallback backend (--backend mobilesam) if SAM2 ever fails to load:
+# mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM.git

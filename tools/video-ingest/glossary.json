@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-05-28",
+  "note": "Recurring Pixorize/Sketchy visual puns -> canonical meaning, for naming consistency across videos. Read-only guidance for the ingest skill; propose new entries in the run summary and append only on user confirmation.",
+  "entries": [
+    {
+      "visual": "thigh with a B-themed gun",
+      "symbol_key": "thigh-b-gun",
+      "meaning": "vitamin B1, thiamine",
+      "aliases": ["mighty thigh", "thigh", "B gun"],
+      "domain": "biochem-thiamine"
+    },
+    {
+      "visual": "teepees",
+      "symbol_key": "teepees",
+      "meaning": "TPP, thiamine pyrophosphate",
+      "aliases": ["tee-pees"],
+      "domain": "biochem-thiamine"
+    },
+    {
+      "visual": "hydra being de-headed",
+      "symbol_key": "hydra",
+      "meaning": "dehydrogenase reaction",
+      "aliases": ["de-heading the hydra", "de-hydra"],
+      "domain": "biochem-enzymes"
+    },
+    {
+      "visual": "pirate (eyepatch, hook, peg leg)",
+      "symbol_key": "pirate",
+      "meaning": "pyruvate dehydrogenase",
+      "aliases": ["pir-ate"],
+      "domain": "biochem-enzymes"
+    },
+    {
+      "visual": "key-wielding hero with alpha cue",
+      "symbol_key": "alpha-key-hero",
+      "meaning": "alpha-ketoglutarate dehydrogenase",
+      "aliases": ["alpha key", "alpha-key-toe-glutarate"],
+      "domain": "biochem-enzymes"
+    },
+    {
+      "visual": "tree branch + chain + key weapon",
+      "symbol_key": "branch-chain-key",
+      "meaning": "branched-chain ketoacid dehydrogenase",
+      "aliases": ["branched chain", "branch chain keto"],
+      "domain": "biochem-enzymes"
+    },
+    {
+      "visual": "key-carrying train",
+      "symbol_key": "key-train",
+      "meaning": "transketolase (pentose phosphate pathway)",
+      "aliases": ["trans-key-to-lase", "trains-ketolase", "trains"],
+      "domain": "biochem-enzymes"
+    },
+    {
+      "visual": "guns",
+      "symbol_key": "guns",
+      "meaning": "the number 1 / first",
+      "aliases": ["pistol", "gun"],
+      "domain": "pixorize-numbers"
+    }
+  ]
+}

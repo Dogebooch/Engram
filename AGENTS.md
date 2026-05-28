@@ -41,6 +41,7 @@ When unsure about Next.js, React, or App Router APIs, consult `node_modules/next
 ## Frontend rules
 
 - Next.js 16 App Router: default to Server Components and use client components only when needed.
+- For local Engram browser work, use the Codex in-app browser for localhost unless the user explicitly asks for Chrome or a real Chrome profile is required.
 - React 19.2: follow current hooks rules and avoid set-state-in-effect/ref patterns that recent linting rejects.
 - Tailwind v4 is CSS-first in `src/app/globals.css`; do not create `tailwind.config.*`.
 - shadcn/ui components are owned in `src/components/ui/`; edit them directly instead of re-pulling via CLI.
