@@ -28,6 +28,7 @@ import numpy as np
 
 DEFAULT_CHECKPOINT = "tools/video-ingest/models/sam2/sam2.1_hiera_large.pt"
 DEFAULT_CONFIG = "configs/sam2.1/sam2.1_hiera_l.yaml"
+DEFAULT_MOBILESAM_CHECKPOINT = "tools/video-ingest/models/mobilesam/mobile_sam.pt"
 
 # --model alias -> (checkpoint, config). "large" = best masks; "small"/"tiny" are
 # ~3-4x faster to encode on CPU with slightly looser masks (good for iterating).
@@ -316,8 +317,8 @@ def set_image_cached(
 def run(
     draft_path: Path,
     backdrop_path: Path,
-    backend: str = "sam2",
-    checkpoint: str = DEFAULT_CHECKPOINT,
+    backend: str = "mobilesam",
+    checkpoint: str = DEFAULT_MOBILESAM_CHECKPOINT,
     config: str = DEFAULT_CONFIG,
     device: str = "cpu",
     only_orders: set[int] | None = None,
@@ -397,14 +398,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="SAM-assisted symbol outlines.")
     parser.add_argument("--draft", required=True, type=Path)
     parser.add_argument("--backdrop", required=True, type=Path)
-    parser.add_argument("--backend", choices=["sam2", "mobilesam"], default="sam2")
+    parser.add_argument(
+        "--backend",
+        choices=["mobilesam", "sam2"],
+        default="mobilesam",
+        help="mobilesam (default): ~2s encode on CPU, tight masks. sam2: slower, for a quality pass.",
+    )
     parser.add_argument(
         "--model",
         choices=list(MODEL_ALIASES),
         default=None,
-        help="SAM2 size alias (sets checkpoint+config). large=best masks; small/tiny=faster encode.",
+        help="SAM2 size alias (sets checkpoint+config). Implies --backend sam2.",
     )
-    parser.add_argument("--checkpoint", default=DEFAULT_CHECKPOINT)
+    parser.add_argument("--checkpoint", default=None)
     parser.add_argument("--config", default=DEFAULT_CONFIG)
     parser.add_argument(
         "--device",
@@ -432,9 +438,17 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    checkpoint, config = args.checkpoint, args.config
+    backend = args.backend
+    config = args.config
     if args.model:
+        backend = "sam2"
         checkpoint, config = MODEL_ALIASES[args.model]
+    elif args.checkpoint:
+        checkpoint = args.checkpoint
+    else:
+        checkpoint = (
+            DEFAULT_CHECKPOINT if backend == "sam2" else DEFAULT_MOBILESAM_CHECKPOINT
+        )
 
     only = (
         {int(x) for x in str(args.only_orders).split(",") if x.strip() != ""}
@@ -444,7 +458,7 @@ def main() -> int:
     summary = run(
         draft_path=args.draft,
         backdrop_path=args.backdrop,
-        backend=args.backend,
+        backend=backend,
         checkpoint=checkpoint,
         config=config,
         device=args.device,

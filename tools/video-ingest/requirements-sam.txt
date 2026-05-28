@@ -9,14 +9,18 @@
 #
 # Then:  .\.venv-video-ingest\Scripts\python.exe -m pip install -r tools\video-ingest\requirements-sam.txt
 #
-# NOTE (verified 2026-05-28, ROCm 7.10 nightly / RX 7900 XTX): SAM2's Hiera image
-# encoder SDPA is numerically broken / crashes on the GPU, so sam_segment.py runs
-# on CPU by default (--device cpu): correct, pixel-perfect masks, ~50s set_image
-# once per video, instant per-symbol predicts. Re-test --device cuda when ROCm
-# matures. CPU SAM works with any torch build.
+# NOTE (verified 2026-05-28, ROCm 7.10 nightly / RX 7900 XTX): SAM-family
+# attention is numerically broken / crashes on the GPU here (garbage masks, IoU
+# scores like 13073) — confirmed for BOTH sam2 and mobilesam. So segmentation
+# runs on CPU (--device cpu). The DEFAULT backend is MobileSAM: ~2s encode on
+# CPU, instant predicts, tight masks — fast enough for bulk. SAM2 (--backend
+# sam2 --model large) is a slower quality-escalation option. Re-test --device
+# cuda when ROCm flash attention stabilises for gfx1100.
 
-sam2 @ git+https://github.com/facebookresearch/sam2.git
+# Default backend (fast):
+mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM.git
+timm
 pillow
 
-# Fallback backend (--backend mobilesam) if SAM2 ever fails to load:
-# mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM.git
+# Quality-escalation backend:
+sam2 @ git+https://github.com/facebookresearch/sam2.git

@@ -17,9 +17,10 @@ bundle/canvas/notes format and the app import path are fixed — do **not** chan
 
 ## Setup (one-time)
 See `tools/video-ingest/README.md`. You need the base requirements **plus** `requirements-sam.txt`
-(SAM2 + ROCm torch) and the SAM2.1 checkpoint under `tools/video-ingest/models/sam2/`. SAM runs on
-**CPU by default** (`--device cpu`) — correct and pixel-perfect; ~50s `set_image` once per video,
-instant per-symbol predicts. (GPU/ROCm SAM2 is currently numerically broken on gfx1100; revisit later.)
+and the checkpoints under `tools/video-ingest/models/` (MobileSAM `mobile_sam.pt` by default; the
+SAM2.1 checkpoint for the quality-escalation backend). Segmentation runs on **CPU** — the GPU is
+broken for SAM here (ROCm flash attention on gfx1100). The default backend MobileSAM encodes the
+backdrop in ~2s; per-symbol predicts are instant. Revisit GPU when ROCm stabilises.
 
 ## Workflow
 
@@ -94,17 +95,20 @@ Resolution per symbol: matched `intro_phrases` → `timestamp_ms` → order. Ref
 .\.venv-video-ingest\Scripts\python.exe tools\video-ingest\sam_segment.py `
   --draft <out-root>\<slug>\draft_symbols.json `
   --backdrop <out-root>\<slug>\frames\keyframe_<N>_*.jpg `
-  --device cpu --out-overlay <out-root>\<slug>\sam_overlay.jpg
+  --out-overlay <out-root>\<slug>\sam_overlay.jpg
 ```
 This merges a `polygon` (8–24 vertices, backdrop-frame pixels) and a `sam:{mask_score,status,...}`
 block into each symbol, and renders the overlay. `make_bundle` emits `shape:"polygon"` regions from
-these automatically. Useful flags:
-- `--model small` (or `tiny`) — ~2-3x faster CPU encode than the default `large`, slightly looser
-  masks; good while iterating, switch to `large` for the final pass.
+these automatically. Backend / device:
+- **Default backend is MobileSAM on CPU** (`--device cpu` is implicit): ~2s encode for the backdrop,
+  ~0.1s per symbol, tight masks (scores ~0.95) — fast enough for bulk. (The GPU is **not** usable for
+  SAM here: ROCm flash attention is broken for both sam2 and mobilesam on gfx1100 → garbage masks.)
+- `--backend sam2 --model large` — slower (~50s encode) quality-escalation pass for a symbol MobileSAM
+  can't nail; SAM2 also has `--model small/tiny` for a faster encode.
 - `--pad-px N` — dilate every outline outward by N frame px (default 3) so a slightly under-segmented
   mask still fully contains the object. Bump it if outlines clip; set 0 for skin-tight.
-- The backdrop encoding is **cached** next to the frame, so step 7 re-runs (`--only-orders`) skip the
-  slow encoder. The cache is keyed to the checkpoint; changing `--model` re-encodes once.
+- SAM2's backdrop encoding is **cached** next to the frame, so step 7 re-runs (`--only-orders`) skip the
+  slow encoder. (MobileSAM is fast enough that it just re-encodes.)
 
 ### 7. Verification loop (required, before building)
 `Read` `sam_overlay.jpg`. For every outline that doesn't hug its object — or any symbol with
