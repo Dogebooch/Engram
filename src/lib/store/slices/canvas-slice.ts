@@ -7,6 +7,7 @@ import {
 import { newId } from "@/lib/id";
 import { parseNotes } from "@/lib/notes/parse";
 import { removeOrphanedBullets } from "@/lib/notes/remove-bullets";
+import { moveSymbolBulletToFact } from "@/lib/notes/move-bullet";
 import {
   tagSymbolsWithFact as runBatchTagWithFact,
   tagSymbolsWithNewFact as runBatchTagWithNewFact,
@@ -58,6 +59,11 @@ export interface CanvasSlice {
   tagSymbolsWithFact: (
     symbolIds: readonly string[],
     factId: string,
+  ) => boolean;
+  moveSymbolToFact: (
+    symbolId: string,
+    fromFactId: string,
+    toFactId: string,
   ) => boolean;
   /**
    * Tag one or more symbols against a new fact (by name). The first call
@@ -395,6 +401,39 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
           ...s.picmonics,
           [cid]: patchPicmonic(p, { notes }),
         },
+        lastSyncSource: "canvas",
+      };
+    });
+    return true;
+  },
+
+  moveSymbolToFact: (symbolId, fromFactId, toFactId) => {
+    const cid = get().currentPicmonicId;
+    if (!cid || !symbolId || !fromFactId || !toFactId) return false;
+    const picmonic = get().picmonics[cid];
+    if (!picmonic) return false;
+
+    const parsed = parseNotes(picmonic.notes);
+    const result = moveSymbolBulletToFact(
+      picmonic.notes,
+      parsed,
+      symbolId,
+      fromFactId,
+      toFactId,
+    );
+    if (!result.ok || !result.moved || result.newNotes === picmonic.notes) {
+      return false;
+    }
+
+    set((s) => {
+      const p = s.picmonics[cid];
+      if (!p) return s;
+      return {
+        picmonics: {
+          ...s.picmonics,
+          [cid]: patchPicmonic(p, { notes: result.newNotes }),
+        },
+        selectedSymbolIds: [symbolId],
         lastSyncSource: "canvas",
       };
     });

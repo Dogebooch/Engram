@@ -8,7 +8,10 @@ import { lintGutter } from "@codemirror/lint";
 import { parseNotes } from "@/lib/notes/parse";
 import { lintNotes } from "@/lib/notes/lint";
 import { buildBaseExtensions } from "@/lib/notes/codemirror/setup";
-import { factHeadingExtension } from "@/lib/notes/codemirror/fact-heading-extension";
+import {
+  factHeadingExtension,
+  setFactHeadingOnAddToFact,
+} from "@/lib/notes/codemirror/fact-heading-extension";
 import { symbolChipExtension } from "@/lib/notes/codemirror/sym-token-extension";
 import { buildBulletLinterExtension } from "@/lib/notes/codemirror/lint-extension";
 import { transientHighlightField } from "./transient-highlight";
@@ -30,6 +33,15 @@ export function NotesPanel() {
   React.useEffect(() => {
     parsedRef.current = parsed;
   }, [parsed, parsedRef]);
+
+  React.useEffect(() => {
+    setFactHeadingOnAddToFact((factId: string) => {
+      const state = useStore.getState();
+      state.setAddSymbolTargetFact(factId);
+      state.setLeftCollapsed(false);
+      window.dispatchEvent(new CustomEvent("engram:focus-library-search"));
+    });
+  }, []);
 
   const handleChange = React.useCallback(
     (next: string) => {
@@ -53,7 +65,7 @@ export function NotesPanel() {
       symbolChipExtension,
       factHeadingExtension,
       transientHighlightField,
-      lintGutter(),
+      lintGutter({ tooltipFilter: () => [] }),
       buildBulletLinterExtension(),
     ],
     [],

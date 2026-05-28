@@ -15,13 +15,18 @@ function toDiagnostic(issue: LintIssue): Diagnostic {
 }
 
 export function buildBulletLinterExtension(): Extension {
-  return linter((view) => {
-    const text = view.state.doc.toString();
-    const parsed = parseNotes(text);
-    const s = useStore.getState();
-    const cid = s.currentPicmonicId;
-    const symbols = cid ? s.picmonics[cid]?.canvas.symbols ?? [] : [];
-    const known = new Set(symbols.map((sy) => sy.id.toLowerCase()));
-    return lintNotes(text, parsed, known).map(toDiagnostic);
-  });
+  return linter(
+    (view) => {
+      const text = view.state.doc.toString();
+      const parsed = parseNotes(text);
+      const s = useStore.getState();
+      const cid = s.currentPicmonicId;
+      const symbols = cid ? s.picmonics[cid]?.canvas.symbols ?? [] : [];
+      const known = new Set(symbols.map((sy) => sy.id.toLowerCase()));
+      return lintNotes(text, parsed, known).map(toDiagnostic);
+    },
+    {
+      tooltipFilter: () => [],
+    },
+  );
 }

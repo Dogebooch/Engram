@@ -6,6 +6,7 @@ import { getSymbolById, loadSymbols } from "@/lib/symbols";
 import { isImageSymbolLayer } from "@/lib/types/canvas";
 import {
   setSymbolChipOnHoverChange,
+  setSymbolChipOnMove,
   setSymbolChipOnSelect,
   setSymbolChipResolver,
   type ResolvedSymbolChip,
@@ -41,6 +42,13 @@ export function useSymbolResolver(view: EditorView | null): void {
       const setLastSyncSource = useStore.getState().setLastSyncSource;
       setLastSyncSource("editor");
       setSelected([uuid]);
+    });
+
+    setSymbolChipOnMove((uuid: string, factId: string) => {
+      const state = useStore.getState();
+      state.setLastSyncSource("editor");
+      state.setSelectedSymbolIds([uuid]);
+      state.openMoveFactPicker(uuid, factId);
     });
 
     setSymbolChipOnHoverChange((uuid: string | null) => {

@@ -28,6 +28,14 @@ import type { ParsedFact } from "../types";
  * disallows block decorations from view plugins.
  */
 
+let activeOnAddToFact: ((factId: string) => void) | null = null;
+
+export function setFactHeadingOnAddToFact(
+  handler: (factId: string) => void,
+): void {
+  activeOnAddToFact = handler;
+}
+
 class EmptyFactGhostWidget extends WidgetType {
   constructor(readonly factId: string) {
     super();
@@ -40,6 +48,39 @@ class EmptyFactGhostWidget extends WidgetType {
     div.className = "eng-empty-fact-ghost";
     div.setAttribute("data-fact-block", this.factId);
     return div;
+  }
+  ignoreEvent(): boolean {
+    return true;
+  }
+}
+
+class FactAddWidget extends WidgetType {
+  constructor(readonly factId: string) {
+    super();
+  }
+  eq(other: WidgetType): boolean {
+    return other instanceof FactAddWidget && other.factId === this.factId;
+  }
+  toDOM(): HTMLElement {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "eng-fact-add";
+    button.textContent = "+ add";
+    button.setAttribute("aria-label", "Add symbol to this Fact");
+    button.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    button.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    button.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      activeOnAddToFact?.(this.factId);
+    });
+    return button;
   }
   ignoreEvent(): boolean {
     return true;
@@ -132,6 +173,16 @@ function buildDecorations(state: EditorState): DecorationSet {
           },
         }),
       );
+      if (l === startLine) {
+        builder.add(
+          line.to,
+          line.to,
+          Decoration.widget({
+            widget: new FactAddWidget(factId),
+            side: 1,
+          }),
+        );
+      }
       if (isEmpty && l === startLine) {
         builder.add(
           line.to,

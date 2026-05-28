@@ -4,6 +4,7 @@ import {
   addRegionWithNoteSync,
   addSymbolWithNoteSync,
 } from "@/lib/canvas/add-symbol-with-note-sync";
+import { parseNotes } from "@/lib/notes/parse";
 import { clearHistory, getTemporal } from "@/lib/store/temporal";
 
 function resetStore() {
@@ -13,6 +14,8 @@ function resetStore() {
     picmonics: {},
     currentPicmonicId: null,
     selectedSymbolIds: [],
+    addSymbolTargetFactId: null,
+    factPicker: null,
   }));
 }
 
@@ -91,6 +94,56 @@ describe("cross-pane atomic undo", () => {
     const afterUndo = useStore.getState().picmonics[id];
     expect(afterUndo.canvas.symbols).toHaveLength(0);
     expect(afterUndo.notes).not.toContain(`{sym:${layerId}}`);
+  });
+
+  it("adds a symbol bullet to the requested fact", () => {
+    const id = useStore.getState().createPicmonic("test");
+    useStore
+      .getState()
+      .setNotes(id, "# Section\n## First Fact\n\n## Second Fact\n");
+
+    const parsed = parseNotes(useStore.getState().picmonics[id].notes);
+    const firstFact = parsed.sections[0].facts[0];
+    const secondFact = parsed.sections[0].facts[1];
+
+    const layerId = addSymbolWithNoteSync({
+      ref: "openmoji:1F436",
+      x: 50,
+      y: 50,
+      targetFactId: secondFact.factId,
+    });
+
+    expect(layerId).toBeTruthy();
+    const next = parseNotes(useStore.getState().picmonics[id].notes);
+    expect(next.factsById.get(firstFact.factId)?.symbolRefs).toHaveLength(0);
+    expect(next.factsById.get(secondFact.factId)?.symbolRefs).toEqual([
+      expect.objectContaining({ symbolId: layerId }),
+    ]);
+    expect(useStore.getState().addSymbolTargetFactId).toBeNull();
+  });
+
+  it("uses and clears the armed add-to-fact target", () => {
+    const id = useStore.getState().createPicmonic("test");
+    useStore
+      .getState()
+      .setNotes(id, "# Section\n## First Fact\n\n## Second Fact\n");
+
+    const parsed = parseNotes(useStore.getState().picmonics[id].notes);
+    const targetFact = parsed.sections[0].facts[0];
+    useStore.getState().setAddSymbolTargetFact(targetFact.factId);
+
+    const layerId = addSymbolWithNoteSync({
+      ref: "openmoji:1F436",
+      x: 50,
+      y: 50,
+    });
+
+    expect(layerId).toBeTruthy();
+    const next = parseNotes(useStore.getState().picmonics[id].notes);
+    expect(next.factsById.get(targetFact.factId)?.symbolRefs).toEqual([
+      expect.objectContaining({ symbolId: layerId }),
+    ]);
+    expect(useStore.getState().addSymbolTargetFactId).toBeNull();
   });
 
   it("redo replays the change", () => {

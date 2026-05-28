@@ -8,7 +8,9 @@ export interface ConfirmPendingSymbolDeleteOptions {
 
 export interface FactPickerState {
   open: boolean;
+  mode: "tag" | "move";
   symbolIds: readonly string[];
+  fromFactId?: string;
 }
 
 export interface SymbolContextMenuState {
@@ -41,6 +43,7 @@ export interface PendingSymbolDeleteState {
 
 export interface InteractionsSlice {
   factPicker: FactPickerState | null;
+  addSymbolTargetFactId: string | null;
   contextMenu: SymbolContextMenuState | null;
   stageContextMenu: StageContextMenuState | null;
   replacePicker: ReplacePickerState | null;
@@ -53,7 +56,10 @@ export interface InteractionsSlice {
    */
   pendingSymbolDelete: PendingSymbolDeleteState | null;
   openFactPicker: (symbolIds: readonly string[]) => void;
+  openMoveFactPicker: (symbolId: string, fromFactId: string) => void;
   closeFactPicker: () => void;
+  setAddSymbolTargetFact: (factId: string | null) => void;
+  clearAddSymbolTargetFact: () => void;
   openSymbolContextMenu: (
     x: number,
     y: number,
@@ -90,6 +96,7 @@ export const createInteractionsSlice: StateCreator<
   InteractionsSlice
 > = (set, get) => ({
   factPicker: null,
+  addSymbolTargetFactId: null,
   contextMenu: null,
   stageContextMenu: null,
   replacePicker: null,
@@ -98,9 +105,22 @@ export const createInteractionsSlice: StateCreator<
   pendingSymbolDelete: null,
   openFactPicker: (symbolIds) => {
     if (symbolIds.length === 0) return;
-    set({ factPicker: { open: true, symbolIds: [...symbolIds] } });
+    set({ factPicker: { open: true, mode: "tag", symbolIds: [...symbolIds] } });
+  },
+  openMoveFactPicker: (symbolId, fromFactId) => {
+    if (!symbolId || !fromFactId) return;
+    set({
+      factPicker: {
+        open: true,
+        mode: "move",
+        symbolIds: [symbolId],
+        fromFactId,
+      },
+    });
   },
   closeFactPicker: () => set({ factPicker: null }),
+  setAddSymbolTargetFact: (factId) => set({ addSymbolTargetFactId: factId }),
+  clearAddSymbolTargetFact: () => set({ addSymbolTargetFactId: null }),
   openSymbolContextMenu: (x, y, symbolId) =>
     set({ contextMenu: { x, y, symbolId } }),
   closeSymbolContextMenu: () => set({ contextMenu: null }),

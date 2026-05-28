@@ -63,8 +63,10 @@ Source ranks: user-uploaded (0) > OpenMoji (1) > Game-Icons (2) > Twemoji (3, op
 Downstream animation/video pipeline needs uniform bullet output, but markdown stays canonical. Resolution: **CodeMirror linting plus inline symbol chips** inside notes-panel. No parallel structured state, no third panel, no bullet content in `canvas.json`.
 
 - **Pipeline export schema** ([docs/PIPELINE-SCHEMA.md](PIPELINE-SCHEMA.md)) defines the JSON shape one exported mnemonic produces and which fields are mandatory; drives the lint rule list. Authoring rule: prose-shaped → bullet; machine-state (timing, animation cues, scene roles, narration refs) → `canvas.json` alongside `animation*` / `factMeta` / `timeline`.
-- **CodeMirror linter** validates each bullet on edit: malformed `{sym:UUID}`, empty description, missing `→`, unknown symbol UUIDs, untagged symbols. Surfaces as gutter markers, tooltips, header-badge count.
+- **CodeMirror linter** validates each bullet on edit: malformed `{sym:UUID}`, empty description, missing `→`, unknown symbol UUIDs, untagged symbols. Surfaces as gutter markers and a header issue count without blocking the editing row.
+- **Guided note rows** keep Markdown editable but visually group the right column as Fact → symbol row → description / meaning / why.
 - **Symbol chips** replace raw `{sym:UUID}` tokens in the editor and select the matching canvas symbol. Selecting a symbol scrolls to and highlights its existing bullet line; users edit that Markdown line directly.
+- **Fact actions** add `+ add` on each Fact heading and `move` on each symbol row. `+ add` arms that Fact as the next library-add target. `move` reuses FactPicker to move the whole bullet line, preserving description / meaning / why text.
 
 ## Editor UX
 
@@ -82,7 +84,7 @@ Aggregated, ranked, virtualized grid (5–6 cols). Search across name+aliases+ta
 - Click bullet line → matching symbol(s) glow.
 - Edit `##` heading → renames Fact (cosmetic; refs use canonical Fact ID).
 - Delete `* {sym:id}` line → untags from that Fact only; layer remains.
-- Drop from library → adds layer + appends `* {sym:id} ` bullet under cursor's current Fact (or "Unassigned" pseudo-Fact).
+- Drop/click from library → adds layer + appends `* {sym:id} ` under the armed `+ add` Fact, otherwise under cursor's current Fact (or "Unassigned" pseudo-Fact).
 
 ### Tagging UX (three entry points, one action)
 All open FactPicker → `tagSymbolsWithFact(symbolIds, factName)` (atomic notes+canvas update):

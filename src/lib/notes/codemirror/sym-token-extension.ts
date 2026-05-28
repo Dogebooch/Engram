@@ -7,6 +7,7 @@ import {
   type DecorationSet,
 } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
+import { findFactAtOffset, parseNotes } from "../parse";
 
 const SYM_TOKEN_RE =
   /\{sym:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\}/gi;
@@ -28,6 +29,7 @@ const defaultResolver: SymbolChipResolver = () => ({
 let activeResolver: SymbolChipResolver = defaultResolver;
 let activeOnSelect: ((uuid: string) => void) | null = null;
 let activeOnHoverChange: ((uuid: string | null) => void) | null = null;
+let activeOnMove: ((uuid: string, factId: string) => void) | null = null;
 
 export function setSymbolChipResolver(resolver: SymbolChipResolver): void {
   activeResolver = resolver;
@@ -41,6 +43,12 @@ export function setSymbolChipOnHoverChange(
   handler: (uuid: string | null) => void,
 ): void {
   activeOnHoverChange = handler;
+}
+
+export function setSymbolChipOnMove(
+  handler: (uuid: string, factId: string) => void,
+): void {
+  activeOnMove = handler;
 }
 
 class SymbolChipWidget extends WidgetType {
@@ -141,6 +149,66 @@ class SymbolChipWidget extends WidgetType {
   }
 }
 
+class EmptyBulletGuideWidget extends WidgetType {
+  override toDOM(): HTMLElement {
+    const span = document.createElement("span");
+    span.className = "eng-note-empty-guide";
+    for (const label of ["description", "→", "meaning", ";", "why"]) {
+      const part = document.createElement("span");
+      part.textContent = label;
+      span.appendChild(part);
+    }
+    return span;
+  }
+
+  override ignoreEvent(): boolean {
+    return true;
+  }
+}
+
+class MoveSymbolWidget extends WidgetType {
+  constructor(
+    readonly uuid: string,
+    readonly factId: string,
+  ) {
+    super();
+  }
+
+  override eq(other: WidgetType): boolean {
+    return (
+      other instanceof MoveSymbolWidget &&
+      other.uuid === this.uuid &&
+      other.factId === this.factId
+    );
+  }
+
+  override toDOM(): HTMLElement {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "eng-note-move";
+    button.textContent = "move";
+    button.setAttribute("aria-label", "Move symbol row to another Fact");
+    button.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    button.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    button.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      activeOnMove?.(this.uuid, this.factId);
+    });
+    return button;
+  }
+
+  override ignoreEvent(): boolean {
+    return true;
+  }
+}
+
 interface BulletRanges {
   isBullet: boolean;
   cueLabel: string | null;
@@ -197,24 +265,12 @@ function rangeOrNull(from: number, to: number): { from: number; to: number } | n
 
 function parseBulletRanges(lineText: string, tokenEnd: number): BulletRanges {
   const markerMatch = BULLET_MARKER_RE.exec(lineText);
-  if (!markerMatch) {
-    return {
-      isBullet: false,
-      cueLabel: null,
-      marker: null,
-      description: null,
-      arrow: null,
-      meaning: null,
-      semicolon: null,
-      encoding: null,
-      emptyDescription: false,
-    };
-  }
-
-  const marker = {
-    from: markerMatch[1].length,
-    to: markerMatch[1].length + markerMatch[2].length,
-  };
+  const marker = markerMatch
+    ? {
+        from: markerMatch[1].length,
+        to: markerMatch[1].length + markerMatch[2].length,
+      }
+    : null;
 
   const limit = nextSymbolStart(lineText, tokenEnd);
   const bodyStart = skipInlineWs(lineText, tokenEnd, limit);
@@ -278,6 +334,13 @@ function isInsideCode(view: EditorView, pos: number): boolean {
 
 function buildDecorations(view: EditorView): DecorationSet {
   const decorations: { from: number; to: number; deco: Decoration }[] = [];
+  const parsed = parseNotes(view.state.doc.toString());
+  const factIdByLineAndSymbol = new Map<string, string>();
+  for (const fact of parsed.factsById.values()) {
+    for (const ref of fact.symbolRefs) {
+      factIdByLineAndSymbol.set(`${ref.bulletLine}:${ref.symbolId}`, fact.factId);
+    }
+  }
   for (const { from, to } of view.visibleRanges) {
     const text = view.state.doc.sliceString(from, to);
     SYM_TOKEN_RE.lastIndex = 0;
@@ -293,6 +356,10 @@ function buildDecorations(view: EditorView): DecorationSet {
         lineText,
         matchTo - line.from,
       );
+      const factId =
+        factIdByLineAndSymbol.get(`${line.number}:${uuid}`) ??
+        findFactAtOffset(parsed, matchFrom)?.factId ??
+        null;
       const resolved = activeResolver(uuid);
       const deco = Decoration.replace({
         widget: new SymbolChipWidget(uuid, resolved, ranges.cueLabel),
@@ -349,6 +416,26 @@ function buildDecorations(view: EditorView): DecorationSet {
           from: line.from + ranges.encoding.from,
           to: line.from + ranges.encoding.to,
           deco: Decoration.mark({ class: "eng-note-bullet-encoding" }),
+        });
+      }
+      if (ranges.emptyDescription) {
+        decorations.push({
+          from: matchTo,
+          to: matchTo,
+          deco: Decoration.widget({
+            widget: new EmptyBulletGuideWidget(),
+            side: 1,
+          }),
+        });
+      }
+      if (factId) {
+        decorations.push({
+          from: line.to,
+          to: line.to,
+          deco: Decoration.widget({
+            widget: new MoveSymbolWidget(uuid, factId),
+            side: 1,
+          }),
         });
       }
       decorations.push({ from: matchFrom, to: matchTo, deco });

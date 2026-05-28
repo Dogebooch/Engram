@@ -14,6 +14,25 @@ import type {
   SymbolLayer,
 } from "@/lib/types/canvas";
 
+interface AddSymbolWithNoteInput extends AddSymbolInput {
+  targetFactId?: string | null;
+}
+
+function resolveTargetFactId(
+  parsed: ReturnType<typeof parseNotes>,
+  explicitTargetFactId?: string | null,
+): string | null {
+  if (explicitTargetFactId && parsed.factsById.has(explicitTargetFactId)) {
+    return explicitTargetFactId;
+  }
+  const activeAddTarget = useStore.getState().addSymbolTargetFactId;
+  if (activeAddTarget && parsed.factsById.has(activeAddTarget)) {
+    return activeAddTarget;
+  }
+  const lastActive = useStore.getState().lastActiveFactId;
+  return lastActive && parsed.factsById.has(lastActive) ? lastActive : null;
+}
+
 /**
  * Add a library symbol to the canvas AND insert a `* {sym:UUID}` bullet
  * into the notes for the active picmonic. Single source of truth for both
@@ -25,7 +44,7 @@ import type {
  *
  * Returns the new symbol layer id, or null if no active picmonic.
  */
-export function addSymbolWithNoteSync(input: AddSymbolInput): string | null {
+export function addSymbolWithNoteSync(input: AddSymbolWithNoteInput): string | null {
   const cid = useStore.getState().currentPicmonicId;
   if (!cid) return null;
   const picmonic = useStore.getState().picmonics[cid];
@@ -48,9 +67,7 @@ export function addSymbolWithNoteSync(input: AddSymbolInput): string | null {
   };
 
   const parsed = parseNotes(picmonic.notes);
-  const lastActive = useStore.getState().lastActiveFactId;
-  const targetFactId =
-    lastActive && parsed.factsById.has(lastActive) ? lastActive : null;
+  const targetFactId = resolveTargetFactId(parsed, input.targetFactId);
   const insert = insertSymbolBullet(picmonic.notes, parsed, targetFactId, layer.id);
 
   useStore.setState((s) => {
@@ -72,6 +89,7 @@ export function addSymbolWithNoteSync(input: AddSymbolInput): string | null {
       ui: { ...s.ui, recentSymbolIds: recent },
       selectedSymbolIds: [layer.id],
       lastSyncSource: "canvas",
+      addSymbolTargetFactId: null,
     };
   });
 
@@ -121,9 +139,7 @@ export function addRegionWithNoteSync(input: AddRegionInput): string | null {
   };
 
   const parsed = parseNotes(picmonic.notes);
-  const lastActive = useStore.getState().lastActiveFactId;
-  const targetFactId =
-    lastActive && parsed.factsById.has(lastActive) ? lastActive : null;
+  const targetFactId = resolveTargetFactId(parsed);
   const insert = insertSymbolBullet(picmonic.notes, parsed, targetFactId, layer.id);
 
   useStore.setState((s) => {
@@ -140,6 +156,7 @@ export function addRegionWithNoteSync(input: AddRegionInput): string | null {
       picmonics: { ...s.picmonics, [cid]: next },
       selectedSymbolIds: [layer.id],
       lastSyncSource: "canvas",
+      addSymbolTargetFactId: null,
     };
   });
 

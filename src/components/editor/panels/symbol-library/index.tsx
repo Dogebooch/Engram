@@ -10,6 +10,7 @@ import {
 import { useStore } from "@/lib/store";
 import { useCurrentPicmonicId } from "@/lib/store/hooks";
 import { addSymbolWithNoteSync } from "@/lib/canvas/add-symbol-with-note-sync";
+import { parseNotes } from "@/lib/notes/parse";
 import {
   getCachedSymbols,
   loadSymbols,
@@ -41,7 +42,12 @@ export function SymbolLibrary() {
   const [query, setQuery] = React.useState("");
 
   const recentIds = useStore((s) => s.ui.recentSymbolIds);
+  const addTargetFactId = useStore((s) => s.addSymbolTargetFactId);
+  const clearAddTarget = useStore((s) => s.clearAddSymbolTargetFact);
   const currentPicmonicId = useCurrentPicmonicId();
+  const notes = useStore((s) =>
+    s.currentPicmonicId ? (s.picmonics[s.currentPicmonicId]?.notes ?? "") : "",
+  );
   const symbolsVersion = useSymbolsVersion();
   const userAssets = useUserAssets();
 
@@ -95,6 +101,11 @@ export function SymbolLibrary() {
     [symbols, query],
   );
 
+  const addTargetName = React.useMemo(() => {
+    if (!addTargetFactId) return null;
+    return parseNotes(notes).factsById.get(addTargetFactId)?.name ?? null;
+  }, [addTargetFactId, notes]);
+
   const handleActivate = React.useCallback(
     (entry: SymbolEntry) => {
       if (!currentPicmonicId) {
@@ -103,9 +114,14 @@ export function SymbolLibrary() {
         });
         return;
       }
-      addSymbolWithNoteSync({ ref: entry.id, x: CENTER_X, y: CENTER_Y });
+      addSymbolWithNoteSync({
+        ref: entry.id,
+        x: CENTER_X,
+        y: CENTER_Y,
+        targetFactId: addTargetFactId,
+      });
     },
-    [currentPicmonicId],
+    [addTargetFactId, currentPicmonicId],
   );
 
   const totalLabel =
@@ -131,6 +147,22 @@ export function SymbolLibrary() {
       </div>
 
       <AddRow />
+
+      {addTargetName && (
+        <div className="eng-library-add-target">
+          <span className="eng-library-add-target__label">add to</span>
+          <span className="eng-library-add-target__name" title={addTargetName}>
+            {addTargetName}
+          </span>
+          <button
+            type="button"
+            onClick={clearAddTarget}
+            className="eng-library-add-target__clear"
+          >
+            cancel
+          </button>
+        </div>
+      )}
 
       <div className="border-b border-border p-2">
         <LibrarySearch value={query} onChange={setQuery} />

@@ -404,18 +404,21 @@
 }
 
 .eng-notes-host .cm-line.eng-note-fact-line {
-  padding-left: 10px;
-  box-shadow: inset 2px 0 0
-    color-mix(in oklch, var(--accent) 14%, transparent);
+  margin-left: 6px;
+  padding-left: 12px !important;
+  border-left: 2px solid color-mix(in oklch, var(--accent) 20%, transparent);
+  background: color-mix(in oklch, var(--foreground) 2.5%, transparent);
 }
 
 .eng-notes-host .cm-line.eng-note-fact-heading-line {
-  margin: 8px 0 2px;
-  padding: 5px 6px 5px 10px;
-  border-radius: 4px;
-  background: color-mix(in oklch, var(--foreground) 4%, transparent);
+  margin: 12px 0 0 6px;
+  padding: 7px 6px 7px 12px !important;
+  border-radius: 5px 5px 0 0;
+  border: 1px solid color-mix(in oklch, var(--border) 75%, transparent);
+  border-bottom-color: color-mix(in oklch, var(--border) 35%, transparent);
+  background: color-mix(in oklch, var(--foreground) 5%, transparent);
   box-shadow: inset 2px 0 0
-    color-mix(in oklch, var(--accent) 45%, transparent);
+    color-mix(in oklch, var(--accent) 55%, transparent);
 }
 
 .eng-notes-host .cm-line.eng-note-fact-heading-line > span {
@@ -431,14 +434,20 @@
 }
 
 .eng-notes-host .cm-line.eng-note-symbol-line {
-  margin: 1px 0 4px;
-  padding-left: 20px !important;
-  text-indent: -11px;
-  line-height: 1.65;
+  margin: 0 0 0 6px;
+  padding: 6px 8px 7px 12px !important;
+  border-left: 2px solid color-mix(in oklch, var(--accent) 20%, transparent);
+  background: color-mix(in oklch, var(--foreground) 2.5%, transparent);
+  line-height: 1.75;
+  text-indent: 0;
+}
+
+.eng-notes-host .cm-line.eng-note-symbol-line + .cm-line.eng-note-symbol-line {
+  padding-top: 2px !important;
 }
 
 .eng-note-bullet-marker {
-  color: color-mix(in oklch, var(--muted-foreground) 42%, transparent);
+  display: none;
 }
 
 .eng-note-bullet-desc {
@@ -449,12 +458,36 @@
   color: color-mix(in oklch, var(--foreground) 84%, transparent);
 }
 
+.eng-note-bullet-desc::before,
+.eng-note-bullet-meaning::before,
+.eng-note-bullet-encoding::before {
+  margin-right: 5px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: color-mix(in oklch, var(--muted-foreground) 55%, transparent);
+}
+
+.eng-note-bullet-desc::before {
+  content: "description";
+}
+
+.eng-note-bullet-meaning::before {
+  content: "meaning";
+}
+
+.eng-note-bullet-encoding::before {
+  content: "why";
+}
+
 .eng-note-bullet-arrow,
 .eng-note-bullet-separator {
   font-family: var(--font-mono);
   font-size: 11.5px;
   font-weight: 500;
-  color: color-mix(in oklch, var(--accent) 78%, transparent);
+  color: color-mix(in oklch, var(--accent) 45%, transparent);
 }
 
 .eng-note-bullet-meaning {
@@ -474,9 +507,104 @@
 }
 
 .eng-notes-host .cm-line.eng-note-symbol-line-empty-desc {
-  background: color-mix(in oklch, var(--destructive) 5%, transparent);
-  box-shadow: inset 2px 0 0
-    color-mix(in oklch, var(--destructive) 36%, transparent);
+  background: color-mix(in oklch, var(--accent) 7%, transparent);
+  box-shadow:
+    inset 2px 0 0 color-mix(in oklch, var(--accent) 70%, transparent),
+    inset 0 0 0 1px color-mix(in oklch, var(--accent) 16%, transparent);
+}
+
+.eng-note-empty-guide {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 7px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.03em;
+  color: color-mix(in oklch, var(--muted-foreground) 65%, transparent);
+  opacity: 0.86;
+  pointer-events: none;
+}
+
+.eng-note-empty-guide span:first-child {
+  color: color-mix(in oklch, var(--foreground) 75%, transparent);
+}
+
+.eng-note-move,
+.eng-fact-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+  border-radius: 4px;
+  background: color-mix(in oklch, var(--background) 35%, transparent);
+  color: color-mix(in oklch, var(--muted-foreground) 78%, transparent);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.02em;
+  vertical-align: 1px;
+  cursor: pointer;
+}
+
+.eng-note-move:hover,
+.eng-fact-add:hover {
+  border-color: color-mix(in oklch, var(--accent) 55%, transparent);
+  color: color-mix(in oklch, var(--foreground) 92%, transparent);
+  background: color-mix(in oklch, var(--accent) 9%, transparent);
+}
+
+.eng-fact-add {
+  float: right;
+  margin-top: 1px;
+  margin-right: 2px;
+}
+
+.eng-library-add-target {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 6px 8px;
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
+  background: color-mix(in oklch, var(--accent) 8%, transparent);
+}
+
+.eng-library-add-target__label {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in oklch, var(--muted-foreground) 70%, transparent);
+}
+
+.eng-library-add-target__name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: color-mix(in oklch, var(--foreground) 92%, transparent);
+}
+
+.eng-library-add-target__clear {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: color-mix(in oklch, var(--muted-foreground) 75%, transparent);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.eng-library-add-target__clear:hover {
+  color: color-mix(in oklch, var(--foreground) 90%, transparent);
 }
 
 /* ---- Active-line accent rail (tracks editor cursor) ---- */

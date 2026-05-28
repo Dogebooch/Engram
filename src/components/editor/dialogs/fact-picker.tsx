@@ -49,13 +49,16 @@ export function FactPicker() {
   const closeFactPicker = useStore((s) => s.closeFactPicker);
   const tagSymbolsWithFact = useStore((s) => s.tagSymbolsWithFact);
   const tagSymbolsWithNewFact = useStore((s) => s.tagSymbolsWithNewFact);
+  const moveSymbolToFact = useStore((s) => s.moveSymbolToFact);
   const currentPicmonicId = useStore((s) => s.currentPicmonicId);
   const notes = useStore((s) =>
     currentPicmonicId ? (s.picmonics[currentPicmonicId]?.notes ?? "") : "",
   );
 
   const open = factPicker?.open ?? false;
+  const mode = factPicker?.mode ?? "tag";
   const symbolIds = factPicker?.symbolIds ?? [];
+  const fromFactId = factPicker?.fromFactId ?? null;
 
   const [query, setQuery] = React.useState("");
   const [prevOpen, setPrevOpen] = React.useState(open);
@@ -75,13 +78,27 @@ export function FactPicker() {
   //  - no existing fact has that exact name (case-insensitive)
   //  - the query isn't the reserved Unassigned name
   const showCreateNew = React.useMemo(() => {
+    if (mode === "move") return false;
     if (!trimmed) return false;
     if (trimmed.toLowerCase() === UNASSIGNED_FACT_NAME.toLowerCase()) return false;
     const target = trimmed.toLowerCase();
     return !rows.some((r) => r.factName.trim().toLowerCase() === target);
-  }, [rows, trimmed]);
+  }, [mode, rows, trimmed]);
 
   const onPickExisting = (row: FactRow) => {
+    if (mode === "move") {
+      const moved =
+        fromFactId != null && symbolIds.length === 1
+          ? moveSymbolToFact(symbolIds[0], fromFactId, row.factId)
+          : false;
+      closeFactPicker();
+      toast(moved ? "Moved" : "Already there", {
+        description: row.factName,
+        duration: 1400,
+      });
+      return;
+    }
+
     const wrote = tagSymbolsWithFact(symbolIds, row.factId);
     closeFactPicker();
     toast(wrote ? "Tagged" : "Already tagged", {
@@ -105,14 +122,20 @@ export function FactPicker() {
       onOpenChange={(o) => {
         if (!o) closeFactPicker();
       }}
-      title="Tag with Fact"
-      description="Pick an existing Fact or create a new one."
+      title={mode === "move" ? "Move to Fact" : "Tag with Fact"}
+      description={
+        mode === "move"
+          ? "Pick where this symbol row should live."
+          : "Pick an existing Fact or create a new one."
+      }
       className="eng-fact-picker"
     >
       <Command shouldFilter>
       <CommandInput
         placeholder={
-          rows.length > 0
+          mode === "move"
+            ? "Pick a Fact to move to..."
+            : rows.length > 0
             ? "Filter Facts, or type a new name…"
             : "Type a name to create your first Fact…"
         }
@@ -121,13 +144,15 @@ export function FactPicker() {
       />
       <div className="eng-fact-picker__hint" aria-hidden>
         <span>
-          {symbolIds.length > 1
+          {mode === "move"
+            ? "move row"
+            : symbolIds.length > 1
             ? `${symbolIds.length} symbols`
             : "1 symbol"}
         </span>
         <span className="eng-fact-picker__hint-sep">·</span>
         <span>
-          ↵ <span className="opacity-60">tag</span>
+          ↵ <span className="opacity-60">{mode === "move" ? "move" : "tag"}</span>
         </span>
         <span className="eng-fact-picker__hint-sep">·</span>
         <span>
@@ -139,7 +164,9 @@ export function FactPicker() {
           <CommandEmpty>
             <span className="eng-fact-picker__empty">
               <span className="eng-fact-picker__empty-caret">▍</span>
-              type a name to create your first Fact
+              {mode === "move"
+                ? "no other Facts yet"
+                : "type a name to create your first Fact"}
             </span>
           </CommandEmpty>
         ) : null}
