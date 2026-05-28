@@ -4,6 +4,7 @@ import * as React from "react";
 import { UploadIcon } from "lucide-react";
 import { uploadUserAssets } from "@/lib/user-assets";
 import { cn } from "@/lib/utils";
+import { autoPlaceUploadIntoArmedFact } from "./auto-place-upload";
 import { reportUploadResult } from "./upload-result-toasts";
 
 interface UploadDropZoneProps {
@@ -65,6 +66,7 @@ export function UploadDropZone({ onUploaded, children }: UploadDropZoneProps) {
       if (files.length === 0) return;
       const result = await uploadUserAssets(files);
       reportUploadResult(result);
+      autoPlaceUploadIntoArmedFact(result);
       if (result.added.length > 0 || result.duplicates.length > 0) {
         onUploaded?.();
       }

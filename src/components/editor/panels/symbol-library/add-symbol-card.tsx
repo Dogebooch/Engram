@@ -10,6 +10,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { autoPlaceUploadIntoArmedFact } from "./auto-place-upload";
 import { reportUploadResult } from "./upload-result-toasts";
 
 interface AddSymbolCardProps {
@@ -39,6 +40,7 @@ export function AddSymbolCard({ variant = "compact" }: AddSymbolCardProps) {
       try {
         const result = await uploadUserAssets(files);
         reportUploadResult(result);
+        autoPlaceUploadIntoArmedFact(result);
       } finally {
         setBusy(false);
       }

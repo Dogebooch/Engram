@@ -6,11 +6,11 @@ import { getSymbolById, loadSymbols } from "@/lib/symbols";
 import { isImageSymbolLayer } from "@/lib/types/canvas";
 import {
   setSymbolChipOnHoverChange,
-  setSymbolChipOnMove,
-  setSymbolChipOnSelect,
+  setSymbolChipOnPointerDown,
   setSymbolChipResolver,
   type ResolvedSymbolChip,
 } from "@/lib/notes/codemirror/sym-token-extension";
+import { beginSymbolRowDragOrSelect } from "./symbol-row-drag";
 import type { EditorView } from "@codemirror/view";
 
 export function useSymbolResolver(view: EditorView | null): void {
@@ -37,18 +37,19 @@ export function useSymbolResolver(view: EditorView | null): void {
       };
     });
 
-    setSymbolChipOnSelect((uuid: string) => {
-      const setSelected = useStore.getState().setSelectedSymbolIds;
-      const setLastSyncSource = useStore.getState().setLastSyncSource;
-      setLastSyncSource("editor");
-      setSelected([uuid]);
-    });
-
-    setSymbolChipOnMove((uuid: string, factId: string) => {
-      const state = useStore.getState();
-      state.setLastSyncSource("editor");
-      state.setSelectedSymbolIds([uuid]);
-      state.openMoveFactPicker(uuid, factId);
+    setSymbolChipOnPointerDown((uuid, factId, event, resolved) => {
+      beginSymbolRowDragOrSelect({
+        symbolId: uuid,
+        fromFactId: factId,
+        event,
+        label: resolved.displayName,
+        imageUrl: resolved.imageUrl,
+        onSelect: () => {
+          const state = useStore.getState();
+          state.setLastSyncSource("editor");
+          state.setSelectedSymbolIds([uuid]);
+        },
+      });
     });
 
     setSymbolChipOnHoverChange((uuid: string | null) => {

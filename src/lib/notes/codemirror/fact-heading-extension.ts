@@ -6,7 +6,6 @@ import {
 } from "@codemirror/view";
 import {
   type Extension,
-  RangeSetBuilder,
   StateField,
   type EditorState,
   type Text as CMText,
@@ -36,17 +35,52 @@ export function setFactHeadingOnAddToFact(
   activeOnAddToFact = handler;
 }
 
-class EmptyFactGhostWidget extends WidgetType {
-  constructor(readonly factId: string) {
+/**
+ * The bottom edge of every fact card: closes the card visually (the doc lines
+ * only round the top) and offers "+ symbol", which arms this fact as the
+ * library add-target. Carries `data-fact-block` so it is also a valid
+ * drop target for both the canvas tag-drag and the row-move drag.
+ */
+class FactFooterWidget extends WidgetType {
+  constructor(
+    readonly factId: string,
+    readonly isActive: boolean,
+  ) {
     super();
   }
   eq(other: WidgetType): boolean {
-    return other instanceof EmptyFactGhostWidget && other.factId === this.factId;
+    return (
+      other instanceof FactFooterWidget &&
+      other.factId === this.factId &&
+      other.isActive === this.isActive
+    );
   }
   toDOM(): HTMLElement {
     const div = document.createElement("div");
-    div.className = "eng-empty-fact-ghost";
+    div.className = "eng-fact-footer";
     div.setAttribute("data-fact-block", this.factId);
+    div.setAttribute("data-fact-id", this.factId);
+    if (this.isActive) div.setAttribute("data-fact-active", "true");
+    div.setAttribute("role", "button");
+    div.setAttribute("aria-label", "Add a symbol to this Fact");
+    const plus = document.createElement("span");
+    plus.className = "eng-fact-footer__plus";
+    plus.textContent = "+";
+    div.appendChild(plus);
+    const label = document.createElement("span");
+    label.textContent = "symbol";
+    div.appendChild(label);
+    const stop = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    div.addEventListener("pointerdown", stop);
+    div.addEventListener("mousedown", stop);
+    div.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      activeOnAddToFact?.(this.factId);
+    });
     return div;
   }
   ignoreEvent(): boolean {
@@ -54,33 +88,68 @@ class EmptyFactGhostWidget extends WidgetType {
   }
 }
 
-class FactAddWidget extends WidgetType {
-  constructor(readonly factId: string) {
+/** Insert a `# `/`## ` heading at `atOffset`, on its own line, cursor ready. */
+function insertHeading(view: EditorView, atOffset: number, level: 1 | 2): void {
+  const doc = view.state.doc;
+  const prefix = level === 1 ? "# " : "## ";
+  const atLineStart =
+    atOffset === 0 || doc.sliceString(atOffset - 1, atOffset) === "\n";
+  const insert = atLineStart ? `${prefix}\n` : `\n${prefix}`;
+  const anchor = atOffset + (atLineStart ? prefix.length : 1 + prefix.length);
+  view.dispatch({
+    changes: { from: atOffset, insert },
+    selection: { anchor },
+    scrollIntoView: true,
+  });
+  view.focus();
+}
+
+/**
+ * Outline-level "+ fact" / "+ section" affordance. A quiet ghost row that
+ * inserts a heading and drops the cursor into it.
+ */
+class InsertHeadingWidget extends WidgetType {
+  constructor(
+    readonly offset: number,
+    readonly level: 1 | 2,
+    readonly label: string,
+  ) {
     super();
   }
   eq(other: WidgetType): boolean {
-    return other instanceof FactAddWidget && other.factId === this.factId;
+    return (
+      other instanceof InsertHeadingWidget &&
+      other.offset === this.offset &&
+      other.level === this.level
+    );
   }
-  toDOM(): HTMLElement {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "eng-fact-add";
-    button.textContent = "+ add";
-    button.setAttribute("aria-label", "Add symbol to this Fact");
-    button.addEventListener("pointerdown", (e) => {
+  toDOM(view: EditorView): HTMLElement {
+    const div = document.createElement("div");
+    div.className = `eng-outline-add eng-outline-add--${this.level === 1 ? "section" : "fact"}`;
+    div.setAttribute("role", "button");
+    div.setAttribute(
+      "aria-label",
+      this.level === 1 ? "Add a section" : "Add a fact",
+    );
+    const plus = document.createElement("span");
+    plus.className = "eng-outline-add__plus";
+    plus.textContent = "+";
+    div.appendChild(plus);
+    const label = document.createElement("span");
+    label.textContent = this.label;
+    div.appendChild(label);
+    const stop = (e: Event) => {
       e.preventDefault();
       e.stopPropagation();
-    });
-    button.addEventListener("mousedown", (e) => {
+    };
+    div.addEventListener("pointerdown", stop);
+    div.addEventListener("mousedown", stop);
+    div.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      insertHeading(view, this.offset, this.level);
     });
-    button.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      activeOnAddToFact?.(this.factId);
-    });
-    return button;
+    return div;
   }
   ignoreEvent(): boolean {
     return true;
@@ -117,21 +186,22 @@ function computeBlockRange(fact: ParsedFact, doc: CMText): BlockRange | null {
 }
 
 function buildDecorations(state: EditorState): DecorationSet {
-  const builder = new RangeSetBuilder<Decoration>();
   const doc = state.doc;
   const parsed = parseNotes(doc.toString());
+  const cursorLine = doc.lineAt(state.selection.main.head).number;
+  // Collected unsorted; Decoration.set(..., true) sorts. (A RangeSetBuilder
+  // would throw here because section and fact decorations interleave in the
+  // document but are emitted in two separate passes.)
+  const out: { from: number; to: number; deco: Decoration }[] = [];
+
   for (const section of parsed.sections) {
     if (section.headingLine < 1 || section.headingLine > doc.lines) continue;
     const line = doc.line(section.headingLine);
-    builder.add(
-      line.from,
-      line.from,
-      Decoration.line({
-        attributes: {
-          class: "eng-note-section-line",
-        },
-      }),
-    );
+    out.push({
+      from: line.from,
+      to: line.from,
+      deco: Decoration.line({ attributes: { class: "eng-note-section-line" } }),
+    });
   }
 
   const facts = Array.from(parsed.factsById.values()).sort(
@@ -143,9 +213,11 @@ function buildDecorations(state: EditorState): DecorationSet {
     if (!range) continue;
     const { factId, startLine, endLine, isEmpty } = range;
 
-    // Empty facts: the ghost widget IS the visual body. Decorating the
-    // trailing blank line(s) too would stack a second box under the ghost.
-    // Treat the heading as a single-line block and let the ghost close it.
+    // The fact the cursor sits in lights its whole card's left spine.
+    const isActive = cursorLine >= startLine && cursorLine <= endLine;
+
+    // Empty facts collapse to just the heading line; the footer below closes
+    // the card and offers "+ symbol".
     const lastLine = isEmpty ? startLine : endLine;
     const onlyOneLine = startLine === lastLine;
 
@@ -158,45 +230,83 @@ function buildDecorations(state: EditorState): DecorationSet {
           : l === lastLine
             ? "last"
             : "middle";
-      builder.add(
-        line.from,
-        line.from,
-        Decoration.line({
-          attributes: {
-            class:
-              l === startLine
-                ? "eng-note-fact-line eng-note-fact-heading-line"
-                : "eng-note-fact-line",
-            "data-fact-block": factId,
-            "data-fact-id": factId,
-            "data-fact-block-position": position,
-          },
-        }),
-      );
-      if (l === startLine) {
-        builder.add(
-          line.to,
-          line.to,
-          Decoration.widget({
-            widget: new FactAddWidget(factId),
-            side: 1,
-          }),
-        );
-      }
-      if (isEmpty && l === startLine) {
-        builder.add(
-          line.to,
-          line.to,
-          Decoration.widget({
-            widget: new EmptyFactGhostWidget(factId),
-            block: true,
-            side: 1,
-          }),
-        );
-      }
+      const attributes: Record<string, string> = {
+        class:
+          l === startLine
+            ? "eng-note-fact-line eng-note-fact-heading-line"
+            : "eng-note-fact-line",
+        "data-fact-block": factId,
+        "data-fact-id": factId,
+        "data-fact-block-position": position,
+      };
+      if (isActive) attributes["data-fact-active"] = "true";
+      out.push({
+        from: line.from,
+        to: line.from,
+        deco: Decoration.line({ attributes }),
+      });
     }
+
+    const footerPos = doc.line(lastLine).to;
+    out.push({
+      from: footerPos,
+      to: footerPos,
+      deco: Decoration.widget({
+        widget: new FactFooterWidget(factId, isActive),
+        block: true,
+        side: 1,
+      }),
+    });
   }
-  return builder.finish();
+
+  // Outline-level add affordances, once there is some content to anchor them.
+  if (parsed.sections.length > 0 || facts.length > 0) {
+    const sections = parsed.sections
+      .filter((s) => s.headingLine >= 1 && s.headingLine <= doc.lines)
+      .sort((a, b) => a.headingLine - b.headingLine);
+
+    const factPositions: number[] = [];
+    if (sections.length > 0) {
+      for (let i = 0; i < sections.length; i++) {
+        const endLine =
+          i + 1 < sections.length ? sections[i + 1].headingLine - 1 : doc.lines;
+        const safeEnd = Math.min(
+          doc.lines,
+          Math.max(sections[i].headingLine, endLine),
+        );
+        factPositions.push(doc.line(safeEnd).to);
+      }
+    } else {
+      factPositions.push(doc.line(doc.lines).to);
+    }
+    for (const pos of factPositions) {
+      out.push({
+        from: pos,
+        to: pos,
+        deco: Decoration.widget({
+          widget: new InsertHeadingWidget(pos, 2, "fact"),
+          block: true,
+          side: 2,
+        }),
+      });
+    }
+
+    const endPos = doc.line(doc.lines).to;
+    out.push({
+      from: endPos,
+      to: endPos,
+      deco: Decoration.widget({
+        widget: new InsertHeadingWidget(endPos, 1, "section"),
+        block: true,
+        side: 3,
+      }),
+    });
+  }
+
+  return Decoration.set(
+    out.map(({ from, to, deco }) => deco.range(from, to)),
+    true,
+  );
 }
 
 const factBlockField = StateField.define<DecorationSet>({
@@ -204,7 +314,7 @@ const factBlockField = StateField.define<DecorationSet>({
     return buildDecorations(state);
   },
   update(value, tr) {
-    if (tr.docChanged) return buildDecorations(tr.state);
+    if (tr.docChanged || tr.selection) return buildDecorations(tr.state);
     return value;
   },
   provide: (f) => EditorView.decorations.from(f),

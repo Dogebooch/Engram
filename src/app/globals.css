@@ -180,6 +180,22 @@
 
 .eng-notes-host {
   position: relative;
+  /* Type scale + vertical rhythm (one step system, no magic numbers) */
+  --eng-step-section: 16px;
+  --eng-step-fact: 12px;
+  --eng-step-body: 13px;
+  --eng-step-micro: 10.5px;
+  --eng-card-pad-x: 11px;
+  --eng-card-pad-y: 6px;
+  --eng-row-gap: 3px;
+  /* Neutral card surfaces — amber is reserved for deliberate accents */
+  --eng-card-surface: color-mix(in oklch, var(--foreground) 3%, transparent);
+  --eng-card-header: color-mix(in oklch, var(--foreground) 5.5%, transparent);
+  --eng-card-border: color-mix(in oklch, var(--border) 85%, transparent);
+  --eng-card-radius: 7px;
+  /* Unified highlight language (selection / glow / flags) */
+  --eng-highlight-bg: color-mix(in oklch, var(--accent) 9%, transparent);
+  --eng-highlight-spine: color-mix(in oklch, var(--accent) 60%, transparent);
   background:
     radial-gradient(
       120% 80% at 100% 0%,
@@ -231,7 +247,7 @@
   font-weight: 500;
   letter-spacing: 0;
   line-height: 1.4;
-  cursor: pointer;
+  cursor: grab;
   transition:
     border-color 140ms cubic-bezier(0.22, 1, 0.36, 1),
     background 140ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -351,22 +367,13 @@
 
 @keyframes eng-bullet-pulse {
   0% {
-    background-color: color-mix(in oklch, var(--accent) 28%, transparent);
-    box-shadow: inset 2px 0 0 0 var(--accent);
-  }
-  35% {
-    background-color: color-mix(in oklch, var(--accent) 22%, transparent);
+    background: color-mix(in oklch, var(--accent) 30%, transparent);
     box-shadow: inset 2px 0 0 0 var(--accent);
   }
   100% {
-    background-color: color-mix(in oklch, var(--accent) 6%, transparent);
-    box-shadow: inset 2px 0 0 0 color-mix(in oklch, var(--accent) 30%, transparent);
+    background: var(--eng-highlight-bg);
+    box-shadow: inset 2px 0 0 0 var(--eng-highlight-spine);
   }
-}
-
-.cm-line.eng-bullet-glow {
-  animation: eng-bullet-pulse 850ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  border-radius: 1px;
 }
 
 /* ---- Heading marker styling (CodeMirror tokens) ---- */
@@ -380,137 +387,243 @@
   position: relative;
 }
 
+/* Tier 1 — Section: a chapter divider, not a box. Full-width hairline rule. */
 .eng-notes-host .cm-line.eng-note-section-line {
-  margin: 10px 0 8px;
-  padding: 7px 4px 8px 8px;
-  border-bottom: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
-  background: linear-gradient(
-    to right,
-    color-mix(in oklch, var(--accent) 8%, transparent),
-    transparent 88%
-  );
+  margin: 22px 0 10px;
+  padding: 0 4px 9px !important;
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 90%, transparent);
+}
+
+.eng-notes-host .cm-line.eng-note-section-line:first-child {
+  margin-top: 6px;
 }
 
 .eng-notes-host .cm-line.eng-note-section-line > span {
   font-family: var(--font-sans);
-  font-size: 15.5px;
+  font-size: var(--eng-step-section);
   font-weight: 650;
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
   color: color-mix(in oklch, var(--foreground) 98%, transparent);
 }
 
+/* The `#` marker reborn as a small amber mono eyebrow */
 .eng-notes-host .cm-line.eng-note-section-line > span:first-child {
-  color: color-mix(in oklch, var(--accent) 72%, transparent);
+  font-family: var(--font-mono);
+  font-size: var(--eng-step-micro);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: color-mix(in oklch, var(--accent) 70%, transparent);
 }
 
+/* Tier 2 — Fact: ONE seamless card wrapping heading + all bullets.
+ * Geometry is composed from data-fact-block-position so first/middle/last
+ * read as a single rounded container with no internal seams. The card lives
+ * on the real .cm-line (background + side borders); ::after stays free for
+ * the unified highlight. */
 .eng-notes-host .cm-line.eng-note-fact-line {
-  margin-left: 6px;
-  padding-left: 12px !important;
-  border-left: 2px solid color-mix(in oklch, var(--accent) 20%, transparent);
-  background: color-mix(in oklch, var(--foreground) 2.5%, transparent);
+  position: relative;
+  margin: 0 4px 0 6px;
+  padding: 3px var(--eng-card-pad-x) !important;
+  background: var(--eng-card-surface);
+  border-left: 1px solid var(--eng-card-border);
+  border-right: 1px solid var(--eng-card-border);
 }
 
+/* The .eng-fact-footer widget always closes the card bottom, so doc lines
+ * round only the TOP (first/only); the bottom border + radius live there. */
+.eng-notes-host .cm-line.eng-note-fact-line[data-fact-block-position="first"],
+.eng-notes-host .cm-line.eng-note-fact-line[data-fact-block-position="only"] {
+  border-top: 1px solid var(--eng-card-border);
+  border-radius: var(--eng-card-radius) var(--eng-card-radius) 0 0;
+}
+
+/* Heading row = the card's header band, separated by an internal hairline. */
 .eng-notes-host .cm-line.eng-note-fact-heading-line {
-  margin: 12px 0 0 6px;
-  padding: 7px 6px 7px 12px !important;
-  border-radius: 5px 5px 0 0;
-  border: 1px solid color-mix(in oklch, var(--border) 75%, transparent);
-  border-bottom-color: color-mix(in oklch, var(--border) 35%, transparent);
-  background: color-mix(in oklch, var(--foreground) 5%, transparent);
-  box-shadow: inset 2px 0 0
-    color-mix(in oklch, var(--accent) 55%, transparent);
+  margin-top: 16px;
+  padding: 7px var(--eng-card-pad-x) 6px !important;
+  background: var(--eng-card-header);
+  border-bottom: 1px solid color-mix(in oklch, var(--eng-card-border) 65%, transparent);
 }
 
 .eng-notes-host .cm-line.eng-note-fact-heading-line > span {
   font-family: var(--font-sans);
-  font-size: 12.75px;
+  font-size: var(--eng-step-fact);
   font-weight: 600;
   letter-spacing: 0;
-  color: color-mix(in oklch, var(--foreground) 88%, transparent);
+  color: color-mix(in oklch, var(--foreground) 90%, transparent);
 }
 
+/* The `##` marker — quiet amber mono index */
 .eng-notes-host .cm-line.eng-note-fact-heading-line > span:first-child {
-  color: color-mix(in oklch, var(--accent) 62%, transparent);
+  font-family: var(--font-mono);
+  font-size: var(--eng-step-micro);
+  font-weight: 600;
+  color: color-mix(in oklch, var(--accent) 55%, transparent);
 }
 
+/* Whole-fact active spine — the card you're editing lights its left edge. */
+body:not([data-engram-tag-dragging])
+  .eng-notes-host
+  .cm-line.eng-note-fact-line[data-fact-active] {
+  box-shadow: inset 2.5px 0 0 0 color-mix(in oklch, var(--accent) 60%, transparent);
+}
+
+/* Per-fact footer: the card's bottom edge + the "+ symbol" hand-off to the
+ * library. Always present, so the card never has a ragged bottom. */
+.eng-notes-host .eng-fact-footer {
+  position: relative;
+  margin: 0 4px 0 6px;
+  padding: 5px var(--eng-card-pad-x);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--eng-card-surface);
+  border-left: 1px solid var(--eng-card-border);
+  border-right: 1px solid var(--eng-card-border);
+  border-bottom: 1px solid var(--eng-card-border);
+  border-radius: 0 0 var(--eng-card-radius) var(--eng-card-radius);
+  box-shadow: inset 0 1px 0 0
+    color-mix(in oklch, var(--eng-card-border) 55%, transparent);
+  color: color-mix(in oklch, var(--muted-foreground) 60%, transparent);
+  font-family: var(--font-mono);
+  font-size: var(--eng-step-micro);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.eng-notes-host .eng-fact-footer:hover {
+  background: color-mix(in oklch, var(--accent) 7%, transparent);
+  border-color: color-mix(in oklch, var(--accent) 35%, transparent);
+  color: color-mix(in oklch, var(--foreground) 82%, transparent);
+}
+
+.eng-fact-footer__plus {
+  font-size: 12px;
+  line-height: 1;
+  color: color-mix(in oklch, var(--accent) 70%, transparent);
+}
+
+.eng-notes-host .eng-fact-footer:hover .eng-fact-footer__plus {
+  color: var(--accent);
+}
+
+/* Outline-level add affordances — quiet dashed ghost rows. */
+.eng-notes-host .eng-outline-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 4px 0 6px;
+  padding: 5px 10px;
+  border: 1px dashed color-mix(in oklch, var(--eng-card-border) 90%, transparent);
+  border-radius: var(--eng-card-radius);
+  background: transparent;
+  color: color-mix(in oklch, var(--muted-foreground) 52%, transparent);
+  font-family: var(--font-mono);
+  font-size: var(--eng-step-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.eng-notes-host .eng-outline-add--section {
+  margin-top: 18px;
+}
+
+.eng-notes-host .eng-outline-add:hover {
+  border-color: color-mix(in oklch, var(--accent) 45%, transparent);
+  background: color-mix(in oklch, var(--accent) 6%, transparent);
+  color: color-mix(in oklch, var(--foreground) 78%, transparent);
+}
+
+.eng-outline-add__plus {
+  font-size: 12px;
+  line-height: 1;
+  color: color-mix(in oklch, var(--accent) 70%, transparent);
+}
+
+.eng-notes-host .eng-outline-add:hover .eng-outline-add__plus {
+  color: var(--accent);
+}
+
+/* Active-fact spine flows into the footer so the left edge is continuous. */
+body:not([data-engram-tag-dragging])
+  .eng-notes-host
+  .eng-fact-footer[data-fact-active] {
+  box-shadow:
+    inset 0 1px 0 0 color-mix(in oklch, var(--eng-card-border) 55%, transparent),
+    inset 2.5px 0 0 0 color-mix(in oklch, var(--accent) 60%, transparent);
+}
+
+/* Tier 3 — symbol bullet rows live INSIDE the fact card (the card owns the
+ * surface + borders). Rows carry only their own rhythm. */
 .eng-notes-host .cm-line.eng-note-symbol-line {
-  margin: 0 0 0 6px;
-  padding: 6px 8px 7px 12px !important;
-  border-left: 2px solid color-mix(in oklch, var(--accent) 20%, transparent);
-  background: color-mix(in oklch, var(--foreground) 2.5%, transparent);
-  line-height: 1.75;
+  line-height: 1.7;
   text-indent: 0;
 }
 
 .eng-notes-host .cm-line.eng-note-symbol-line + .cm-line.eng-note-symbol-line {
-  padding-top: 2px !important;
+  padding-top: var(--eng-row-gap) !important;
 }
 
 .eng-note-bullet-marker {
   display: none;
 }
 
+/* Segments are differentiated by TYPOGRAPHY ALONE — no persistent labels.
+ * meaning = brightest/heaviest · description = muted regular · why = dim italic */
 .eng-note-bullet-desc {
   font-family: var(--font-sans);
-  font-size: 12.75px;
-  font-weight: 500;
+  font-size: calc(var(--eng-step-body) - 0.5px);
+  font-weight: 450;
   letter-spacing: 0;
-  color: color-mix(in oklch, var(--foreground) 84%, transparent);
+  color: color-mix(in oklch, var(--foreground) 76%, transparent);
 }
 
-.eng-note-bullet-desc::before,
-.eng-note-bullet-meaning::before,
-.eng-note-bullet-encoding::before {
-  margin-right: 5px;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-style: normal;
+.eng-note-bullet-meaning {
+  font-family: var(--font-sans);
+  font-size: var(--eng-step-body);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  color: color-mix(in oklch, var(--muted-foreground) 55%, transparent);
+  letter-spacing: 0;
+  color: var(--foreground);
 }
 
-.eng-note-bullet-desc::before {
-  content: "description";
-}
-
-.eng-note-bullet-meaning::before {
-  content: "meaning";
-}
-
-.eng-note-bullet-encoding::before {
-  content: "why";
+.eng-note-bullet-encoding {
+  font-family: var(--font-sans);
+  font-size: calc(var(--eng-step-body) - 1px);
+  font-style: italic;
+  letter-spacing: 0;
+  color: color-mix(in oklch, var(--muted-foreground) 85%, transparent);
 }
 
 .eng-note-bullet-arrow,
 .eng-note-bullet-separator {
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 500;
-  color: color-mix(in oklch, var(--accent) 45%, transparent);
+  color: color-mix(in oklch, var(--accent) 40%, transparent);
 }
 
-.eng-note-bullet-meaning {
-  font-family: var(--font-sans);
-  font-size: 12.85px;
-  font-weight: 600;
-  letter-spacing: 0;
-  color: color-mix(in oklch, var(--foreground) 96%, transparent);
-}
-
-.eng-note-bullet-encoding {
-  font-family: var(--font-sans);
-  font-size: 12.2px;
-  font-style: italic;
-  letter-spacing: 0;
-  color: color-mix(in oklch, var(--muted-foreground) 92%, transparent);
-}
-
-.eng-notes-host .cm-line.eng-note-symbol-line-empty-desc {
-  background: color-mix(in oklch, var(--accent) 7%, transparent);
-  box-shadow:
-    inset 2px 0 0 color-mix(in oklch, var(--accent) 70%, transparent),
-    inset 0 0 0 1px color-mix(in oklch, var(--accent) 16%, transparent);
+/* Persistent "needs a description" flag — subtle, inside the card padding. */
+body:not([data-engram-tag-dragging])
+  .eng-notes-host
+  .cm-line.eng-note-symbol-line-empty-desc::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  pointer-events: none;
+  border-radius: 3px;
+  background: color-mix(in oklch, var(--accent) 5%, transparent);
+  box-shadow: inset 2px 0 0 0 color-mix(in oklch, var(--accent) 40%, transparent);
 }
 
 .eng-note-empty-guide {
@@ -528,38 +641,6 @@
 
 .eng-note-empty-guide span:first-child {
   color: color-mix(in oklch, var(--foreground) 75%, transparent);
-}
-
-.eng-note-move,
-.eng-fact-add {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 18px;
-  margin-left: 8px;
-  padding: 0 6px;
-  border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
-  border-radius: 4px;
-  background: color-mix(in oklch, var(--background) 35%, transparent);
-  color: color-mix(in oklch, var(--muted-foreground) 78%, transparent);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.02em;
-  vertical-align: 1px;
-  cursor: pointer;
-}
-
-.eng-note-move:hover,
-.eng-fact-add:hover {
-  border-color: color-mix(in oklch, var(--accent) 55%, transparent);
-  color: color-mix(in oklch, var(--foreground) 92%, transparent);
-  background: color-mix(in oklch, var(--accent) 9%, transparent);
-}
-
-.eng-fact-add {
-  float: right;
-  margin-top: 1px;
-  margin-right: 2px;
 }
 
 .eng-library-add-target {
@@ -607,16 +688,30 @@
   color: color-mix(in oklch, var(--foreground) 90%, transparent);
 }
 
-/* ---- Active-line accent rail (tracks editor cursor) ---- */
+/* ---- Unified inset highlight ----
+ * One mechanism for cursor row + canvas→editor glow, drawn on ::after INSIDE
+ * the card padding (inset: 3px) so it never collides with the card border or
+ * the active-fact spine. Gated off during a tag-drag so only the drag
+ * affordance ::after paints — a line shows at most ONE highlight, never a
+ * stack of boxes. Later rule wins on shared lines (glow over active row). */
+body:not([data-engram-tag-dragging]) .eng-notes-host .cm-line.cm-activeLine::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  pointer-events: none;
+  border-radius: 3px;
+  background: color-mix(in oklch, var(--accent) 7%, transparent);
+}
 
-.eng-notes-host .cm-activeLine {
-  background: linear-gradient(
-    to right,
-    color-mix(in oklch, var(--foreground) 5%, transparent) 0%,
-    transparent 30%
-  );
-  box-shadow: inset 1px 0 0 0
-    color-mix(in oklch, var(--accent) 35%, transparent);
+body:not([data-engram-tag-dragging]) .eng-notes-host .cm-line.eng-bullet-glow::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  pointer-events: none;
+  border-radius: 3px;
+  background: var(--eng-highlight-bg);
+  box-shadow: inset 2px 0 0 0 var(--eng-highlight-spine);
+  animation: eng-bullet-pulse 850ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 /* ---- Empty-state typewriter prompt ---- */
@@ -804,6 +899,41 @@
 
 body[data-engram-tag-dragging] {
   cursor: alias !important;
+  user-select: none;
+}
+
+/* Floating chip that follows the cursor while dragging a row to another card */
+.eng-row-drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 16rem;
+  padding: 3px 8px 3px 5px;
+  border: 1px solid color-mix(in oklch, var(--accent) 55%, transparent);
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--popover) 92%, var(--accent) 8%);
+  box-shadow:
+    0 6px 18px -6px color-mix(in oklch, var(--background) 80%, transparent),
+    0 0 0 3px color-mix(in oklch, var(--accent) 10%, transparent);
+  color: color-mix(in oklch, var(--foreground) 92%, transparent);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eng-row-drag-ghost img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  flex: 0 0 auto;
 }
 
 body[data-engram-tag-dragging] .cm-line[data-fact-block] {
@@ -839,67 +969,32 @@ body[data-engram-tag-dragging]
   box-shadow: inset 3px 0 0 0 var(--accent);
 }
 
+/* The footer closes every card's bottom, so doc lines round only the TOP
+ * during a drag; the footer draws the bottom of the active drop box. */
 body[data-engram-tag-dragging]
-  .cm-line[data-fact-block][data-fact-block-active][data-fact-block-position="only"]::after {
-  border-radius: 4px;
-}
+  .cm-line[data-fact-block][data-fact-block-active][data-fact-block-position="only"]::after,
 body[data-engram-tag-dragging]
   .cm-line[data-fact-block][data-fact-block-active][data-fact-block-position="first"]::after {
   border-bottom: none;
   border-radius: 4px 4px 0 0;
 }
 body[data-engram-tag-dragging]
-  .cm-line[data-fact-block][data-fact-block-active][data-fact-block-position="middle"]::after {
+  .cm-line[data-fact-block][data-fact-block-active][data-fact-block-position="middle"]::after,
+body[data-engram-tag-dragging]
+  .cm-line[data-fact-block][data-fact-block-active][data-fact-block-position="last"]::after {
   border-top: none;
   border-bottom: none;
   border-radius: 0;
 }
-body[data-engram-tag-dragging]
-  .cm-line[data-fact-block][data-fact-block-active][data-fact-block-position="last"]::after {
-  border-top: none;
-  border-radius: 0 0 4px 4px;
-}
 
-/* Empty-fact ghost slot. Block widget injected directly under an empty
- * fact's heading. Collapses to 0 by default; expands ONLY when its fact is
- * the hover target, so non-active empty facts don't open ghost rows during
- * the drag (the heading's left rail signals candidacy on its own). */
-.eng-empty-fact-ghost {
-  display: block;
-  position: relative;
-  height: 0;
-  overflow: hidden;
-  pointer-events: auto;
-  transition: height 180ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
+/* The footer is the bottom of the active drop box. */
 body[data-engram-tag-dragging]
-  .eng-empty-fact-ghost[data-fact-block-active] {
-  height: 28px;
-}
-
-body[data-engram-tag-dragging]
-  .eng-empty-fact-ghost[data-fact-block-active]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border: 1.5px solid var(--accent);
-  border-top: none;
+  .eng-notes-host
+  .eng-fact-footer[data-fact-block-active] {
+  border-color: var(--accent);
   background: color-mix(in oklch, var(--accent) 12%, transparent);
-  border-radius: 0 0 4px 4px;
   box-shadow: inset 3px 0 0 0 var(--accent);
-}
-
-/* When the ghost is active, the heading line above it is the "first" of the
- * combined block — strip its bottom border so they read as one continuous
- * box, and let the heading's rail flow into the ghost's rail. */
-body[data-engram-tag-dragging]
-  .cm-line[data-fact-block][data-fact-block-active][data-fact-block-position="only"]:has(
-    + .eng-empty-fact-ghost[data-fact-block-active]
-  )::after {
-  border-bottom: none;
-  border-radius: 4px 4px 0 0;
+  color: color-mix(in oklch, var(--foreground) 85%, transparent);
 }
 
 /* ============================================================

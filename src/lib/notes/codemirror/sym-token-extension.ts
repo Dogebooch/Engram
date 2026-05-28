@@ -27,16 +27,33 @@ const defaultResolver: SymbolChipResolver = () => ({
 });
 
 let activeResolver: SymbolChipResolver = defaultResolver;
-let activeOnSelect: ((uuid: string) => void) | null = null;
+let activeOnPointerDown:
+  | ((
+      uuid: string,
+      factId: string | null,
+      e: PointerEvent,
+      resolved: ResolvedSymbolChip,
+    ) => void)
+  | null = null;
 let activeOnHoverChange: ((uuid: string | null) => void) | null = null;
-let activeOnMove: ((uuid: string, factId: string) => void) | null = null;
 
 export function setSymbolChipResolver(resolver: SymbolChipResolver): void {
   activeResolver = resolver;
 }
 
-export function setSymbolChipOnSelect(handler: (uuid: string) => void): void {
-  activeOnSelect = handler;
+/**
+ * Press on a chip. A press that stays put resolves to a select; a press that
+ * moves past the drag threshold becomes a move (see [symbol-row-drag.ts]).
+ */
+export function setSymbolChipOnPointerDown(
+  handler: (
+    uuid: string,
+    factId: string | null,
+    e: PointerEvent,
+    resolved: ResolvedSymbolChip,
+  ) => void,
+): void {
+  activeOnPointerDown = handler;
 }
 
 export function setSymbolChipOnHoverChange(
@@ -45,17 +62,12 @@ export function setSymbolChipOnHoverChange(
   activeOnHoverChange = handler;
 }
 
-export function setSymbolChipOnMove(
-  handler: (uuid: string, factId: string) => void,
-): void {
-  activeOnMove = handler;
-}
-
 class SymbolChipWidget extends WidgetType {
   constructor(
     readonly uuid: string,
     readonly resolved: ResolvedSymbolChip,
     readonly cueLabel: string | null,
+    readonly factId: string | null,
   ) {
     super();
   }
@@ -66,7 +78,8 @@ class SymbolChipWidget extends WidgetType {
       other.resolved.displayName === this.resolved.displayName &&
       other.resolved.imageUrl === this.resolved.imageUrl &&
       other.resolved.broken === this.resolved.broken &&
-      other.cueLabel === this.cueLabel
+      other.cueLabel === this.cueLabel &&
+      other.factId === this.factId
     );
   }
 
@@ -129,10 +142,11 @@ class SymbolChipWidget extends WidgetType {
       }
     }
 
-    span.addEventListener("mousedown", (e) => {
+    span.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
-      activeOnSelect?.(this.uuid);
+      activeOnPointerDown?.(this.uuid, this.factId, e, this.resolved);
     });
     span.addEventListener("mouseenter", () => {
       activeOnHoverChange?.(this.uuid);
@@ -159,49 +173,6 @@ class EmptyBulletGuideWidget extends WidgetType {
       span.appendChild(part);
     }
     return span;
-  }
-
-  override ignoreEvent(): boolean {
-    return true;
-  }
-}
-
-class MoveSymbolWidget extends WidgetType {
-  constructor(
-    readonly uuid: string,
-    readonly factId: string,
-  ) {
-    super();
-  }
-
-  override eq(other: WidgetType): boolean {
-    return (
-      other instanceof MoveSymbolWidget &&
-      other.uuid === this.uuid &&
-      other.factId === this.factId
-    );
-  }
-
-  override toDOM(): HTMLElement {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "eng-note-move";
-    button.textContent = "move";
-    button.setAttribute("aria-label", "Move symbol row to another Fact");
-    button.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    });
-    button.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    });
-    button.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      activeOnMove?.(this.uuid, this.factId);
-    });
-    return button;
   }
 
   override ignoreEvent(): boolean {
@@ -362,7 +333,7 @@ function buildDecorations(view: EditorView): DecorationSet {
         null;
       const resolved = activeResolver(uuid);
       const deco = Decoration.replace({
-        widget: new SymbolChipWidget(uuid, resolved, ranges.cueLabel),
+        widget: new SymbolChipWidget(uuid, resolved, ranges.cueLabel, factId),
         inclusive: false,
       });
       if (ranges.isBullet) {
@@ -424,16 +395,6 @@ function buildDecorations(view: EditorView): DecorationSet {
           to: matchTo,
           deco: Decoration.widget({
             widget: new EmptyBulletGuideWidget(),
-            side: 1,
-          }),
-        });
-      }
-      if (factId) {
-        decorations.push({
-          from: line.to,
-          to: line.to,
-          deco: Decoration.widget({
-            widget: new MoveSymbolWidget(uuid, factId),
             side: 1,
           }),
         });
