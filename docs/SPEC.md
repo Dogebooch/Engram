@@ -8,7 +8,7 @@ Next.js 16 (App Router) + TS · Konva.js + react-konva · Zustand (+ persist) ·
 - **Markdown-as-source** over relational tables: matches Obsidian workflow, single source of truth, free Markdown export.
 - **IndexedDB** over localStorage: blobs + quota.
 - **Zustand** over Redux/Jotai: scope.
-- **Lint + selection-bound form** over a parallel structured panel: bullet structure is enforced via a CodeMirror linter and a selection-bound mini-form rendered *inside* notes-panel — never by promoting bullet content into `canvas.json` or by building a parallel right-column properties panel. Markdown stays canonical; structured editing is a presentation layer over the same text.
+- **Linted Markdown editor** over a parallel structured panel: bullet structure is enforced in CodeMirror with linting and symbol chips — never by promoting bullet content into `canvas.json` or by building a parallel right-column properties panel. Markdown stays canonical and remains the only text editing surface.
 
 ## Data model
 
@@ -60,11 +60,11 @@ Stored as one IDB record per Picmonic with these fields (named so future export-
 Source ranks: user-uploaded (0) > OpenMoji (1) > Game-Icons (2) > Twemoji (3, optional).
 
 ## Bullet validation & structured editing
-Downstream animation/video pipeline needs uniform bullet output, but markdown stays canonical. Resolution: **lint + selection-bound form**, both inside notes-panel. No parallel structured state, no third panel, no bullet content in `canvas.json`.
+Downstream animation/video pipeline needs uniform bullet output, but markdown stays canonical. Resolution: **CodeMirror linting plus inline symbol chips** inside notes-panel. No parallel structured state, no third panel, no bullet content in `canvas.json`.
 
 - **Pipeline export schema** ([docs/PIPELINE-SCHEMA.md](PIPELINE-SCHEMA.md)) defines the JSON shape one exported mnemonic produces and which fields are mandatory; drives the lint rule list. Authoring rule: prose-shaped → bullet; machine-state (timing, animation cues, scene roles, narration refs) → `canvas.json` alongside `animation*` / `factMeta` / `timeline`.
 - **CodeMirror linter** validates each bullet on edit: malformed `{sym:UUID}`, empty description, missing `→`, unknown symbol UUIDs, untagged symbols. Surfaces as gutter markers, tooltips, header-badge count.
-- **Selection-bound mini-form** renders in notes-panel when exactly one canvas symbol is selected and bound to ≥1 Facts. Inputs expose `description / meaning / encoding` for the active Fact's bullet. Edits round-trip through existing notes write helpers (`tag`, `bullet`, `insert`); form repopulates from re-parsed bullet on external change.
+- **Symbol chips** replace raw `{sym:UUID}` tokens in the editor and select the matching canvas symbol. Selecting a symbol scrolls to and highlights its existing bullet line; users edit that Markdown line directly.
 
 ## Editor UX
 

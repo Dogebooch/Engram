@@ -13,7 +13,6 @@ import { symbolChipExtension } from "@/lib/notes/codemirror/sym-token-extension"
 import { buildBulletLinterExtension } from "@/lib/notes/codemirror/lint-extension";
 import { transientHighlightField } from "./transient-highlight";
 import { NotesBreadcrumb } from "./breadcrumb";
-import { SelectedBulletForm } from "./selected-bullet-form";
 import { useCodeMirror } from "./use-codemirror";
 import { useSymbolResolver } from "./use-symbol-resolver";
 import { useSyncCanvasToEditor } from "./use-sync-canvas-to-editor";
@@ -23,7 +22,6 @@ export function NotesPanel() {
   const picmonic = usePicmonic();
   const currentId = useCurrentPicmonicId();
   const setNotes = useStore((s) => s.setNotes);
-  const setLastSyncSource = useStore((s) => s.setLastSyncSource);
 
   const value = picmonic?.notes ?? "";
   const parsed = React.useMemo(() => parseNotes(value), [value]);
@@ -129,25 +127,15 @@ export function NotesPanel() {
               {lintCounts.warnings > 0 && (
                 <span className="flex items-center gap-1 text-amber-500">
                   <span className="size-[5px] rounded-full bg-amber-500" />
-                  {lintCounts.warnings} warn{lintCounts.warnings === 1 ? "" : "s"}
+                  {lintCounts.warnings} issue
+                  {lintCounts.warnings === 1 ? "" : "s"}
                 </span>
               )}
             </button>
           )}
-          <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground/45">
-            <span className="size-[5px] rounded-full bg-muted-foreground/35" />
-            markdown
-          </span>
         </div>
       </div>
       <NotesBreadcrumb breadcrumb={breadcrumb} />
-      <SelectedBulletForm
-        parsed={parsed}
-        notes={value}
-        currentId={currentId ?? null}
-        setNotes={setNotes}
-        setLastSyncSource={setLastSyncSource}
-      />
       <div className="relative flex flex-1 flex-col overflow-hidden">
         <div
           ref={setHostRef}
@@ -167,22 +155,12 @@ function NotesEmptyOverlay() {
         <div className="eng-notes-empty__hint">
           <span className="eng-notes-empty__caret">▍</span>
           <span className="eng-notes-empty__comment">
-            {`<!-- drop a symbol on canvas, or start with `}
-            <span className="text-foreground/65">{`# Section`}</span>
-            {` / `}
-            <span className="text-foreground/65">{`## Fact`}</span>
-            {` -->`}
+            Start typing your notes here.
           </span>
         </div>
         <div className="eng-notes-empty__rule" aria-hidden />
         <div className="eng-notes-empty__keys">
-          <span>sync</span>
-          <span>·</span>
-          <span className="eng-notes-empty__kbd">/</span>
-          <span>library</span>
-          <span>·</span>
-          <span className="eng-notes-empty__kbd">F</span>
-          <span>tag</span>
+          <span>Use a short fact, then add a symbol.</span>
         </div>
       </div>
     </div>
