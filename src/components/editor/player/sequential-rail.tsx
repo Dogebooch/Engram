@@ -51,6 +51,10 @@ export function SequentialRail({
     // populates so MISSING placeholders flip to real names.
     void symbolsReady;
   }, [fact, notes, symbolsById, symbolsReady]);
+  const imageEntries = React.useMemo(
+    () => entries.filter((entry) => entry.imageUrl),
+    [entries],
+  );
 
   return (
     <aside
@@ -84,30 +88,21 @@ export function SequentialRail({
 
             <h2 className="eng-player-rail__name">{fact.name}</h2>
 
-            {entries.length > 0 && (
+            {imageEntries.length > 0 && (
               <div className="eng-player-rail__symbol-grid">
-                {entries.map((e, i) => (
+                {imageEntries.map((e, i) => (
                   <div
                     key={`${e.symbolId}-${i}-tile`}
                     className="eng-player-rail__tile"
                   >
-                    {e.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={e.imageUrl}
-                        alt=""
-                        className="eng-player-rail__tile-img"
-                      />
-                    ) : (
-                      <span
-                        className="eng-player-rail__tile-img-missing"
-                        aria-hidden
-                      >
-                        ?
-                      </span>
-                    )}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={e.imageUrl ?? ""}
+                      alt=""
+                      className="eng-player-rail__tile-img"
+                    />
                     <span className="eng-player-rail__tile-caption">
-                      {e.symbolName ?? "missing"}
+                      {e.symbolName}
                     </span>
                   </div>
                 ))}

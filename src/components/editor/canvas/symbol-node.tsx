@@ -3,7 +3,7 @@
 import * as React from "react";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { Group, Image as KonvaImage, Rect, Text } from "react-konva";
+import { Group, Image as KonvaImage, Line, Rect, Text } from "react-konva";
 import { useImage } from "@/lib/image-cache";
 import { useStore } from "@/lib/store";
 import { getSymbolById, useSymbolsReady } from "@/lib/symbols";
@@ -13,6 +13,7 @@ import { useCanvasTagDrag } from "./use-canvas-tag-drag";
 
 const ACCENT_FALLBACK = "oklch(0.78 0.13 75)";
 const DESTRUCTIVE_FALLBACK = "oklch(0.7 0.19 22)";
+const FOREGROUND_FALLBACK = "oklch(0.96 0 0)";
 const PLACEHOLDER_FILL_FALLBACK = "oklch(1 0 0 / 0.04)";
 const PLACEHOLDER_FILL_WEAK_FALLBACK = "oklch(1 0 0 / 0.02)";
 const PLACEHOLDER_FILL_STRONG_FALLBACK = "oklch(1 0 0 / 0.18)";
@@ -21,7 +22,7 @@ interface SymbolNodeProps {
   layer: SymbolLayer;
   selected: boolean;
   glowing: boolean;
-  onMount: (id: string, node: Konva.Image | Konva.Rect | null) => void;
+  onMount: (id: string, node: Konva.Image | Konva.Rect | Konva.Line | null) => void;
   /**
    * When false, disables drag/click/contextMenu/tagDrag handlers. Used by the
    * Player view to render symbols read-only.
@@ -57,6 +58,8 @@ export const SymbolNode = React.memo(function SymbolNode({
   const tagDrag = useCanvasTagDrag(layer.id);
 
   const accent = useThemedCssVar("--accent", ACCENT_FALLBACK) ?? ACCENT_FALLBACK;
+  const foreground =
+    useThemedCssVar("--foreground", FOREGROUND_FALLBACK) ?? FOREGROUND_FALLBACK;
   const destructive =
     useThemedCssVar("--destructive", DESTRUCTIVE_FALLBACK) ?? DESTRUCTIVE_FALLBACK;
   const placeholderFill =
@@ -70,7 +73,7 @@ export const SymbolNode = React.memo(function SymbolNode({
     PLACEHOLDER_FILL_STRONG_FALLBACK;
 
   const imageRef = React.useRef<Konva.Image | null>(null);
-  const regionRef = React.useRef<Konva.Rect | null>(null);
+  const regionRef = React.useRef<Konva.Rect | Konva.Line | null>(null);
 
   const handleRef = React.useCallback(
     (node: Konva.Image | null) => {
@@ -81,7 +84,7 @@ export const SymbolNode = React.memo(function SymbolNode({
   );
 
   const handleRegionRef = React.useCallback(
-    (node: Konva.Rect | null) => {
+    (node: Konva.Rect | Konva.Line | null) => {
       regionRef.current = node;
       onMount(layer.id, node);
     },
@@ -160,35 +163,118 @@ export const SymbolNode = React.memo(function SymbolNode({
     const visible = interactive || selected || glowing;
     if (!visible) return null;
     const active = selected || glowing || regionHover;
+    const strokeWidth = active ? 3.25 : 1.25;
+    const strokeOpacity = active ? 1 : 0.56;
+    const fillOpacity = glowing ? 0.2 : selected ? 0.14 : regionHover ? 0.1 : 0;
+    const contrastStrokeWidth = strokeWidth + 3;
+    const contrastOpacity = active ? 0.42 * dimFactor : 0;
+    const commonRegionProps = {
+      id: layer.id,
+      name: "export-chrome",
+      x: layer.x,
+      y: layer.y,
+      rotation: layer.rotation,
+      stroke: accent,
+      strokeWidth,
+      dash: active ? undefined : [8, 5],
+      opacity: strokeOpacity * dimFactor,
+      shadowEnabled: active,
+      shadowColor: accent,
+      shadowBlur: active ? 18 : 0,
+      shadowOpacity: active ? 0.55 : 0,
+      draggable: interactive,
+      listening: interactive,
+      perfectDrawEnabled: false,
+      onClick: interactive ? handleClick : undefined,
+      onContextMenu: interactive ? handleContextMenu : undefined,
+      onMouseEnter: interactive ? handleRegionMouseEnter : undefined,
+      onMouseLeave: interactive ? handleRegionMouseLeave : undefined,
+      onDragStart: interactive ? tagDrag.onDragStart : undefined,
+      onDragEnd: interactive ? tagDrag.onDragEnd : undefined,
+    };
+    if (layer.shape === "polygon" && layer.points && layer.points.length >= 3) {
+      const points = layer.points.flatMap((p) => [p.x, p.y]);
+      return (
+        <>
+          {fillOpacity > 0 && (
+            <Line
+              name="export-chrome"
+              x={layer.x}
+              y={layer.y}
+              rotation={layer.rotation}
+              points={points}
+              closed
+              fill={accent}
+              opacity={fillOpacity * dimFactor}
+              listening={false}
+              perfectDrawEnabled={false}
+            />
+          )}
+          {contrastOpacity > 0 && (
+            <Line
+              name="export-chrome"
+              x={layer.x}
+              y={layer.y}
+              rotation={layer.rotation}
+              points={points}
+              closed
+              stroke={foreground}
+              strokeWidth={contrastStrokeWidth}
+              opacity={contrastOpacity}
+              listening={false}
+              perfectDrawEnabled={false}
+            />
+          )}
+          <Line
+            ref={handleRegionRef}
+            {...commonRegionProps}
+            points={points}
+            closed
+            fillEnabled={false}
+            hitStrokeWidth={12}
+          />
+        </>
+      );
+    }
     return (
-      <Rect
-        ref={handleRegionRef}
-        id={layer.id}
-        name="export-chrome"
-        x={layer.x}
-        y={layer.y}
-        width={layer.width}
-        height={layer.height}
-        rotation={layer.rotation}
-        stroke={accent}
-        strokeWidth={active ? 2 : 1.25}
-        dash={active ? undefined : [8, 5]}
-        opacity={active ? 1 : 0.65}
-        fillEnabled={false}
-        shadowEnabled={active}
-        shadowColor={accent}
-        shadowBlur={active ? 14 : 0}
-        shadowOpacity={active ? 0.45 : 0}
-        draggable={interactive}
-        listening={interactive}
-        perfectDrawEnabled={false}
-        onClick={interactive ? handleClick : undefined}
-        onContextMenu={interactive ? handleContextMenu : undefined}
-        onMouseEnter={interactive ? handleRegionMouseEnter : undefined}
-        onMouseLeave={interactive ? handleRegionMouseLeave : undefined}
-        onDragStart={interactive ? tagDrag.onDragStart : undefined}
-        onDragEnd={interactive ? tagDrag.onDragEnd : undefined}
-      />
+      <>
+        {fillOpacity > 0 && (
+          <Rect
+            name="export-chrome"
+            x={layer.x}
+            y={layer.y}
+            width={layer.width}
+            height={layer.height}
+            rotation={layer.rotation}
+            fill={accent}
+            opacity={fillOpacity * dimFactor}
+            listening={false}
+            perfectDrawEnabled={false}
+          />
+        )}
+        {contrastOpacity > 0 && (
+          <Rect
+            name="export-chrome"
+            x={layer.x}
+            y={layer.y}
+            width={layer.width}
+            height={layer.height}
+            rotation={layer.rotation}
+            stroke={foreground}
+            strokeWidth={contrastStrokeWidth}
+            opacity={contrastOpacity}
+            listening={false}
+            perfectDrawEnabled={false}
+          />
+        )}
+        <Rect
+          ref={handleRegionRef}
+          {...commonRegionProps}
+          width={layer.width}
+          height={layer.height}
+          fillEnabled={false}
+        />
+      </>
     );
   }
 

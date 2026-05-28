@@ -49,6 +49,8 @@ CLAUDE-*.md
 
 # Local env
 .env*.local
+.venv-video-ingest/
+__pycache__/
 
 # IDE
 .vscode/

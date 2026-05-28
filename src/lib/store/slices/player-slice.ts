@@ -40,6 +40,13 @@ export const createPlayerSlice: StateCreator<RootState, [], [], PlayerSlice> = (
   enterPlayer: () => {
     const ui = get().ui;
     set({
+      factPicker: null,
+      contextMenu: null,
+      stageContextMenu: null,
+      replacePicker: null,
+      annotationMode: false,
+      helpOpen: false,
+      pendingSymbolDelete: null,
       player: {
         open: true,
         mode: ui.lastPlayerMode,

@@ -23,6 +23,8 @@ import {
 } from "./hotspot-context-menu";
 
 const STAGE_FALLBACK = "oklch(0.105 0 0)";
+const HOTSPOT_OVERLAP_THRESHOLD = 34;
+const HOTSPOT_SPREAD = 88;
 
 interface FitBox {
   width: number;
@@ -30,6 +32,13 @@ interface FitBox {
   scale: number;
   offsetX: number;
   offsetY: number;
+}
+
+export interface PlayerHotspot {
+  factId: string;
+  ordinal: number;
+  x: number;
+  y: number;
 }
 
 const ZERO_BOX: FitBox = { width: 0, height: 0, scale: 0, offsetX: 0, offsetY: 0 };
@@ -61,14 +70,14 @@ export function PlayerStage() {
 
   // Map factId → { ordinal, anchor }. Skips facts with no anchor (no symbols).
   const hotspots = React.useMemo(() => {
-    const out: { factId: string; ordinal: number; x: number; y: number }[] = [];
+    const out: PlayerHotspot[] = [];
     for (let i = 0; i < orderedFacts.length; i++) {
       const fact = orderedFacts[i];
       const anchor = getFactAnchor(fact.factId, parsed, symbols, factHotspots);
       if (!anchor) continue;
       out.push({ factId: fact.factId, ordinal: i + 1, x: anchor.x, y: anchor.y });
     }
-    return out;
+    return spreadOverlappingHotspots(out);
   }, [orderedFacts, parsed, symbols, factHotspots]);
 
   // Resolve "current fact" — Hotspot mode uses revealedFactId, Sequential
@@ -332,3 +341,55 @@ export function PlayerStage() {
 const EMPTY_SYMBOLS: readonly SymbolLayer[] = [];
 const EMPTY_HOTSPOTS: FactHotspots = {};
 const EMPTY_SYMBOL_ID_SET = new Set<string>();
+
+export function spreadOverlappingHotspots(
+  hotspots: readonly PlayerHotspot[],
+): PlayerHotspot[] {
+  const groups: PlayerHotspot[][] = [];
+  for (const hotspot of hotspots) {
+    const group = groups.find((candidate) =>
+      distance(candidate[0], hotspot) < HOTSPOT_OVERLAP_THRESHOLD,
+    );
+    if (group) {
+      group.push(hotspot);
+    } else {
+      groups.push([hotspot]);
+    }
+  }
+
+  return groups.flatMap((group) => {
+    if (group.length === 1) return group.map(clampHotspot);
+    if (group.length === 2) {
+      return group.map((hotspot, index) => ({
+        ...hotspot,
+        x: clampStage(hotspot.x + (index === 0 ? -1 : 1) * HOTSPOT_SPREAD * 0.58),
+        y: clampStage(hotspot.y - HOTSPOT_SPREAD * 0.32, "y"),
+      }));
+    }
+    return group.map((hotspot, index) => {
+      const angle = -Math.PI / 2 + (index / group.length) * Math.PI * 2;
+      return {
+        ...hotspot,
+        x: clampStage(hotspot.x + Math.cos(angle) * HOTSPOT_SPREAD),
+        y: clampStage(hotspot.y + Math.sin(angle) * HOTSPOT_SPREAD, "y"),
+      };
+    });
+  });
+}
+
+function clampHotspot(hotspot: PlayerHotspot): PlayerHotspot {
+  return {
+    ...hotspot,
+    x: clampStage(hotspot.x),
+    y: clampStage(hotspot.y, "y"),
+  };
+}
+
+function distance(a: Pick<PlayerHotspot, "x" | "y">, b: Pick<PlayerHotspot, "x" | "y">): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function clampStage(value: number, axis: "x" | "y" = "x"): number {
+  const max = axis === "x" ? STAGE_WIDTH : STAGE_HEIGHT;
+  return Math.max(24, Math.min(max - 24, value));
+}

@@ -46,6 +46,7 @@ export function EditorShell() {
 
   const ui = useUiPrefs();
   const currentId = useCurrentPicmonicId();
+  const playerOpen = useStore((s) => s.player.open);
   const setLeftPanelSize = useStore((s) => s.setLeftPanelSize);
   const setRightPanelSize = useStore((s) => s.setRightPanelSize);
   const setLeftCollapsed = useStore((s) => s.setLeftCollapsed);
@@ -67,87 +68,99 @@ export function EditorShell() {
   if (!currentId) {
     return (
       <div className="flex h-screen w-screen flex-col bg-background">
-        <Topbar />
-        <div className="flex flex-1 overflow-hidden">
-          <Home />
+        <div
+          className="flex min-h-0 flex-1 flex-col"
+          aria-hidden={playerOpen ? true : undefined}
+          inert={playerOpen ? true : undefined}
+        >
+          <Topbar />
+          <div className="flex flex-1 overflow-hidden">
+            <Home />
+          </div>
+          <FactPicker />
+          <SymbolDeleteConfirm />
+          <HelpDialog />
         </div>
-        <FactPicker />
-        <SymbolDeleteConfirm />
         <PlayerOverlay />
-        <HelpDialog />
       </div>
     );
   }
 
   return (
     <div className="flex h-screen w-screen flex-col bg-background">
-      <Topbar />
-      <div className="flex flex-1 overflow-hidden">
-        <ResizablePanelGroup orientation="horizontal" className="flex-1">
-          <ResizablePanel
-            id="library"
-            panelRef={leftRef}
-            defaultSize={`${ui.leftPanelSize}%`}
-            minSize={`${PANEL_DEFAULTS.leftMin}%`}
-            maxSize={`${PANEL_DEFAULTS.leftMax}%`}
-            collapsible
-            collapsedSize="0%"
-            onResize={(size) => {
-              const pct = size.asPercentage;
-              if (pct <= 0.5) {
-                if (!useStore.getState().ui.leftCollapsed) setLeftCollapsed(true);
-              } else {
-                if (useStore.getState().ui.leftCollapsed) setLeftCollapsed(false);
-                if (Math.abs(pct - useStore.getState().ui.leftPanelSize) > 0.25) {
-                  setLeftPanelSize(pct);
+      <div
+        className="flex min-h-0 flex-1 flex-col"
+        aria-hidden={playerOpen ? true : undefined}
+        inert={playerOpen ? true : undefined}
+      >
+        <Topbar />
+        <div className="flex flex-1 overflow-hidden">
+          <ResizablePanelGroup orientation="horizontal" className="flex-1">
+            <ResizablePanel
+              id="library"
+              panelRef={leftRef}
+              defaultSize={`${ui.leftPanelSize}%`}
+              minSize={`${PANEL_DEFAULTS.leftMin}%`}
+              maxSize={`${PANEL_DEFAULTS.leftMax}%`}
+              collapsible
+              collapsedSize="0%"
+              onResize={(size) => {
+                const pct = size.asPercentage;
+                if (pct <= 0.5) {
+                  if (!useStore.getState().ui.leftCollapsed) setLeftCollapsed(true);
+                } else {
+                  if (useStore.getState().ui.leftCollapsed) setLeftCollapsed(false);
+                  if (Math.abs(pct - useStore.getState().ui.leftPanelSize) > 0.25) {
+                    setLeftPanelSize(pct);
+                  }
                 }
-              }
-            }}
-          >
-            <LeftPanel />
-          </ResizablePanel>
+              }}
+            >
+              <LeftPanel />
+            </ResizablePanel>
 
-          <ResizableHandle />
+            <ResizableHandle />
 
-          <ResizablePanel
-            id="canvas"
-            minSize={`${PANEL_DEFAULTS.centerMin}%`}
-          >
-            <CanvasErrorBoundary>
-              <CanvasStage />
-            </CanvasErrorBoundary>
-          </ResizablePanel>
+            <ResizablePanel
+              id="canvas"
+              minSize={`${PANEL_DEFAULTS.centerMin}%`}
+            >
+              <CanvasErrorBoundary>
+                <CanvasStage />
+              </CanvasErrorBoundary>
+            </ResizablePanel>
 
-          <ResizableHandle />
+            <ResizableHandle />
 
-          <ResizablePanel
-            id="notes"
-            panelRef={rightRef}
-            defaultSize={`${ui.rightPanelSize}%`}
-            minSize={`${PANEL_DEFAULTS.rightMin}%`}
-            maxSize={`${PANEL_DEFAULTS.rightMax}%`}
-            collapsible
-            collapsedSize="0%"
-            onResize={(size) => {
-              const pct = size.asPercentage;
-              if (pct <= 0.5) {
-                if (!useStore.getState().ui.rightCollapsed) setRightCollapsed(true);
-              } else {
-                if (useStore.getState().ui.rightCollapsed) setRightCollapsed(false);
-                if (Math.abs(pct - useStore.getState().ui.rightPanelSize) > 0.25) {
-                  setRightPanelSize(pct);
+            <ResizablePanel
+              id="notes"
+              panelRef={rightRef}
+              defaultSize={`${ui.rightPanelSize}%`}
+              minSize={`${PANEL_DEFAULTS.rightMin}%`}
+              maxSize={`${PANEL_DEFAULTS.rightMax}%`}
+              collapsible
+              collapsedSize="0%"
+              onResize={(size) => {
+                const pct = size.asPercentage;
+                if (pct <= 0.5) {
+                  if (!useStore.getState().ui.rightCollapsed) setRightCollapsed(true);
+                } else {
+                  if (useStore.getState().ui.rightCollapsed) setRightCollapsed(false);
+                  if (Math.abs(pct - useStore.getState().ui.rightPanelSize) > 0.25) {
+                    setRightPanelSize(pct);
+                  }
                 }
-              }
-            }}
-          >
-            <RightPanel />
-          </ResizablePanel>
-        </ResizablePanelGroup>
+              }}
+            >
+              <RightPanel />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
+        <FactPicker />
+        <SymbolDeleteConfirm />
+        <HelpDialog />
       </div>
-      <FactPicker />
-      <SymbolDeleteConfirm />
       <PlayerOverlay />
-      <HelpDialog />
     </div>
   );
 }
