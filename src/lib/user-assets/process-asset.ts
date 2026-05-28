@@ -4,6 +4,7 @@ import { newId } from "@/lib/id";
 import { useStore } from "@/lib/store";
 import { registerUserSymbols } from "@/lib/symbols";
 import type { Picmonic } from "@/lib/types/picmonic";
+import { isImageSymbolLayer } from "@/lib/types/canvas";
 import { deleteBlob, getBlob, putBlob } from "./blob-store";
 import { sha256Hex } from "./hash";
 import { loadIndex, saveIndex } from "./index-store";
@@ -122,9 +123,15 @@ function refreshCanvasLayersForUserSymbol(assetId: string): void {
     let touched = false;
     const nextPicmonics: Record<string, Picmonic> = { ...s.picmonics };
     for (const [pid, picmonic] of Object.entries(s.picmonics)) {
-      if (!picmonic.canvas.symbols.some((l) => l.ref === ref)) continue;
+      if (
+        !picmonic.canvas.symbols.some(
+          (l) => isImageSymbolLayer(l) && l.ref === ref,
+        )
+      ) {
+        continue;
+      }
       const symbols = picmonic.canvas.symbols.map((l) =>
-        l.ref === ref ? { ...l } : l,
+        isImageSymbolLayer(l) && l.ref === ref ? { ...l } : l,
       );
       nextPicmonics[pid] = {
         ...picmonic,

@@ -15,6 +15,7 @@ import {
   getUserAssetsSnapshot,
   isUserSymbolRef,
 } from "@/lib/user-assets";
+import { isImageSymbolLayer } from "@/lib/types/canvas";
 
 export async function exportPng(
   stage: Konva.Stage,
@@ -75,6 +76,7 @@ async function collectReferencedUserAssets(
 ): Promise<BundleAssetInput[]> {
   const referencedIds = new Set<string>();
   for (const layer of picmonic.canvas.symbols) {
+    if (!isImageSymbolLayer(layer)) continue;
     if (!isUserSymbolRef(layer.ref)) continue;
     const id = assetIdFromSymbolRef(layer.ref);
     if (id) referencedIds.add(id);

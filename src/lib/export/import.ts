@@ -286,7 +286,7 @@ function reconcileCanvas(canvas: CanvasState, notes: string): CanvasState {
   });
   const base: CanvasState = {
     ...normalized,
-    symbols: Array.isArray(canvas.symbols) ? canvas.symbols : [],
+    symbols: normalized.symbols,
     groups: Array.isArray(canvas.groups) ? canvas.groups : [],
     factHotspots: canvas.factHotspots ?? {},
     schemaVersion: CANVAS_SCHEMA_VERSION,

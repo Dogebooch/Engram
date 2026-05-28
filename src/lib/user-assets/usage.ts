@@ -5,6 +5,7 @@ import { picmonicKey } from "@/lib/constants";
 import { useIndexStore } from "@/lib/store/index-store";
 import { useStore } from "@/lib/store";
 import type { Picmonic } from "@/lib/types/picmonic";
+import { isImageSymbolLayer } from "@/lib/types/canvas";
 
 export interface AssetUsage {
   picmonicId: string;
@@ -44,5 +45,5 @@ export async function findPicmonicsUsingSymbol(
 }
 
 function canvasUses(p: Picmonic, symbolId: string): boolean {
-  return p.canvas.symbols.some((s) => s.ref === symbolId);
+  return p.canvas.symbols.some((s) => isImageSymbolLayer(s) && s.ref === symbolId);
 }

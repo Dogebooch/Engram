@@ -10,6 +10,7 @@ import {
   normalizeRect,
   type Rect as MarqueeRect,
 } from "@/lib/canvas/marquee-hit-test";
+import { addRegionWithNoteSync } from "@/lib/canvas/add-symbol-with-note-sync";
 import { useStore } from "@/lib/store";
 import { usePicmonic } from "@/lib/store/hooks";
 import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
@@ -62,6 +63,13 @@ type MarqueeState =
 
 const IDLE_MARQUEE: MarqueeState = { kind: "idle" };
 
+type RegionDraftState =
+  | { kind: "idle" }
+  | { kind: "pending"; downX: number; downY: number }
+  | { kind: "active"; startX: number; startY: number; endX: number; endY: number };
+
+const IDLE_REGION_DRAFT: RegionDraftState = { kind: "idle" };
+
 // Module-scoped cancel hook so the global Escape handler in keybindings.ts
 // can abort an in-flight marquee without prop drilling.
 let marqueeCancelHandler: (() => boolean) | null = null;
@@ -70,10 +78,18 @@ export function cancelMarqueeIfActive(): boolean {
   return marqueeCancelHandler ? marqueeCancelHandler() : false;
 }
 
+function clampStageX(x: number): number {
+  return Math.max(0, Math.min(STAGE_WIDTH, x));
+}
+
+function clampStageY(y: number): number {
+  return Math.max(0, Math.min(STAGE_HEIGHT, y));
+}
+
 export function CanvasStage() {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const stageRef = React.useRef<Konva.Stage | null>(null);
-  const symbolRefs = React.useRef<Map<string, Konva.Image>>(new Map());
+  const symbolRefs = React.useRef<Map<string, Konva.Image | Konva.Rect>>(new Map());
   const [box, setBox] = React.useState<FitBox>(ZERO_BOX);
 
   const picmonic = usePicmonic();
@@ -83,6 +99,8 @@ export function CanvasStage() {
   const accent = useThemedCssVar("--accent", "#7dd3fc") ?? "#7dd3fc";
   const selectedIds = useStore((s) => s.selectedSymbolIds);
   const cursorSymbolIds = useStore((s) => s.cursorSymbolIds);
+  const annotationMode = useStore((s) => s.annotationMode);
+  const setAnnotationMode = useStore((s) => s.setAnnotationMode);
   const clearSelection = useStore((s) => s.clearSelection);
   const setSelectedSymbolIds = useStore((s) => s.setSelectedSymbolIds);
   const selectedSet = React.useMemo(() => new Set(selectedIds), [selectedIds]);
@@ -168,7 +186,7 @@ export function CanvasStage() {
   }, []);
 
   const handleSymbolMount = React.useCallback(
-    (id: string, node: Konva.Image | null) => {
+    (id: string, node: Konva.Image | Konva.Rect | null) => {
       if (node) {
         symbolRefs.current.set(id, node);
       } else {
@@ -192,6 +210,23 @@ export function CanvasStage() {
           : next;
       marqueeStateRef.current = value;
       setMarqueeState(value);
+    },
+    [],
+  );
+
+  const regionDraftRef = React.useRef<RegionDraftState>(IDLE_REGION_DRAFT);
+  const [regionDraft, setRegionDraftState] =
+    React.useState<RegionDraftState>(IDLE_REGION_DRAFT);
+  const setRegionDraft = React.useCallback(
+    (next: RegionDraftState | ((prev: RegionDraftState) => RegionDraftState)) => {
+      const value =
+        typeof next === "function"
+          ? (next as (p: RegionDraftState) => RegionDraftState)(
+              regionDraftRef.current,
+            )
+          : next;
+      regionDraftRef.current = value;
+      setRegionDraftState(value);
     },
     [],
   );
@@ -237,6 +272,14 @@ export function CanvasStage() {
       if (e.evt.button !== 0) return;
       const local = stageLocalFromClient(e.evt.clientX, e.evt.clientY);
       if (!local) return;
+      if (annotationMode && backdrop?.uploadedBlobId) {
+        setRegionDraft({
+          kind: "pending",
+          downX: clampStageX(local.x),
+          downY: clampStageY(local.y),
+        });
+        return;
+      }
       setMarquee({
         kind: "pending",
         downX: local.x,
@@ -245,7 +288,13 @@ export function CanvasStage() {
         baseSelection: useStore.getState().selectedSymbolIds.slice(),
       });
     },
-    [stageLocalFromClient],
+    [
+      annotationMode,
+      backdrop?.uploadedBlobId,
+      setMarquee,
+      setRegionDraft,
+      stageLocalFromClient,
+    ],
   );
 
   // Document-level mousemove/mouseup so the user can drag past the stage
@@ -325,7 +374,69 @@ export function CanvasStage() {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
     };
-  }, [marquee.kind, clearSelection, setSelectedSymbolIds, stageLocalFromClient]);
+  }, [
+    marquee.kind,
+    clearSelection,
+    setMarquee,
+    setSelectedSymbolIds,
+    stageLocalFromClient,
+  ]);
+
+  React.useEffect(() => {
+    if (!annotationMode && regionDraftRef.current.kind !== "idle") {
+      setRegionDraft(IDLE_REGION_DRAFT);
+    }
+  }, [annotationMode, setRegionDraft]);
+
+  React.useEffect(() => {
+    if (regionDraft.kind === "idle") return;
+
+    const onMove = (e: MouseEvent) => {
+      const local = stageLocalFromClient(e.clientX, e.clientY);
+      if (!local) return;
+      const x = clampStageX(local.x);
+      const y = clampStageY(local.y);
+      setRegionDraft((prev) => {
+        if (prev.kind === "idle") return prev;
+        if (prev.kind === "pending") {
+          const dx = x - prev.downX;
+          const dy = y - prev.downY;
+          if (Math.hypot(dx, dy) < MARQUEE_DRAG_THRESHOLD) return prev;
+          return {
+            kind: "active",
+            startX: prev.downX,
+            startY: prev.downY,
+            endX: x,
+            endY: y,
+          };
+        }
+        return { ...prev, endX: x, endY: y };
+      });
+    };
+
+    const onUp = () => {
+      const prev = regionDraftRef.current;
+      if (prev.kind === "active") {
+        const rect = normalizeRect(prev.startX, prev.startY, prev.endX, prev.endY);
+        if (rect.width >= 8 && rect.height >= 8) {
+          addRegionWithNoteSync({
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height,
+          });
+        }
+      }
+      setRegionDraft(IDLE_REGION_DRAFT);
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, [regionDraft.kind, setRegionDraft, stageLocalFromClient]);
 
   // Register the global marquee-cancel hook for the Escape ladder.
   React.useEffect(() => {
@@ -343,7 +454,7 @@ export function CanvasStage() {
     return () => {
       marqueeCancelHandler = null;
     };
-  }, []);
+  }, [setMarquee]);
 
   const symbolsKey = React.useMemo(
     () => symbols.map((s) => s.id).join("|"),
@@ -355,15 +466,27 @@ export function CanvasStage() {
     marquee.kind === "active"
       ? normalizeRect(marquee.startX, marquee.startY, marquee.endX, marquee.endY)
       : null;
+  const regionDraftRect: MarqueeRect | null =
+    regionDraft.kind === "active"
+      ? normalizeRect(
+          regionDraft.startX,
+          regionDraft.startY,
+          regionDraft.endX,
+          regionDraft.endY,
+        )
+      : null;
+  const canAnnotate = annotationMode && !!backdrop?.uploadedBlobId;
 
   return (
     <div
       ref={containerRef}
       data-engram-canvas-root
       className="relative h-full w-full overflow-hidden bg-stage"
+      data-annotation-mode={canAnnotate ? "" : undefined}
       style={{
         backgroundImage:
           "radial-gradient(ellipse at center, var(--stage-vignette-inner) 0%, var(--stage-vignette-outer) 70%)",
+        cursor: canAnnotate ? "crosshair" : undefined,
       }}
       onContextMenu={(e) => {
         // Suppress browser default context menu over the canvas area; the
@@ -434,6 +557,30 @@ export function CanvasStage() {
                 />
               ))}
             </Layer>
+            <Layer name="region-draft" listening={false}>
+              {regionDraftRect && (
+                <>
+                  <Rect
+                    x={regionDraftRect.x}
+                    y={regionDraftRect.y}
+                    width={regionDraftRect.width}
+                    height={regionDraftRect.height}
+                    fill={accent}
+                    opacity={0.08}
+                  />
+                  <Rect
+                    x={regionDraftRect.x}
+                    y={regionDraftRect.y}
+                    width={regionDraftRect.width}
+                    height={regionDraftRect.height}
+                    stroke={accent}
+                    strokeWidth={1 / box.scale}
+                    dash={[6 / box.scale, 4 / box.scale]}
+                    opacity={0.9}
+                  />
+                </>
+              )}
+            </Layer>
             <Layer name="export-chrome">
               <CanvasTransformer
                 selectedIds={selectedIds}
@@ -483,6 +630,12 @@ export function CanvasStage() {
           </div>
         </div>
       )}
+      {annotationMode && (
+        <AnnotationModeBadge
+          canAnnotate={!!backdrop?.uploadedBlobId}
+          onDone={() => setAnnotationMode(false)}
+        />
+      )}
       <CornerReadout scale={box.scale} />
       <SymbolContextMenu />
       <StageContextMenu />
@@ -504,6 +657,29 @@ function CornerReadout({ scale }: { scale: number }) {
           <span className="text-muted-foreground/80">{pct}%</span>
         </>
       )}
+    </div>
+  );
+}
+
+function AnnotationModeBadge({
+  canAnnotate,
+  onDone,
+}: {
+  canAnnotate: boolean;
+  onDone: () => void;
+}) {
+  return (
+    <div className="pointer-events-none absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-2 rounded-md border border-border/70 bg-card/90 px-2.5 py-1.5 shadow-lg backdrop-blur">
+      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+        {canAnnotate ? "Draw region" : "Add background first"}
+      </span>
+      <button
+        type="button"
+        onClick={onDone}
+        className="pointer-events-auto rounded-sm px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-foreground/80 transition-colors hover:bg-foreground/[0.06]"
+      >
+        Done
+      </button>
     </div>
   );
 }

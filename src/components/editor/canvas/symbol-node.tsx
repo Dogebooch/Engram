@@ -8,7 +8,7 @@ import { useImage } from "@/lib/image-cache";
 import { useStore } from "@/lib/store";
 import { getSymbolById, useSymbolsReady } from "@/lib/symbols";
 import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
-import type { SymbolLayer } from "@/lib/types/canvas";
+import { isRegionSymbolLayer, type SymbolLayer } from "@/lib/types/canvas";
 import { useCanvasTagDrag } from "./use-canvas-tag-drag";
 
 const ACCENT_FALLBACK = "oklch(0.78 0.13 75)";
@@ -21,7 +21,7 @@ interface SymbolNodeProps {
   layer: SymbolLayer;
   selected: boolean;
   glowing: boolean;
-  onMount: (id: string, node: Konva.Image | null) => void;
+  onMount: (id: string, node: Konva.Image | Konva.Rect | null) => void;
   /**
    * When false, disables drag/click/contextMenu/tagDrag handlers. Used by the
    * Player view to render symbols read-only.
@@ -43,9 +43,11 @@ export const SymbolNode = React.memo(function SymbolNode({
   dimFactor = 1,
 }: SymbolNodeProps) {
   const symbolsReady = useSymbolsReady();
-  const entry = getSymbolById(layer.ref);
+  const isRegion = isRegionSymbolLayer(layer);
+  const entry = isRegion ? null : getSymbolById(layer.ref);
   const url = entry?.imageUrl ?? null;
   const state = useImage(url);
+  const [regionHover, setRegionHover] = React.useState(false);
 
   const setSelectedSymbolIds = useStore((s) => s.setSelectedSymbolIds);
   const selectGroupAware = useStore((s) => s.selectGroupAware);
@@ -68,10 +70,19 @@ export const SymbolNode = React.memo(function SymbolNode({
     PLACEHOLDER_FILL_STRONG_FALLBACK;
 
   const imageRef = React.useRef<Konva.Image | null>(null);
+  const regionRef = React.useRef<Konva.Rect | null>(null);
 
   const handleRef = React.useCallback(
     (node: Konva.Image | null) => {
       imageRef.current = node;
+      onMount(layer.id, node);
+    },
+    [layer.id, onMount],
+  );
+
+  const handleRegionRef = React.useCallback(
+    (node: Konva.Rect | null) => {
+      regionRef.current = node;
       onMount(layer.id, node);
     },
     [layer.id, onMount],
@@ -128,6 +139,58 @@ export const SymbolNode = React.memo(function SymbolNode({
     },
     [],
   );
+
+  const handleRegionMouseEnter = React.useCallback(
+    (e: KonvaEventObject<MouseEvent>) => {
+      handleMouseEnter(e);
+      setRegionHover(true);
+    },
+    [handleMouseEnter],
+  );
+
+  const handleRegionMouseLeave = React.useCallback(
+    (e: KonvaEventObject<MouseEvent>) => {
+      handleMouseLeave(e);
+      setRegionHover(false);
+    },
+    [handleMouseLeave],
+  );
+
+  if (isRegion) {
+    const visible = interactive || selected || glowing;
+    if (!visible) return null;
+    const active = selected || glowing || regionHover;
+    return (
+      <Rect
+        ref={handleRegionRef}
+        id={layer.id}
+        name="export-chrome"
+        x={layer.x}
+        y={layer.y}
+        width={layer.width}
+        height={layer.height}
+        rotation={layer.rotation}
+        stroke={accent}
+        strokeWidth={active ? 2 : 1.25}
+        dash={active ? undefined : [8, 5]}
+        opacity={active ? 1 : 0.65}
+        fillEnabled={false}
+        shadowEnabled={active}
+        shadowColor={accent}
+        shadowBlur={active ? 14 : 0}
+        shadowOpacity={active ? 0.45 : 0}
+        draggable={interactive}
+        listening={interactive}
+        perfectDrawEnabled={false}
+        onClick={interactive ? handleClick : undefined}
+        onContextMenu={interactive ? handleContextMenu : undefined}
+        onMouseEnter={interactive ? handleRegionMouseEnter : undefined}
+        onMouseLeave={interactive ? handleRegionMouseLeave : undefined}
+        onDragStart={interactive ? tagDrag.onDragStart : undefined}
+        onDragEnd={interactive ? tagDrag.onDragEnd : undefined}
+      />
+    );
+  }
 
   // Library cache hasn't populated yet — hold rendering as a neutral
   // placeholder rather than flashing the destructive "broken" state.

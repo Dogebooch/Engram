@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useStore } from "@/lib/store";
-import { addSymbolWithNoteSync } from "@/lib/canvas/add-symbol-with-note-sync";
+import {
+  addRegionWithNoteSync,
+  addSymbolWithNoteSync,
+} from "@/lib/canvas/add-symbol-with-note-sync";
 import { clearHistory, getTemporal } from "@/lib/store/temporal";
 
 function resetStore() {
@@ -55,6 +58,39 @@ describe("cross-pane atomic undo", () => {
     const afterUndo = useStore.getState().picmonics[id];
     expect(afterUndo.canvas.symbols.length).toBe(baselineSymbolCount);
     expect(afterUndo.notes).toBe(baselineNotes);
+  });
+
+  it("adds a region layer and matching bullet atomically", () => {
+    const id = useStore.getState().createPicmonic("test");
+
+    const layerId = addRegionWithNoteSync({
+      x: 40,
+      y: 60,
+      width: 120,
+      height: 90,
+    });
+
+    expect(layerId).toBeTruthy();
+    const after = useStore.getState().picmonics[id];
+    expect(after.canvas.symbols).toEqual([
+      expect.objectContaining({
+        id: layerId,
+        kind: "region",
+        ref: null,
+        shape: "rect",
+        x: 40,
+        y: 60,
+        width: 120,
+        height: 90,
+      }),
+    ]);
+    expect(after.notes).toContain(`{sym:${layerId}}`);
+    expect(useStore.getState().selectedSymbolIds).toEqual([layerId]);
+
+    getTemporal().undo();
+    const afterUndo = useStore.getState().picmonics[id];
+    expect(afterUndo.canvas.symbols).toHaveLength(0);
+    expect(afterUndo.notes).not.toContain(`{sym:${layerId}}`);
   });
 
   it("redo replays the change", () => {

@@ -13,7 +13,7 @@ const STAGE_FALLBACK = "oklch(0.105 0 0)";
 interface CanvasTransformerProps {
   selectedIds: string[];
   symbolsKey: string;
-  getNode: (id: string) => Konva.Image | null;
+  getNode: (id: string) => Konva.Image | Konva.Rect | null;
 }
 
 const ANCHOR_SIZE = 9;
@@ -50,7 +50,7 @@ export function CanvasTransformer({
     if (!tr) return;
     const nodes = selectedIds
       .map((id) => getNode(id))
-      .filter((n): n is Konva.Image => n !== null);
+      .filter((n): n is Konva.Image | Konva.Rect => n !== null);
     tr.nodes(nodes);
     tr.getLayer()?.batchDraw();
   }, [selectedIds, symbolsKey, getNode]);
@@ -72,7 +72,7 @@ export function CanvasTransformer({
 
   const handleTransformEnd = React.useCallback(
     (e: KonvaEventObject<Event>) => {
-      const node = e.target as Konva.Image;
+      const node = e.target as Konva.Image | Konva.Rect;
       const id = node.id();
       if (!id) return;
       const newWidth = Math.max(8, node.width() * node.scaleX());

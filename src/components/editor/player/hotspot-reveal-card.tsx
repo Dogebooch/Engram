@@ -3,7 +3,7 @@
 import * as React from "react";
 import { parseBullet } from "@/lib/notes/bullet";
 import type { ParsedFact, ParsedSymbolRef } from "@/lib/notes/types";
-import type { SymbolLayer } from "@/lib/types/canvas";
+import { isImageSymbolLayer, type SymbolLayer } from "@/lib/types/canvas";
 import { getSymbolById, useSymbolsReady } from "@/lib/symbols";
 
 const CARD_WIDTH = 320;
@@ -50,10 +50,10 @@ export function HotspotRevealCard({
       const line = lines[ref.bulletLine - 1] ?? "";
       const parts = parseBullet(line);
       const layer = symbolsById.get(ref.symbolId);
-      const lib = layer ? getSymbolById(layer.ref) : undefined;
+      const lib = layer && isImageSymbolLayer(layer) ? getSymbolById(layer.ref) : undefined;
       return {
         ref,
-        symbolName: lib?.displayName ?? "untagged symbol",
+        symbolName: lib?.displayName ?? (layer ? "region" : "untagged symbol"),
         description: parts.description || lib?.displayName || "",
         meaning: parts.meaning,
         encoding: parts.encoding,

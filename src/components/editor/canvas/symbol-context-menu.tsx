@@ -18,6 +18,7 @@ import {
   restoreOriginalBackground,
   useUserAssets,
 } from "@/lib/user-assets";
+import { isImageSymbolLayer } from "@/lib/types/canvas";
 
 function isMac(): boolean {
   if (typeof navigator === "undefined") return false;
@@ -79,10 +80,10 @@ function SymbolContextMenuInner({
     if (targetIds.length !== 1) return null;
     const cid = s.currentPicmonicId;
     if (!cid) return null;
-    return (
-      s.picmonics[cid]?.canvas.symbols.find((sy) => sy.id === targetIds[0])
-        ?.ref ?? null
+    const layer = s.picmonics[cid]?.canvas.symbols.find(
+      (sy) => sy.id === targetIds[0],
     );
+    return layer && isImageSymbolLayer(layer) ? layer.ref : null;
   });
 
   const bgTarget = React.useMemo(() => {

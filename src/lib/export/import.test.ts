@@ -15,6 +15,7 @@ function makeSourcePicmonic(overrides: Partial<Picmonic> = {}): Picmonic {
     symbols: [
       {
         id: UUID_A,
+        kind: "image",
         ref: "openmoji:1F600",
         x: 100,
         y: 100,
@@ -139,6 +140,7 @@ describe("importBundle errors", () => {
       symbols: [
         {
           id: "not-a-uuid",
+          kind: "image",
           ref: "openmoji:1F600",
           x: 0, y: 0, width: 100, height: 100, rotation: 0, layerIndex: 0,
           groupId: null, animation: null, animationDelay: null, animationDuration: null,
@@ -172,6 +174,7 @@ describe("importBundle reconciliation", () => {
         symbols: [
           {
             id: UUID_A,
+            kind: "image",
             ref: "openmoji:1F600",
             x: 0, y: 0, width: 100, height: 100, rotation: 0, layerIndex: 0,
             groupId: null, animation: null, animationDelay: null, animationDuration: null,
@@ -208,6 +211,7 @@ describe("importBundle reconciliation", () => {
         symbols: [
           {
             id: UUID_A,
+            kind: "image",
             ref: "openmoji:1F600",
             x: 0, y: 0, width: 100, height: 100, rotation: 0, layerIndex: 0,
             groupId: null, animation: null, animationDelay: null, animationDuration: null,

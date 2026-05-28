@@ -73,6 +73,7 @@ export function useEditorKeybindings(): void {
   const closeContextMenu = useStore((s) => s.closeSymbolContextMenu);
   const closeStageContextMenu = useStore((s) => s.closeStageContextMenu);
   const closeReplacePicker = useStore((s) => s.closeReplacePicker);
+  const setAnnotationMode = useStore((s) => s.setAnnotationMode);
   const requestSymbolDelete = useStore((s) => s.requestSymbolDelete);
   const cancelSymbolDelete = useStore((s) => s.cancelSymbolDelete);
   const selectAllSymbols = useStore((s) => s.selectAllSymbols);
@@ -218,6 +219,10 @@ export function useEditorKeybindings(): void {
       closeStageContextMenu();
       return;
     }
+    if (s.annotationMode) {
+      setAnnotationMode(false);
+      return;
+    }
     if (cancelMarqueeIfActive()) return;
     if (s.selectedSymbolIds.length > 0) {
       clearSelection();
@@ -229,6 +234,7 @@ export function useEditorKeybindings(): void {
     closeStageContextMenu,
     closeFactPicker,
     closeReplacePicker,
+    setAnnotationMode,
     setHelpOpen,
   ]);
 

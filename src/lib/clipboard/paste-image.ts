@@ -24,6 +24,47 @@ export interface PlaceImageOptions {
   centerStageY?: number;
 }
 
+export async function pasteImageFilesIntoCanvas(
+  files: readonly File[],
+  opts: PlaceImageOptions = {},
+): Promise<void> {
+  if (files.length === 0) return;
+  const state = useStore.getState();
+  const cid = state.currentPicmonicId;
+  if (!cid) {
+    toast.error("Create a Picmonic first", {
+      description: "⌘/Ctrl+N or the + button up top.",
+    });
+    return;
+  }
+  const picmonic = state.picmonics[cid];
+  const hasBackdrop = !!picmonic?.canvas.backdrop?.uploadedBlobId;
+  if (!hasBackdrop) {
+    await placeImageFileAsBackdrop(files[0]);
+    return;
+  }
+  await placeImageFilesAsCanvasSymbols(files, opts);
+}
+
+export async function placeImageFileAsBackdrop(file: File): Promise<void> {
+  if (!useStore.getState().currentPicmonicId) {
+    toast.error("Create a Picmonic first", {
+      description: "⌘/Ctrl+N or the + button up top.",
+    });
+    return;
+  }
+  const result = await useStore.getState().setBackdropFromUpload(file);
+  if (result.kind === "ok") {
+    toast.success("Background set", {
+      description: "Drag on the screenshot to annotate a region.",
+    });
+  } else {
+    toast.error("Couldn't set background", {
+      description: backdropRejectMessage(result.reason),
+    });
+  }
+}
+
 /**
  * Run image File(s) through the user-asset upload pipeline and place each
  * resulting symbol on the canvas. Reused by Ctrl+V paste and the right-click
@@ -125,5 +166,22 @@ function extForMime(mime: string): string {
       return "gif";
     default:
       return "bin";
+  }
+}
+
+function backdropRejectMessage(reason: string): string {
+  switch (reason) {
+    case "mime":
+      return "Unsupported format. Use PNG, JPG, WebP, SVG, or GIF.";
+    case "size":
+      return "File exceeds the backdrop size limit.";
+    case "quota":
+      return "Storage is nearly full. Delete unused Picmonics or uploads first.";
+    case "empty":
+      return "File is empty.";
+    case "read-error":
+      return "Could not read the file.";
+    default:
+      return reason;
   }
 }

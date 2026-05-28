@@ -1,14 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { CANVAS_SCHEMA_VERSION } from "@/lib/constants";
-import { emptyCanvas, type CanvasState, type SymbolLayer } from "@/lib/types/canvas";
+import {
+  emptyCanvas,
+  type CanvasState,
+  type ImageSymbolLayer,
+  type SymbolLayer,
+} from "@/lib/types/canvas";
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
 }
 
-function makeSymbol(id: string, overrides: Partial<SymbolLayer> = {}): SymbolLayer {
+function makeSymbol(
+  id: string,
+  overrides: Partial<ImageSymbolLayer> = {},
+): SymbolLayer {
   return {
     id,
+    kind: "image",
     ref: "openmoji:1F600",
     x: 100,
     y: 200,

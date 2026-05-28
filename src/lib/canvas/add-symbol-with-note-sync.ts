@@ -7,7 +7,7 @@ import { parseNotes } from "@/lib/notes/parse";
 import { useStore } from "@/lib/store";
 import type { AddSymbolInput } from "@/lib/store/slices/canvas-slice";
 import type { Picmonic } from "@/lib/types/picmonic";
-import type { SymbolLayer } from "@/lib/types/canvas";
+import type { RegionSymbolLayer, SymbolLayer } from "@/lib/types/canvas";
 
 /**
  * Add a library symbol to the canvas AND insert a `* {sym:UUID}` bullet
@@ -28,6 +28,7 @@ export function addSymbolWithNoteSync(input: AddSymbolInput): string | null {
 
   const layer: SymbolLayer = {
     id: newId(),
+    kind: "image",
     ref: input.ref,
     x: input.x,
     y: input.y,
@@ -64,6 +65,68 @@ export function addSymbolWithNoteSync(input: AddSymbolInput): string | null {
     return {
       picmonics: { ...s.picmonics, [cid]: next },
       ui: { ...s.ui, recentSymbolIds: recent },
+      selectedSymbolIds: [layer.id],
+      lastSyncSource: "canvas",
+    };
+  });
+
+  return layer.id;
+}
+
+export interface AddRegionInput {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation?: number;
+}
+
+/**
+ * Add a backdrop-region annotation to the canvas and insert a matching
+ * `{sym:UUID}` bullet. Region layers carry geometry only; the bullet remains
+ * the prose source of truth.
+ */
+export function addRegionWithNoteSync(input: AddRegionInput): string | null {
+  const cid = useStore.getState().currentPicmonicId;
+  if (!cid) return null;
+  const picmonic = useStore.getState().picmonics[cid];
+  if (!picmonic) return null;
+
+  const layer: RegionSymbolLayer = {
+    id: newId(),
+    kind: "region",
+    ref: null,
+    shape: "rect",
+    x: input.x,
+    y: input.y,
+    width: input.width,
+    height: input.height,
+    rotation: input.rotation ?? 0,
+    layerIndex: 0,
+    groupId: null,
+    animation: null,
+    animationDelay: null,
+    animationDuration: null,
+  };
+
+  const parsed = parseNotes(picmonic.notes);
+  const lastActive = useStore.getState().lastActiveFactId;
+  const targetFactId =
+    lastActive && parsed.factsById.has(lastActive) ? lastActive : null;
+  const insert = insertSymbolBullet(picmonic.notes, parsed, targetFactId, layer.id);
+
+  useStore.setState((s) => {
+    const p = s.picmonics[cid];
+    if (!p) return s;
+    const symbols = [...p.canvas.symbols, layer];
+    const next: Picmonic = {
+      ...p,
+      canvas: { ...p.canvas, symbols },
+      notes: insert.newNotes,
+      meta: { ...p.meta, updatedAt: Date.now() },
+    };
+    return {
+      picmonics: { ...s.picmonics, [cid]: next },
       selectedSymbolIds: [layer.id],
       lastSyncSource: "canvas",
     };

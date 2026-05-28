@@ -3,7 +3,7 @@
 import * as React from "react";
 import { parseBullet } from "@/lib/notes/bullet";
 import type { ParsedFact } from "@/lib/notes/types";
-import type { SymbolLayer } from "@/lib/types/canvas";
+import { isImageSymbolLayer, type SymbolLayer } from "@/lib/types/canvas";
 import { getSymbolById, useSymbolsReady } from "@/lib/symbols";
 
 interface SequentialRailProps {
@@ -36,11 +36,11 @@ export function SequentialRail({
       const line = lines[ref.bulletLine - 1] ?? "";
       const parts = parseBullet(line);
       const layer = symbolsById.get(ref.symbolId);
-      const lib = layer ? getSymbolById(layer.ref) : undefined;
+      const lib = layer && isImageSymbolLayer(layer) ? getSymbolById(layer.ref) : undefined;
       return {
         symbolId: ref.symbolId,
         bulletLine: ref.bulletLine,
-        symbolName: lib?.displayName ?? null,
+        symbolName: lib?.displayName ?? (layer ? "region" : null),
         imageUrl: lib?.imageUrl ?? null,
         description: parts.description,
         meaning: parts.meaning,

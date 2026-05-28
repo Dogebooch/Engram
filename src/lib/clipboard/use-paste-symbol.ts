@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { isTypingTarget } from "@/lib/keybindings";
 import {
   imageFilesFromClipboardEvent,
-  placeImageFilesAsCanvasSymbols,
+  pasteImageFilesIntoCanvas,
 } from "./paste-image";
 
 export function usePasteSymbol(): void {
@@ -14,7 +14,7 @@ export function usePasteSymbol(): void {
       const files = imageFilesFromClipboardEvent(e.clipboardData);
       if (files.length === 0) return;
       e.preventDefault();
-      await placeImageFilesAsCanvasSymbols(files);
+      await pasteImageFilesIntoCanvas(files);
     };
 
     document.addEventListener("paste", onPaste);

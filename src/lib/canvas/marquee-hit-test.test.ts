@@ -5,11 +5,12 @@ import {
   rectsIntersect,
   symbolAabb,
 } from "./marquee-hit-test";
-import type { SymbolLayer } from "@/lib/types/canvas";
+import type { ImageSymbolLayer, SymbolLayer } from "@/lib/types/canvas";
 
-function makeLayer(over: Partial<SymbolLayer>): SymbolLayer {
+function makeLayer(over: Partial<ImageSymbolLayer>): SymbolLayer {
   return {
     id: "id",
+    kind: "image",
     ref: "ref",
     x: 0,
     y: 0,

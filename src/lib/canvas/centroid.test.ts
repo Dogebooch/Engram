@@ -6,6 +6,7 @@ import type { FactHotspots, SymbolLayer } from "@/lib/types/canvas";
 function symbol(partial: Partial<SymbolLayer> & { id: string }): SymbolLayer {
   return {
     id: partial.id,
+    kind: "image",
     ref: partial.ref ?? "openmoji:test",
     x: partial.x ?? 0,
     y: partial.y ?? 0,

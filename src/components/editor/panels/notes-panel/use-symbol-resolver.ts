@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useStore } from "@/lib/store";
 import { getSymbolById, loadSymbols } from "@/lib/symbols";
+import { isImageSymbolLayer } from "@/lib/types/canvas";
 import {
   setSymbolChipOnHoverChange,
   setSymbolChipOnSelect,
@@ -20,6 +21,9 @@ export function useSymbolResolver(view: EditorView | null): void {
       const layer = symbols.find((sy) => sy.id === uuid);
       if (!layer) {
         return { displayName: "missing", imageUrl: null, broken: true };
+      }
+      if (!isImageSymbolLayer(layer)) {
+        return { displayName: "region", imageUrl: null, broken: false };
       }
       const entry = getSymbolById(layer.ref);
       if (!entry) {

@@ -44,6 +44,7 @@ export interface InteractionsSlice {
   contextMenu: SymbolContextMenuState | null;
   stageContextMenu: StageContextMenuState | null;
   replacePicker: ReplacePickerState | null;
+  annotationMode: boolean;
   /** Ephemeral; intentionally outside `ui` so reload defaults to closed. */
   helpOpen: boolean;
   /**
@@ -68,6 +69,7 @@ export interface InteractionsSlice {
   closeStageContextMenu: () => void;
   openReplacePicker: (x: number, y: number, symbolId: string) => void;
   closeReplacePicker: () => void;
+  setAnnotationMode: (active: boolean) => void;
   setHelpOpen: (open: boolean) => void;
   requestSymbolDelete: (ids: readonly string[]) => void;
   cancelSymbolDelete: () => void;
@@ -91,6 +93,7 @@ export const createInteractionsSlice: StateCreator<
   contextMenu: null,
   stageContextMenu: null,
   replacePicker: null,
+  annotationMode: false,
   helpOpen: false,
   pendingSymbolDelete: null,
   openFactPicker: (symbolIds) => {
@@ -107,6 +110,7 @@ export const createInteractionsSlice: StateCreator<
   openReplacePicker: (x, y, symbolId) =>
     set({ replacePicker: { x, y, symbolId } }),
   closeReplacePicker: () => set({ replacePicker: null }),
+  setAnnotationMode: (active) => set({ annotationMode: active }),
   setHelpOpen: (open) => set({ helpOpen: open }),
   requestSymbolDelete: (ids) => {
     if (ids.length === 0) return;

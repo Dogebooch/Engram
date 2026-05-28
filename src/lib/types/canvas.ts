@@ -1,6 +1,8 @@
 import type { CANVAS_SCHEMA_VERSION } from "@/lib/constants";
 
 export type SymbolRef = string;
+export type SymbolKind = "image" | "region";
+export type RegionShape = "rect";
 
 export interface Backdrop {
   /** Reserved for v2 built-in backdrop gallery; unused in v1. */
@@ -13,9 +15,8 @@ export function emptyBackdrop(): Backdrop {
   return { ref: null, uploadedBlobId: null, opacity: 1 };
 }
 
-export interface SymbolLayer {
+interface BaseSymbolLayer {
   id: string;
-  ref: SymbolRef;
   x: number;
   y: number;
   width: number;
@@ -26,6 +27,27 @@ export interface SymbolLayer {
   animation: string | null;
   animationDelay: number | null;
   animationDuration: number | null;
+}
+
+export interface ImageSymbolLayer extends BaseSymbolLayer {
+  kind: "image";
+  ref: SymbolRef;
+}
+
+export interface RegionSymbolLayer extends BaseSymbolLayer {
+  kind: "region";
+  ref: null;
+  shape: RegionShape;
+}
+
+export type SymbolLayer = ImageSymbolLayer | RegionSymbolLayer;
+
+export function isImageSymbolLayer(layer: SymbolLayer): layer is ImageSymbolLayer {
+  return layer.kind === "image";
+}
+
+export function isRegionSymbolLayer(layer: SymbolLayer): layer is RegionSymbolLayer {
+  return layer.kind === "region";
 }
 
 export interface Group {
@@ -96,13 +118,49 @@ export function emptyCanvas(): CanvasState {
 export function normalizeCanvas(c: CanvasState): CanvasState {
   const needsBackdrop =
     !c.backdrop || typeof c.backdrop.opacity !== "number";
-  if (c.factMeta && c.timeline && !needsBackdrop) return c;
+  const symbols = normalizeSymbolLayers(c.symbols ?? []);
+  const needsSymbols = symbols !== c.symbols;
+  if (c.factMeta && c.timeline && !needsBackdrop && !needsSymbols) return c;
   return {
     ...c,
     backdrop: needsBackdrop
       ? { ...emptyBackdrop(), ...(c.backdrop ?? {}) }
       : c.backdrop,
+    symbols,
     factMeta: c.factMeta ?? {},
     timeline: c.timeline ?? [],
   };
+}
+
+type UnknownSymbolLayer = Partial<BaseSymbolLayer> & {
+  kind?: SymbolKind;
+  ref?: SymbolRef | null;
+  shape?: RegionShape;
+};
+
+function normalizeSymbolLayers(
+  layers: readonly UnknownSymbolLayer[],
+): SymbolLayer[] {
+  let changed = false;
+  const normalized = layers.map((layer) => {
+    if (layer.kind === "region") {
+      const next = {
+        ...layer,
+        kind: "region",
+        ref: null,
+        shape: layer.shape ?? "rect",
+      } as RegionSymbolLayer;
+      if (layer.ref !== null || layer.shape !== next.shape) changed = true;
+      return next;
+    }
+
+    const next = {
+      ...layer,
+      kind: "image",
+      ref: typeof layer.ref === "string" ? layer.ref : "",
+    } as ImageSymbolLayer;
+    if (layer.kind !== "image" || layer.ref !== next.ref) changed = true;
+    return next;
+  });
+  return changed ? normalized : (layers as SymbolLayer[]);
 }

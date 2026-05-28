@@ -4,6 +4,7 @@ import { STAGE_HEIGHT, STAGE_WIDTH } from "@/lib/constants";
 import { imageCache } from "@/lib/image-cache";
 import { getSymbolById, loadSymbols } from "@/lib/symbols";
 import type { Picmonic } from "@/lib/types/picmonic";
+import { isImageSymbolLayer } from "@/lib/types/canvas";
 
 export interface PngExportOptions {
   pixelRatio?: number;
@@ -108,6 +109,7 @@ export async function rasterizePicmonicToPng(
 
     const symLayer = new Konva.Layer({ listening: false });
     for (const layer of picmonic.canvas.symbols) {
+      if (!isImageSymbolLayer(layer)) continue;
       const entry = getSymbolById(layer.ref);
       const url = entry?.imageUrl;
       if (!url) continue;

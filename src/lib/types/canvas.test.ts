@@ -63,4 +63,68 @@ describe("normalizeCanvas backdrop backfill", () => {
     expect(out.factMeta).toEqual({});
     expect(out.timeline).toEqual([]);
   });
+
+  it("normalizes legacy symbols as image layers", () => {
+    const legacySymbol = {
+      id: "11111111-1111-4111-8111-111111111111",
+      ref: "openmoji:1F600",
+      x: 100,
+      y: 120,
+      width: 80,
+      height: 80,
+      rotation: 0,
+      layerIndex: 0,
+      groupId: null,
+      animation: null,
+      animationDelay: null,
+      animationDuration: null,
+    };
+    const c = {
+      ...emptyCanvas(),
+      symbols: [legacySymbol],
+    } as unknown as CanvasState;
+
+    const out = normalizeCanvas(c);
+
+    expect(out).not.toBe(c);
+    expect(out.symbols[0]).toMatchObject({
+      id: legacySymbol.id,
+      kind: "image",
+      ref: "openmoji:1F600",
+    });
+  });
+
+  it("normalizes region layers to geometry-only refs", () => {
+    const regionSymbol = {
+      id: "22222222-2222-4222-8222-222222222222",
+      kind: "region",
+      ref: "legacy-ref",
+      x: 10,
+      y: 20,
+      width: 120,
+      height: 90,
+      rotation: 0,
+      layerIndex: 0,
+      groupId: null,
+      animation: null,
+      animationDelay: null,
+      animationDuration: null,
+    };
+    const c = {
+      ...emptyCanvas(),
+      symbols: [regionSymbol],
+    } as unknown as CanvasState;
+
+    const out = normalizeCanvas(c);
+
+    expect(out.symbols[0]).toMatchObject({
+      kind: "region",
+      ref: null,
+      shape: "rect",
+      x: 10,
+      y: 20,
+      width: 120,
+      height: 90,
+    });
+  });
 });

@@ -12,6 +12,7 @@ import {
   searchSymbols,
   type SymbolEntry,
 } from "@/lib/symbols";
+import { isImageSymbolLayer } from "@/lib/types/canvas";
 import { cn } from "@/lib/utils";
 
 const RESULT_LIMIT = 250;
@@ -43,7 +44,7 @@ function ReplaceSymbolPopoverInner() {
     const layer = p.canvas.symbols.find(
       (sy) => sy.id === replacePicker.symbolId,
     );
-    return layer?.ref ?? null;
+    return layer && isImageSymbolLayer(layer) ? layer.ref : null;
   });
 
   const [status, setStatus] = React.useState<LoadStatus>(() =>

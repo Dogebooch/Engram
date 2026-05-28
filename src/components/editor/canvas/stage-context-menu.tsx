@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   imageFilesFromClipboardApi,
+  placeImageFileAsBackdrop,
   placeImageFilesAsCanvasSymbols,
 } from "@/lib/clipboard/paste-image";
 import { useStore } from "@/lib/store";
@@ -24,9 +25,8 @@ function isMac(): boolean {
 
 /**
  * Right-click menu for empty canvas area (no symbol under the cursor). For
- * now this only carries "Paste image", but the surface is shared so future
- * canvas-level actions (paste backdrop, reset view, etc.) can land here
- * without another menu.
+ * now this carries one contextual paste action: image clipboard data becomes
+ * the backdrop when the scene has none, otherwise it lands as a symbol.
  */
 export function StageContextMenu() {
   const stageContextMenu = useStore((s) => s.stageContextMenu);
@@ -40,6 +40,10 @@ function StageContextMenuInner({
   stageContextMenu: StageContextMenuState;
 }) {
   const closeStageContextMenu = useStore((s) => s.closeStageContextMenu);
+  const hasBackdrop = useStore((s) => {
+    const cid = s.currentPicmonicId;
+    return cid ? !!s.picmonics[cid]?.canvas.backdrop?.uploadedBlobId : false;
+  });
   const { x, y, stageX, stageY } = stageContextMenu;
 
   const onPaste = async () => {
@@ -51,10 +55,14 @@ function StageContextMenuInner({
       });
       return;
     }
-    await placeImageFilesAsCanvasSymbols(files, {
-      centerStageX: stageX,
-      centerStageY: stageY,
-    });
+    if (hasBackdrop) {
+      await placeImageFilesAsCanvasSymbols(files, {
+        centerStageX: stageX,
+        centerStageY: stageY,
+      });
+    } else {
+      await placeImageFileAsBackdrop(files[0]);
+    }
   };
 
   const cmd = isMac() ? "⌘" : "Ctrl";
@@ -90,7 +98,7 @@ function StageContextMenuInner({
         className="eng-stage-context-menu min-w-56"
       >
         <DropdownMenuItem onClick={onPaste}>
-          Paste image
+          {hasBackdrop ? "Paste as symbol" : "Paste as background"}
           <DropdownMenuShortcut>{cmd} V</DropdownMenuShortcut>
         </DropdownMenuItem>
       </DropdownMenuContent>

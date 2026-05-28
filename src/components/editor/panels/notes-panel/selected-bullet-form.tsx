@@ -4,6 +4,7 @@ import * as React from "react";
 import { X, ChevronDown } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { getSymbolById } from "@/lib/symbols";
+import { isImageSymbolLayer } from "@/lib/types/canvas";
 import { parseBullet, updateBulletParts } from "@/lib/notes/bullet";
 
 interface DraftParts {
@@ -150,8 +151,8 @@ function SelectedBulletFormInner({
     if (!p) return null;
     return p.canvas.symbols.find((sy) => sy.id === symbolId) ?? null;
   });
-  const entry = layer ? getSymbolById(layer.ref) : null;
-  const displayName = entry?.displayName ?? layer?.ref ?? "symbol";
+  const entry = layer && isImageSymbolLayer(layer) ? getSymbolById(layer.ref) : null;
+  const displayName = entry?.displayName ?? (layer && isImageSymbolLayer(layer) ? layer.ref : "region");
   const imageUrl = entry?.imageUrl ?? null;
 
   const clearSelection = useStore((s) => s.clearSelection);

@@ -17,6 +17,8 @@ import {
   type Backdrop,
   type CanvasState,
   type FactHotspots,
+  type ImageSymbolLayer,
+  type RegionSymbolLayer,
   type SymbolLayer,
   type Group,
 } from "@/lib/types/canvas";
@@ -35,14 +37,15 @@ export interface AddSymbolInput {
   rotation?: number;
 }
 
+type SymbolLayerPatch =
+  | Partial<Omit<ImageSymbolLayer, "id" | "kind">>
+  | Partial<Omit<RegionSymbolLayer, "id" | "kind" | "ref">>;
+
 export type ReorderMode = "back" | "forward" | "toBack" | "toFront";
 
 export interface CanvasSlice {
   addSymbol: (input: AddSymbolInput) => string | null;
-  updateSymbol: (
-    id: string,
-    patch: Partial<Omit<SymbolLayer, "id">>,
-  ) => void;
+  updateSymbol: (id: string, patch: SymbolLayerPatch) => void;
   deleteSymbols: (ids: readonly string[]) => void;
   duplicateSymbols: (ids: readonly string[]) => string[];
   reorderSymbol: (id: string, mode: ReorderMode) => void;
@@ -135,6 +138,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
     if (!cid) return null;
     const layer: SymbolLayer = {
       id: newId(),
+      kind: "image",
       ref: input.ref,
       x: input.x,
       y: input.y,
@@ -189,7 +193,22 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
         }
       }
       if (!changed) return s;
-      const updated: SymbolLayer = { ...existing, ...patch, id: existing.id };
+      const updated: SymbolLayer =
+        existing.kind === "region"
+          ? {
+              ...existing,
+              ...(patch as Partial<Omit<RegionSymbolLayer, "id" | "kind" | "ref">>),
+              id: existing.id,
+              kind: "region",
+              ref: null,
+              shape: existing.shape,
+            }
+          : {
+              ...existing,
+              ...(patch as Partial<Omit<ImageSymbolLayer, "id" | "kind">>),
+              id: existing.id,
+              kind: "image",
+            };
       const symbols = picmonic.canvas.symbols.slice();
       symbols[idx] = updated;
       return {
@@ -420,6 +439,12 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
     if (!cid) {
       return { kind: "rejected", filename: file.name, reason: "empty" };
     }
+    const before = get().picmonics[cid];
+    const shouldEnterAnnotationMode =
+      !!before &&
+      !before.canvas.backdrop?.uploadedBlobId &&
+      before.canvas.symbols.length === 0 &&
+      before.notes.trim().length === 0;
     const result = await uploadBackdropImage(file);
     if (result.kind !== "ok") return result;
     set((s) => {
@@ -437,6 +462,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
           ...s.picmonics,
           [cid]: patchCanvas(p, { backdrop: next }),
         },
+        ...(shouldEnterAnnotationMode ? { annotationMode: true } : {}),
       };
     });
     return result;
@@ -456,6 +482,7 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
           ...s.picmonics,
           [cid]: patchCanvas(p, { backdrop: emptyBackdrop() }),
         },
+        annotationMode: false,
       };
     });
   },

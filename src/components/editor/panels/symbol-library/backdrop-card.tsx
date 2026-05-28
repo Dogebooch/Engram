@@ -1,7 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { ImagePlusIcon, RefreshCwIcon, Trash2Icon } from "lucide-react";
+import {
+  ImagePlusIcon,
+  MousePointer2Icon,
+  RefreshCwIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   USER_ASSET_ACCEPT,
@@ -37,6 +42,7 @@ export function BackdropCard({ compact = false }: BackdropCardProps = {}) {
   const setBackdropFromUpload = useStore((s) => s.setBackdropFromUpload);
   const clearBackdrop = useStore((s) => s.clearBackdrop);
   const setBackdropOpacity = useStore((s) => s.setBackdropOpacity);
+  const setAnnotationMode = useStore((s) => s.setAnnotationMode);
 
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -87,6 +93,10 @@ export function BackdropCard({ compact = false }: BackdropCardProps = {}) {
   const handleRemove = React.useCallback(() => {
     clearBackdrop();
   }, [clearBackdrop]);
+
+  const handleAnnotate = React.useCallback(() => {
+    setAnnotationMode(true);
+  }, [setAnnotationMode]);
 
   // Live opacity edits stream immediately for visual feedback, but push
   // exactly one history entry per drag (pre-drag value → final value).
@@ -167,7 +177,7 @@ export function BackdropCard({ compact = false }: BackdropCardProps = {}) {
           <ImagePlusIcon className="size-4 transition-transform group-hover:scale-110" />
           <span className="text-[11px] font-medium">Add background</span>
           <span className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground/50">
-            Or drop on canvas
+            Drop or paste screenshot
           </span>
         </button>
         <input
@@ -231,6 +241,13 @@ export function BackdropCard({ compact = false }: BackdropCardProps = {}) {
           />
           <div className="flex items-center gap-1.5">
             <ActionButton
+              onClick={handleAnnotate}
+              disabled={busy}
+              icon={<MousePointer2Icon className="size-3" />}
+              label="Annotate"
+              tooltip="Draw regions on background"
+            />
+            <ActionButton
               onClick={handlePick}
               disabled={busy}
               icon={<RefreshCwIcon className="size-3" />}
@@ -265,7 +282,7 @@ export function BackdropCard({ compact = false }: BackdropCardProps = {}) {
           <ImagePlusIcon className="size-4 transition-transform group-hover:scale-110" />
           <span className="text-[11px] font-medium">Add background</span>
           <span className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground/50">
-            Or drop on canvas
+            Drop or paste screenshot
           </span>
         </button>
       )}

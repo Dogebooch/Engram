@@ -55,6 +55,7 @@ function makePicmonicReferencing(symbolId: string): Picmonic {
     symbols: [
       {
         id: layerId,
+        kind: "image",
         ref: symbolId,
         x: 100,
         y: 100,
