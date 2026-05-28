@@ -32,6 +32,8 @@ import { useThumbnailCapture } from "./use-thumbnail-capture";
 const STAGE_PAPER_FALLBACK = "oklch(0.105 0 0)";
 
 const MARQUEE_DRAG_THRESHOLD = 4;
+const REGION_DRAG_THRESHOLD = 4;
+const REGION_SAMPLE_DISTANCE = 8;
 
 interface FitBox {
   width: number;
@@ -256,6 +258,11 @@ export function CanvasStage() {
   );
 
   const regionDraftRef = React.useRef<RegionDraftState>(IDLE_REGION_DRAFT);
+  const regionDragRef = React.useRef<{
+    down: RegionPoint;
+    last: RegionPoint;
+    drawing: boolean;
+  } | null>(null);
   const [regionDraft, setRegionDraftState] =
     React.useState<RegionDraftState>(IDLE_REGION_DRAFT);
   const setRegionDraft = React.useCallback(
@@ -333,6 +340,7 @@ export function CanvasStage() {
       if (annotationMode && backdrop?.uploadedBlobId) {
         if (e.evt.detail > 1) return;
         const point = { x: clampStageX(local.x), y: clampStageY(local.y) };
+        regionDragRef.current = { down: point, last: point, drawing: false };
         setRegionDraft((prev) => {
           if (prev.kind === "idle") {
             return { kind: "active", points: [point], hover: point };
@@ -472,10 +480,31 @@ export function CanvasStage() {
       const local = stageLocalFromClient(e.clientX, e.clientY);
       if (!local) return;
       const hover = { x: clampStageX(local.x), y: clampStageY(local.y) };
+      const drag = regionDragRef.current;
       setRegionDraft((prev) => {
         if (prev.kind === "idle") return prev;
+        if (drag && (e.buttons & 1) === 1) {
+          const moved = Math.hypot(hover.x - drag.down.x, hover.y - drag.down.y);
+          if (moved >= REGION_DRAG_THRESHOLD) drag.drawing = true;
+          if (
+            drag.drawing &&
+            Math.hypot(hover.x - drag.last.x, hover.y - drag.last.y) >=
+              REGION_SAMPLE_DISTANCE
+          ) {
+            drag.last = hover;
+            return { ...prev, points: [...prev.points, hover], hover };
+          }
+        }
         return { ...prev, hover };
       });
+    };
+
+    const onUp = () => {
+      const drag = regionDragRef.current;
+      regionDragRef.current = null;
+      if (!drag?.drawing) return;
+      const closed = closeRegionDraft();
+      if (!closed) cancelRegionDraft();
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
@@ -492,9 +521,11 @@ export function CanvasStage() {
     };
 
     document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [
