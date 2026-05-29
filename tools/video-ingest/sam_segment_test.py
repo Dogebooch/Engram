@@ -43,6 +43,44 @@ class MaskToPolygonTest(unittest.TestCase):
         # An L is concave: its polygon area is well below its convex hull's.
         self.assertLess(_poly_area(poly), 0.85 * _hull_area(poly))
 
+    def test_detailed_shape_uses_vertex_budget(self) -> None:
+        # A 10-point star has ~20 real corners. The search must spend the
+        # budget capturing them, not settle near the min_vertices floor (the
+        # old binary search broke at the first count above min -> ~9 verts,
+        # which is what made large concave symbols coarse).
+        import cv2
+
+        cx = cy = 200
+        pts = []
+        for i in range(20):
+            r = 160 if i % 2 == 0 else 70
+            ang = np.pi * i / 10
+            pts.append([cx + r * np.cos(ang), cy + r * np.sin(ang)])
+        mask = np.zeros((400, 400), dtype=np.uint8)
+        cv2.fillPoly(mask, [np.array(pts, dtype=np.int32)], 1)
+        poly = mask_to_polygon(mask)
+        self.assertIsNotNone(poly)
+        # Far more than the old ~9-vertex floor, still within the 48 budget.
+        self.assertGreaterEqual(len(poly), 16)
+        self.assertLessEqual(len(poly), 48)
+        # A star is deeply concave — must not collapse to its hull.
+        self.assertLess(_poly_area(poly), 0.8 * _hull_area(poly))
+
+    def test_budget_is_capped(self) -> None:
+        # Even a wildly detailed contour stays within max_vertices.
+        import cv2
+
+        mask = np.zeros((400, 400), dtype=np.uint8)
+        pts = []
+        for i in range(120):
+            r = 160 if i % 2 == 0 else 120
+            ang = 2 * np.pi * i / 120
+            pts.append([200 + r * np.cos(ang), 200 + r * np.sin(ang)])
+        cv2.fillPoly(mask, [np.array(pts, dtype=np.int32)], 1)
+        poly = mask_to_polygon(mask, max_vertices=32)
+        self.assertIsNotNone(poly)
+        self.assertLessEqual(len(poly), 32)
+
     def test_hole_uses_external_contour(self) -> None:
         mask = np.zeros((200, 200), dtype=np.uint8)
         mask[40:160, 40:160] = 1

@@ -7,10 +7,13 @@ SAME backdrop-frame pixel space, and merges it back into draft_symbols.json as
 the optional `polygon` field that make_bundle() already consumes -> zero bundler
 change. Pair with the overlay verification loop before building the bundle.
 
-Backend notes (gfx1100 / ROCm 7.10 nightly, verified 2026-05-28): SAM2's Hiera
-image encoder SDPA produces garbage masks / crashes on the GPU, so the default
-device is CPU (correct, pixel-perfect; ~50s set_image once per video, instant
-per-symbol predicts). `--device cuda` is left available for when ROCm matures.
+Backend notes (gfx1100 / ROCm 7.10 nightly, verified 2026-05-28): MobileSAM runs
+correctly on the GPU (byte-identical to CPU, sub-second), so it defaults to
+`cuda` when available. SAM2's Hiera image encoder is broken on the GPU — it
+emits a garbage ~half-frame blob centred on the image, and forcing the MATH SDPA
+kernel does not fix it (tested small + large) — so SAM2 stays on CPU (correct,
+~50s set_image once per video). Pass `--device` to override the per-backend
+default either way.
 
 mask_to_polygon / choose_prompt / render_overlay are torch-free (unit-tested);
 torch + sam2 are imported lazily inside the predictor functions.
@@ -65,7 +68,7 @@ def bbox_to_xyxy(bbox: dict[str, Any]) -> list[float]:
 def mask_to_polygon(
     mask: Any,
     min_vertices: int = 8,
-    max_vertices: int = 24,
+    max_vertices: int = 48,
     min_area_frac: float = 0.0005,
     pad_px: int = 0,
 ) -> list[list[int]] | None:
@@ -97,19 +100,20 @@ def mask_to_polygon(
         return None
 
     peri = cv2.arcLength(contour, True)
-    # Binary-search epsilon: larger epsilon -> fewer vertices. Aim for
-    # [min,max]; otherwise settle on the finest result within the budget.
+    # Binary-search epsilon for the MOST detail that fits the budget: the
+    # smallest epsilon whose simplified contour still has <= max_vertices.
+    # `hi` always satisfies the budget, `lo` always overshoots it, so the
+    # search converges `hi` down toward max_vertices instead of stopping at
+    # the first count above the floor (which settled near min_vertices and
+    # left max_vertices doing nothing — coarse on large concave shapes).
     lo, hi = 0.0, 0.1
-    for _ in range(24):
+    for _ in range(40):
         mid = (lo + hi) / 2
         n = len(cv2.approxPolyDP(contour, mid * peri, True))
         if n > max_vertices:
             lo = mid
-        elif n < min_vertices:
-            hi = mid
         else:
             hi = mid
-            break
     pts = cv2.approxPolyDP(contour, hi * peri, True).reshape(-1, 2)
     if len(pts) < 3:
         pts = cv2.approxPolyDP(contour, 0.01 * peri, True).reshape(-1, 2)
@@ -326,7 +330,7 @@ def run(
     out_overlay: Path | None = None,
     min_score: float = 0.5,
     min_vertices: int = 8,
-    max_vertices: int = 24,
+    max_vertices: int = 48,
     pad_px: int = 3,
     use_cache: bool = True,
 ) -> dict[str, Any]:
@@ -414,8 +418,9 @@ def main() -> int:
     parser.add_argument("--config", default=DEFAULT_CONFIG)
     parser.add_argument(
         "--device",
-        default="cpu",
-        help="cpu (stable) or cuda (ROCm, currently unstable for SAM2)",
+        default=None,
+        help="Default: cuda for MobileSAM when available, else cpu. SAM2 is "
+        "forced to cpu (its Hiera encoder is broken on ROCm gfx1100).",
     )
     parser.add_argument(
         "--only-orders",
@@ -426,7 +431,7 @@ def main() -> int:
     parser.add_argument("--out-overlay", type=Path, default=None)
     parser.add_argument("--min-score", type=float, default=0.5)
     parser.add_argument("--min-vertices", type=int, default=8)
-    parser.add_argument("--max-vertices", type=int, default=24)
+    parser.add_argument("--max-vertices", type=int, default=48)
     parser.add_argument(
         "--pad-px",
         type=int,
@@ -450,6 +455,14 @@ def main() -> int:
             DEFAULT_CHECKPOINT if backend == "sam2" else DEFAULT_MOBILESAM_CHECKPOINT
         )
 
+    device = args.device
+    if device is None:
+        import torch
+
+        device = (
+            "cuda" if backend == "mobilesam" and torch.cuda.is_available() else "cpu"
+        )
+
     only = (
         {int(x) for x in str(args.only_orders).split(",") if x.strip() != ""}
         if args.only_orders
@@ -461,7 +474,7 @@ def main() -> int:
         backend=backend,
         checkpoint=checkpoint,
         config=config,
-        device=args.device,
+        device=device,
         only_orders=only,
         retighten_bbox=args.retighten_bbox,
         out_overlay=args.out_overlay,

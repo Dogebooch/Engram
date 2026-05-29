@@ -18,9 +18,10 @@ bundle/canvas/notes format and the app import path are fixed — do **not** chan
 ## Setup (one-time)
 See `tools/video-ingest/README.md`. You need the base requirements **plus** `requirements-sam.txt`
 and the checkpoints under `tools/video-ingest/models/` (MobileSAM `mobile_sam.pt` by default; the
-SAM2.1 checkpoint for the quality-escalation backend). Segmentation runs on **CPU** — the GPU is
-broken for SAM here (ROCm flash attention on gfx1100). The default backend MobileSAM encodes the
-backdrop in ~2s; per-symbol predicts are instant. Revisit GPU when ROCm stabilises.
+SAM2.1 checkpoint for the quality-escalation backend). **MobileSAM defaults to the GPU** (`cuda` when
+available — verified byte-identical to CPU on gfx1100, sub-second). **SAM2 is forced to CPU**: its
+Hiera encoder is broken on ROCm gfx1100 (garbage half-frame mask; forcing the MATH SDPA kernel does
+not fix it). Pass `--device` to override either default.
 
 ## Workflow
 
@@ -97,14 +98,16 @@ Resolution per symbol: matched `intro_phrases` → `timestamp_ms` → order. Ref
   --backdrop <out-root>\<slug>\frames\keyframe_<N>_*.jpg `
   --out-overlay <out-root>\<slug>\sam_overlay.jpg
 ```
-This merges a `polygon` (8–24 vertices, backdrop-frame pixels) and a `sam:{mask_score,status,...}`
+This merges a `polygon` (up to 48 vertices, backdrop-frame pixels) and a `sam:{mask_score,status,...}`
 block into each symbol, and renders the overlay. `make_bundle` emits `shape:"polygon"` regions from
 these automatically. Backend / device:
-- **Default backend is MobileSAM on CPU** (`--device cpu` is implicit): ~2s encode for the backdrop,
-  ~0.1s per symbol, tight masks (scores ~0.95) — fast enough for bulk. (The GPU is **not** usable for
-  SAM here: ROCm flash attention is broken for both sam2 and mobilesam on gfx1100 → garbage masks.)
-- `--backend sam2 --model large` — slower (~50s encode) quality-escalation pass for a symbol MobileSAM
-  can't nail; SAM2 also has `--model small/tiny` for a faster encode.
+- **Default backend is MobileSAM on GPU** (`--device cuda` auto-selected when available): sub-second
+  encode, instant per-symbol predicts, tight masks (scores ~0.95) — fast enough for bulk.
+- `--backend sam2 --model large` — slower (~50s encode, **CPU-only** — SAM2's Hiera encoder is broken
+  on ROCm gfx1100) quality-escalation pass for a symbol MobileSAM can't nail; `--model small/tiny`
+  for a faster encode.
+- `--max-vertices N` (default 48) — the polygon detail budget; the simplifier now spends it on large
+  concave shapes instead of settling near the floor. Lower it for chunkier outlines.
 - `--pad-px N` — dilate every outline outward by N frame px (default 3) so a slightly under-segmented
   mask still fully contains the object. Bump it if outlines clip; set 0 for skin-tight.
 - SAM2's backdrop encoding is **cached** next to the frame, so step 7 re-runs (`--only-orders`) skip the

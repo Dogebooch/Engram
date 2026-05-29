@@ -235,6 +235,12 @@ def extract_keyframes(
 def transcribe(video: Path, out_dir: Path, model_name: str) -> dict[str, Any]:
     started = time.time()
     try:
+        # faster-whisper (ctranslate2) links its own OpenMP runtime; without
+        # this it aborts with "OMP Error #15" when torch's OpenMP is already
+        # loaded, crashing the Whisper fallback on caption-less videos.
+        import os
+
+        os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
         from faster_whisper import WhisperModel
     except ImportError as exc:
         return {
