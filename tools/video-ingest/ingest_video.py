@@ -1,16 +1,11 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import contextlib
-import socket
 import json
 import re
 import shutil
-import subprocess
 import time
-import urllib.error
-import urllib.request
 import uuid
 import zipfile
 from dataclasses import asdict, dataclass
@@ -70,20 +65,6 @@ class Keyframe:
     context_before: list[str]
     context_after: list[str]
     selected_as_backdrop: bool = False
-
-
-@dataclass
-class TranscriptSymbol:
-    order: int
-    fact: str
-    symbol_description: str
-    meaning: str
-    evidence: str
-    timestamp_ms: int
-    bbox: dict[str, float]
-    confidence: str
-    symbol_key: str
-    localized_to_backdrop: bool = True
 
 
 def slugify(value: str) -> str:
@@ -295,27 +276,6 @@ def srt_time(ms: int) -> str:
     return f"{h:02d}:{m:02d}:{s:02d},{milli:03d}"
 
 
-def transcript_context(
-    transcript: dict[str, Any], timestamp_ms: int, radius_ms: int
-) -> str:
-    lines = []
-    for segment in transcript.get("segments", []):
-        start = int(segment.get("start_ms", 0))
-        end = int(segment.get("end_ms", 0))
-        if end < timestamp_ms - radius_ms or start > timestamp_ms + radius_ms:
-            continue
-        lines.append(
-            f"[{ms_to_stamp(start)}-{ms_to_stamp(end)}] {segment.get('text', '')}"
-        )
-    return "\n".join(lines).strip()
-
-
-def transcript_text(transcript: dict[str, Any]) -> str:
-    return "\n".join(
-        clean_text(segment.get("text")) for segment in transcript.get("segments", [])
-    ).strip()
-
-
 def find_transcript_time(
     transcript: dict[str, Any],
     phrases: list[str],
@@ -328,335 +288,6 @@ def find_transcript_time(
             if phrase in text:
                 return int(segment.get("start_ms") or fallback_ms)
     return fallback_ms
-
-
-def scaled_box(
-    info: VideoInfo,
-    x: float,
-    y: float,
-    width: float,
-    height: float,
-    base_w: float = 1280,
-    base_h: float = 720,
-) -> dict[str, float]:
-    sx = info.width / base_w if info.width else 1
-    sy = info.height / base_h if info.height else 1
-    return {
-        "x": round(x * sx, 2),
-        "y": round(y * sy, 2),
-        "width": round(width * sx, 2),
-        "height": round(height * sy, 2),
-    }
-
-
-def is_thiamine_biochemistry(info: VideoInfo, transcript: dict[str, Any]) -> bool:
-    title = info.title.lower()
-    text = transcript_text(transcript).lower()
-    has_transketolase = any(
-        phrase in text
-        for phrase in (
-            "transketolase",
-            "trans-key-to-lase",
-            "trains-ketolase",
-            "trains ketolase",
-        )
-    )
-    has_bckd = any(
-        phrase in text
-        for phrase in (
-            "branched-chain keto",
-            "branched chain keto",
-            "branched-chain keto-acid",
-        )
-    )
-    return (
-        "thiamine" in title
-        and "biochemistry" in title
-        and has_transketolase
-        and has_bckd
-    )
-
-
-def thiamine_transcript_symbols(
-    info: VideoInfo,
-    transcript: dict[str, Any],
-    backdrop: Keyframe,
-) -> list[TranscriptSymbol]:
-    specs = [
-        {
-            "order": 0,
-            "fact": "Vitamin B1 is thiamine",
-            "symbol_key": "thigh-b-gun",
-            "symbol_description": "B-themed gun on the hero's thigh holster",
-            "meaning": "vitamin B1, or thiamine",
-            "phrases": ["mighty thigh", "Vitamin B1", "B-themed gun"],
-            "fallback_ms": 53_000,
-            "bbox": (790, 0, 470, 720),
-            "evidence": "Transcript links the thigh to thiamine and the B-gun to vitamin B1.",
-        },
-        {
-            "order": 1,
-            "fact": "Thiamine pyrophosphate is TPP",
-            "symbol_key": "teepees",
-            "symbol_description": "Fragile teepees in the village",
-            "meaning": "TPP, thiamine pyrophosphate cofactor",
-            "phrases": ["These are teepees", "TPP, or thiamine pyrophosphate"],
-            "fallback_ms": 103_000,
-            "bbox": (535, 495, 295, 225),
-            "evidence": "Transcript says the teepees represent TPP, or thiamine pyrophosphate.",
-        },
-        {
-            "order": 2,
-            "fact": "TPP is required for dehydrogenase reactions",
-            "symbol_key": "hydra",
-            "symbol_description": "Hydra being de-headed",
-            "meaning": "dehydrogenase reactions require TPP",
-            "phrases": ["de-heading the hydra", "dehydrogenase reactions"],
-            "fallback_ms": 160_000,
-            "bbox": (15, 20, 660, 510),
-            "evidence": "Transcript maps de-heading the hydra to dehydrogenase reactions.",
-        },
-        {
-            "order": 3,
-            "fact": "Pyruvate dehydrogenase requires TPP",
-            "symbol_key": "pirate",
-            "symbol_description": "Pirate with eyepatch, hook hand, and peg leg",
-            "meaning": "pyruvate dehydrogenase",
-            "phrases": ["that's a pirate", "Pyruvate dehydrogenase"],
-            "fallback_ms": 193_000,
-            "bbox": (650, 300, 160, 185),
-            "evidence": "Transcript states the pirate represents pyruvate dehydrogenase.",
-        },
-        {
-            "order": 4,
-            "fact": "Alpha-ketoglutarate dehydrogenase requires TPP",
-            "symbol_key": "alpha-key-hero",
-            "symbol_description": "Key-wielding hero with alpha-shaped visual cue",
-            "meaning": "alpha-ketoglutarate dehydrogenase",
-            "phrases": ["alpha key", "alpha-key-toe-glutarate dehydrogenase"],
-            "fallback_ms": 252_000,
-            "bbox": (390, 310, 210, 225),
-            "evidence": "Transcript ties alpha + key + glutes to alpha-ketoglutarate dehydrogenase.",
-        },
-        {
-            "order": 5,
-            "fact": "Branched-chain ketoacid dehydrogenase requires TPP",
-            "symbol_key": "branch-chain-key",
-            "symbol_description": "Tree branch, chain, and key weapon stuck in the hydra",
-            "meaning": "branched-chain ketoacid dehydrogenase",
-            "phrases": [
-                "tree branch attached to a chain",
-                "Branched-chain keto-acid dehydrogenase",
-            ],
-            "fallback_ms": 310_000,
-            "bbox": (260, 250, 145, 230),
-            "evidence": "Transcript decodes branched as branch, chain as chain, and keto as key.",
-        },
-        {
-            "order": 6,
-            "fact": "Transketolase requires TPP",
-            "symbol_key": "key-train",
-            "symbol_description": "Key-carrying train",
-            "meaning": "transketolase in the pentose phosphate pathway requires TPP",
-            "phrases": ["key-carrying train", "trans-key-to-lase"],
-            "fallback_ms": 361_000,
-            "bbox": (0, 585, 455, 135),
-            "evidence": "Transcript maps the key-carrying train to transketolase.",
-        },
-        {
-            "order": 7,
-            "fact": "Transketolase activity helps diagnose thiamine deficiency",
-            "symbol_key": "key-train",
-            "symbol_description": "Key-carrying train",
-            "meaning": "erythrocyte transketolase activity rises after vitamin B1 in deficiency",
-            "phrases": [
-                "diagnosis of a vitamin B1 deficiency",
-                "measurable increase in the activity",
-            ],
-            "fallback_ms": 399_000,
-            "bbox": (0, 585, 455, 135),
-            "evidence": "Transcript says B1 administration increases transketolase activity in deficient patients.",
-        },
-    ]
-    out: list[TranscriptSymbol] = []
-    for spec in specs:
-        symbol = TranscriptSymbol(
-            order=int(spec["order"]),
-            fact=str(spec["fact"]),
-            symbol_description=str(spec["symbol_description"]),
-            meaning=str(spec["meaning"]),
-            evidence=str(spec["evidence"]),
-            timestamp_ms=find_transcript_time(
-                transcript,
-                list(spec["phrases"]),
-                int(spec["fallback_ms"]),
-            ),
-            bbox=scaled_box(info, *spec["bbox"]),
-            confidence="high",
-            symbol_key=str(spec["symbol_key"]),
-        )
-        out.append(symbol)
-    return out
-
-
-def extract_transcript_symbols(
-    info: VideoInfo,
-    transcript: dict[str, Any],
-    keyframes: list[Keyframe],
-) -> dict[str, Any]:
-    if not keyframes or transcript.get("status") != "ok":
-        return {"model": "transcript-rules", "results": [], "symbols": []}
-    backdrop = next((kf for kf in keyframes if kf.selected_as_backdrop), keyframes[-1])
-    symbols: list[dict[str, Any]] = []
-    if is_thiamine_biochemistry(info, transcript):
-        for symbol in thiamine_transcript_symbols(info, transcript, backdrop):
-            item = asdict(symbol)
-            item["source_keyframe_index"] = backdrop.index
-            item["source_image"] = backdrop.image
-            item["vlm_width"] = info.width
-            item["vlm_height"] = info.height
-            symbols.append(item)
-    return {
-        "model": "transcript-rules",
-        "results": [
-            {
-                "status": "ok",
-                "keyframe_index": backdrop.index,
-                "timestamp_ms": backdrop.timestamp_ms,
-                "image": backdrop.image,
-                "symbols": symbols,
-            }
-        ]
-        if symbols
-        else [],
-        "symbols": symbols,
-    }
-
-
-def image_to_base64(path: Path) -> str:
-    return base64.b64encode(path.read_bytes()).decode("ascii")
-
-
-def make_vlm_image(
-    source: Path, out_dir: Path, max_width: int
-) -> tuple[Path, int, int]:
-    image = cv2.imread(str(source))
-    if image is None:
-        return source, 0, 0
-    h, w = image.shape[:2]
-    if max_width <= 0 or w <= max_width:
-        return source, w, h
-    scale = max_width / w
-    resized = cv2.resize(
-        image,
-        (max_width, max(1, int(round(h * scale)))),
-        interpolation=cv2.INTER_AREA,
-    )
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{source.stem}_vlm.jpg"
-    cv2.imwrite(str(out_path), resized, [int(cv2.IMWRITE_JPEG_QUALITY), 82])
-    rh, rw = resized.shape[:2]
-    return out_path, rw, rh
-
-
-def call_ollama(
-    model: str, prompt: str, image_path: Path, timeout: int
-) -> dict[str, Any]:
-    payload = {
-        "model": model,
-        "prompt": prompt,
-        "images": [image_to_base64(image_path)],
-        "stream": False,
-        "format": "json",
-        "options": {"temperature": 0.1},
-    }
-    data = json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(
-        "http://127.0.0.1:11434/api/generate",
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
-        return {"status": "error", "reason": f"HTTP {exc.code}: {body}", "symbols": []}
-    except urllib.error.URLError as exc:
-        return {"status": "error", "reason": str(exc), "symbols": []}
-    except socket.timeout:
-        return {"status": "error", "reason": f"timeout after {timeout}s", "symbols": []}
-    except TimeoutError:
-        return {"status": "error", "reason": f"timeout after {timeout}s", "symbols": []}
-    text = raw.get("response", "{}")
-    try:
-        parsed = json.loads(text)
-    except json.JSONDecodeError:
-        return {
-            "status": "error",
-            "reason": "model returned non-json",
-            "raw": text,
-            "symbols": [],
-        }
-    parsed["status"] = "ok"
-    parsed["elapsed_seconds"] = raw.get("total_duration", 0) / 1_000_000_000
-    return parsed
-
-
-def analyze_keyframes(
-    keyframes: list[Keyframe],
-    transcript: dict[str, Any],
-    model: str,
-    max_analyzed: int,
-    timeout: int,
-    vlm_image_width: int,
-) -> dict[str, Any]:
-    selected = keyframes[-max_analyzed:] if max_analyzed > 0 else []
-    results = []
-    vlm_dir = Path(selected[0].image).parent.parent / "vlm" if selected else None
-    for keyframe in selected:
-        context = transcript_context(transcript, keyframe.timestamp_ms, 45_000)
-        vlm_image, vlm_width, vlm_height = make_vlm_image(
-            Path(keyframe.image),
-            vlm_dir if vlm_dir else Path(keyframe.image).parent,
-            vlm_image_width,
-        )
-        prompt = f"""
-You are extracting concrete visual mnemonic symbols from a medical education video frame.
-Return strict JSON with this shape:
-{{"symbols":[{{"fact":"clinical fact encoded","symbol_description":"visible object or region","meaning":"what it encodes","evidence":"why this mapping is likely, using transcript or visual evidence","timestamp_ms":{keyframe.timestamp_ms},"bbox":{{"x":0,"y":0,"width":0,"height":0}},"confidence":"high|medium|low"}}]}}
-
-Rules:
-- Use image pixel coordinates for the provided image. Its size is {vlm_width}x{vlm_height}.
-- Prefer concrete mnemonic objects over generic scene elements.
-- Only include a bbox if the object is visible in this frame.
-- Be skeptical. If a mapping is uncertain, set confidence to low.
-- Do not invent medical facts not supported by the transcript context or visible text.
-
-Transcript near this frame:
-{context or "(no transcript context available)"}
-""".strip()
-        started = time.time()
-        result = call_ollama(model, prompt, vlm_image, timeout)
-        result["keyframe_index"] = keyframe.index
-        result["timestamp_ms"] = keyframe.timestamp_ms
-        result["image"] = keyframe.image
-        result["vlm_image"] = str(vlm_image)
-        result["vlm_width"] = vlm_width
-        result["vlm_height"] = vlm_height
-        result["wall_seconds"] = round(time.time() - started, 2)
-        results.append(result)
-    symbols = []
-    for result in results:
-        for symbol in result.get("symbols", []):
-            symbol["source_keyframe_index"] = result["keyframe_index"]
-            symbol["source_image"] = result["image"]
-            symbol["timestamp_ms"] = result["timestamp_ms"]
-            symbol["vlm_width"] = result.get("vlm_width")
-            symbol["vlm_height"] = result.get("vlm_height")
-            symbols.append(symbol)
-    return {"model": model, "results": results, "symbols": symbols}
 
 
 def has_valid_box(box: dict[str, Any]) -> bool:
@@ -983,19 +614,12 @@ def write_review(
     (out_dir / "review.md").write_text("\n".join(lines), encoding="utf-8")
 
 
-def ensure_ollama_model(model: str, pull: bool) -> None:
-    if not pull:
-        return
-    subprocess.run(["ollama", "pull", model], check=True)
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Local video to Engram draft bundle.")
     parser.add_argument("--video", required=True, type=Path)
     parser.add_argument("--out-root", required=True, type=Path)
     parser.add_argument("--whisper-model", default="small.en")
     parser.add_argument("--skip-transcript", action="store_true")
-    parser.add_argument("--skip-vlm", action="store_true")
     parser.add_argument(
         "--captions",
         type=Path,
@@ -1011,7 +635,7 @@ def main() -> int:
         "--draft-symbols",
         type=Path,
         default=None,
-        help="Load this draft JSON ({model, symbols:[...]}) and skip rule/VLM analysis.",
+        help="Load this Claude-authored draft JSON ({model, symbols:[...]}) to build the bundle.",
     )
     parser.add_argument(
         "--reuse-run",
@@ -1024,16 +648,11 @@ def main() -> int:
         default=None,
         help="Force this keyframe index to be the backdrop.",
     )
-    parser.add_argument("--ollama-model", default="gemma3:4b")
-    parser.add_argument("--pull-ollama-model", action="store_true")
     parser.add_argument("--max-keyframes", type=int, default=18)
-    parser.add_argument("--max-analyzed-keyframes", type=int, default=4)
-    parser.add_argument("--vlm-image-width", type=int, default=640)
     parser.add_argument("--sample-seconds", type=float, default=3)
     parser.add_argument("--min-gap-seconds", type=float, default=12)
     parser.add_argument("--context-seconds", type=float, default=2)
     parser.add_argument("--diff-threshold", type=float, default=0.08)
-    parser.add_argument("--ollama-timeout", type=int, default=300)
     args = parser.parse_args()
 
     video = args.video
@@ -1087,17 +706,9 @@ def main() -> int:
         if args.draft_symbols is not None:
             draft = read_json(args.draft_symbols)
         else:
-            draft = extract_transcript_symbols(info, transcript, keyframes)
-            if not draft.get("symbols") and not args.skip_vlm:
-                ensure_ollama_model(args.ollama_model, args.pull_ollama_model)
-                draft = analyze_keyframes(
-                    keyframes=keyframes,
-                    transcript=transcript,
-                    model=args.ollama_model,
-                    max_analyzed=args.max_analyzed_keyframes,
-                    timeout=args.ollama_timeout,
-                    vlm_image_width=args.vlm_image_width,
-                )
+            # Claude is the vision model: without an authored draft this is an
+            # extract-only run (frames + transcript), no symbols.
+            draft = {"model": "claude-as-vlm", "symbols": []}
     with timer.time("bundle"):
         bundle_path = make_bundle(out_dir, info, keyframes, draft)
     write_json(out_dir / "draft_symbols.json", draft)

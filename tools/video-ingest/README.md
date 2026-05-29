@@ -76,8 +76,9 @@ yt-dlp --write-subs --sub-langs en --convert-subs srt <url>   # sidecar auto-det
 ```
 
 Manual subtitles beat Whisper on mnemonic puns ("transketolase", "Pixorize").
-The legacy local Ollama VLM path still exists (`--ollama-model`) but Claude-as-VLM
-+ SAM is the supported route.
+Claude-as-VLM + SAM is the route: Claude authors `draft_symbols.json` and the
+builder consumes it via `--draft-symbols`. Without that flag a run is
+extract-only (frames + transcript, no symbols).
 
 ## Tests
 

@@ -31,7 +31,8 @@ For a whole series, batch-extract overnight so the interactive loop has zero tra
 .\.venv-video-ingest\Scripts\python.exe tools\video-ingest\batch_extract.py `
   --folder "<videos folder>" --out-root "P:\Python Projects\Engram\video-ingest-runs" --prefer-captions
 ```
-For a single video: `ingest_video.py --video "<mp4>" --out-root <root> --skip-vlm --prefer-captions`.
+For a single video: `ingest_video.py --video "<mp4>" --out-root <root> --prefer-captions` (no
+`--draft-symbols` = an extract-only run: frames + transcript, no symbols).
 `--prefer-captions` uses a real caption track when present (sidecar `<name>.srt/.vtt` or embedded),
 which is faster and fixes pun mishears; it falls back to Whisper otherwise. To grab captions at
 download time: `yt-dlp --list-subs <url>` then `--write-subs --sub-langs en --convert-subs srt` (the
