@@ -213,6 +213,58 @@ def extract_keyframes(
     return keyframes
 
 
+def _enable_rocm_dll_dirs() -> None:
+    """Put the rocm-sdk runtime DLLs on the Windows DLL search path before
+    ctranslate2 imports. The ROCm ctranslate2 build links the same TheRock-style
+    ROCm libs that torch ships, but (unlike torch) does not register their dirs
+    itself. Best-effort; a no-op off Windows or when rocm-sdk isn't installed."""
+    import os
+
+    if not hasattr(os, "add_dll_directory"):
+        return
+    try:
+        import rocm_sdk
+    except Exception:
+        return
+    dirs: set[str] = set()
+    for name in ("amdhip64", "hipblas"):
+        try:
+            dirs.update(str(p.parent) for p in rocm_sdk.find_libraries(name))
+        except Exception:
+            pass
+    for d in dirs:
+        with contextlib.suppress(OSError):
+            os.add_dll_directory(d)
+
+
+def _whisper_runtime() -> tuple[str, str]:
+    """Pick the Faster-Whisper device/compute_type. CTranslate2 exposes a ROCm
+    GPU under the `cuda` device name, so a Radeon card is auto-selected as
+    cuda/float16 when present; otherwise fall back to CPU int8. Override with
+    ENGRAM_WHISPER_DEVICE / ENGRAM_WHISPER_COMPUTE_TYPE."""
+    import os
+
+    requested_device = os.getenv("ENGRAM_WHISPER_DEVICE", "").strip().lower()
+    requested_compute = os.getenv("ENGRAM_WHISPER_COMPUTE_TYPE", "").strip()
+    if requested_device:
+        return requested_device, requested_compute or (
+            "int8" if requested_device == "cpu" else "float16"
+        )
+    try:
+        import ctranslate2
+
+        if ctranslate2.get_cuda_device_count() > 0:
+            compute_types = ctranslate2.get_supported_compute_types("cuda")
+            if "float16" in compute_types:
+                return "cuda", requested_compute or "float16"
+            if "int8_float16" in compute_types:
+                return "cuda", requested_compute or "int8_float16"
+            return "cuda", requested_compute or "float32"
+    except Exception:
+        pass
+    return "cpu", requested_compute or "int8"
+
+
 def transcribe(video: Path, out_dir: Path, model_name: str) -> dict[str, Any]:
     started = time.time()
     try:
@@ -222,6 +274,7 @@ def transcribe(video: Path, out_dir: Path, model_name: str) -> dict[str, Any]:
         import os
 
         os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+        _enable_rocm_dll_dirs()
         from faster_whisper import WhisperModel
     except ImportError as exc:
         return {
@@ -230,7 +283,8 @@ def transcribe(video: Path, out_dir: Path, model_name: str) -> dict[str, Any]:
             "segments": [],
         }
 
-    model = WhisperModel(model_name, device="cpu", compute_type="int8")
+    device, compute_type = _whisper_runtime()
+    model = WhisperModel(model_name, device=device, compute_type=compute_type)
     segments_iter, info = model.transcribe(
         str(video),
         vad_filter=True,

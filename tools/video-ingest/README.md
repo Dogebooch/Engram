@@ -33,6 +33,26 @@ bug). Segmentation therefore runs on **CPU**. The default backend is **MobileSAM
 (~50s encode) quality pass for a stubborn symbol. Re-test `--device cuda` when
 ROCm / AOTRITON flash attention stabilises for gfx1100.
 
+### GPU transcription note (CTranslate2 / ROCm, verified 2026-05-28)
+Faster-Whisper runs through CTranslate2, which exposes the RX 7900 XTX under the
+`cuda` device name. `transcribe()` auto-selects cuda/float16 when a GPU is present
+and falls back to CPU int8 otherwise (override with `ENGRAM_WHISPER_DEVICE` /
+`ENGRAM_WHISPER_COMPUTE_TYPE`).
+
+The stock PyPI CTranslate2 wheel is CPU-only. `setup_rocm_ctranslate2.ps1`
+installs the official **ROCm** build (v4.7.2 wheel from the OpenNMT release).
+It deliberately installs **only the wheel, no separate ROCm SDK**: that build
+links the same TheRock-style ROCm libs the venv's torch (ROCm 7.10 nightly, for
+MobileSAM) already ships, and `ingest_video._enable_rocm_dll_dirs()` registers
+those libs' dirs on the DLL search path at import (torch registers its own;
+ctranslate2 doesn't). Installing the repo.radeon.com `rocm_sdk_*` packages would
+downgrade that runtime under torch and break GPU SAM — don't.
+
+```powershell
+.\.venv-video-ingest\Scripts\python.exe -m pip install -r tools\video-ingest\requirements.txt  # CPU baseline
+.\tools\video-ingest\setup_rocm_ctranslate2.ps1   # swap in the ROCm wheel -> GPU
+```
+
 ## Run
 
 The full interactive workflow lives in `.claude/skills/ingest-video/SKILL.md`.
