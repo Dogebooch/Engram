@@ -22,30 +22,30 @@ export async function exportPng(
   picmonic: Picmonic,
 ): Promise<void> {
   const blob = await exportStageToPng(stage);
-  downloadBlob(blob, `${slugifyName(picmonic.meta.name)}.png`);
+  await downloadBlob(blob, `${slugifyName(picmonic.meta.name)}.png`);
 }
 
 export async function exportPngFromPicmonic(picmonic: Picmonic): Promise<void> {
   const blob = await rasterizePicmonicToPng(picmonic);
-  downloadBlob(blob, `${slugifyName(picmonic.meta.name)}.png`);
+  await downloadBlob(blob, `${slugifyName(picmonic.meta.name)}.png`);
 }
 
-export function exportMarkdown(picmonic: Picmonic): void {
-  downloadText(
+export async function exportMarkdown(picmonic: Picmonic): Promise<void> {
+  await downloadText(
     picmonic.notes ?? "",
     `${slugifyName(picmonic.meta.name)}.md`,
     "text/markdown;charset=utf-8",
   );
 }
 
-export function exportAnkiCsv(picmonic: Picmonic): void {
+export async function exportAnkiCsv(picmonic: Picmonic): Promise<void> {
   const slug = slugifyName(picmonic.meta.name);
   const csv = buildAnkiCsv({
     picmonicName: picmonic.meta.name,
     notes: picmonic.notes ?? "",
     imagePath: `${slug}.png`,
   });
-  downloadText(csv, `${slug}.csv`, "text/csv;charset=utf-8");
+  await downloadText(csv, `${slug}.csv`, "text/csv;charset=utf-8");
 }
 
 export async function exportBundle(
@@ -68,7 +68,7 @@ export async function exportBundle(
     userAssets,
     backdrops,
   });
-  downloadBlob(zip, `${slugifyName(picmonic.meta.name)}.zip`);
+  await downloadBlob(zip, `${slugifyName(picmonic.meta.name)}.zip`);
 }
 
 async function collectReferencedUserAssets(

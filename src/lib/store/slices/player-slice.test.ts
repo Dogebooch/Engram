@@ -34,7 +34,7 @@ describe("player slice", () => {
   it("clears transient editor UI when entering study mode", () => {
     useStore.setState((s) => ({
       ...s,
-      factPicker: { open: true, symbolIds: ["symbol-a"] },
+      factPicker: { open: true, mode: "tag", symbolIds: ["symbol-a"] },
       contextMenu: { x: 1, y: 2, symbolId: "symbol-a" },
       stageContextMenu: { x: 3, y: 4, stageX: 5, stageY: 6 },
       replacePicker: { x: 7, y: 8, symbolId: "symbol-b" },
