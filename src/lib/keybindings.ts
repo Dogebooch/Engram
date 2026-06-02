@@ -226,7 +226,14 @@ export function useEditorKeybindings(): void {
     if (cancelRegionDraftIfActive()) return;
     if (cancelMarqueeIfActive()) return;
     if (s.annotationMode) {
-      setAnnotationMode(false);
+      // Exiting annotation mode also disarms any armed outline / walkthrough so
+      // a stale target can't capture the next polygon.
+      if (s.outlineWalkthrough) {
+        s.endOutlineWalkthrough();
+      } else {
+        s.setOutlineTarget(null);
+        setAnnotationMode(false);
+      }
       return;
     }
     if (s.selectedSymbolIds.length > 0) {

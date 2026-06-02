@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useStore } from "@/lib/store";
 import { getSymbolById, loadSymbols } from "@/lib/symbols";
+import { symbolHasOutline } from "@/lib/canvas/symbol-outline";
 import { isImageSymbolLayer } from "@/lib/types/canvas";
 import {
   setSymbolChipOnHoverChange,
@@ -48,6 +49,14 @@ export function useSymbolResolver(view: EditorView | null): void {
           const state = useStore.getState();
           state.setLastSyncSource("editor");
           state.setSelectedSymbolIds([uuid]);
+          // No outline yet → offer to draw one for this existing bullet.
+          const cid = state.currentPicmonicId;
+          const layer = cid
+            ? state.picmonics[cid]?.canvas.symbols.find((sy) => sy.id === uuid)
+            : undefined;
+          if (!symbolHasOutline(layer)) {
+            state.requestOutlineConfirm(uuid);
+          }
         },
       });
     });

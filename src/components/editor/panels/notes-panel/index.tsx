@@ -7,6 +7,7 @@ import { pauseHistory, resumeHistory } from "@/lib/store/temporal";
 import { lintGutter } from "@codemirror/lint";
 import { parseNotes } from "@/lib/notes/parse";
 import { lintNotes } from "@/lib/notes/lint";
+import { findMissingOutlines } from "@/lib/canvas/missing-outlines";
 import { buildBaseExtensions } from "@/lib/notes/codemirror/setup";
 import {
   factHeadingExtension,
@@ -91,6 +92,22 @@ export function NotesPanel() {
     [value, parsed, symbolIds],
   );
 
+  const missingOutlines = React.useMemo(
+    () => findMissingOutlines(value, parsed, picmonic?.canvas.symbols ?? []),
+    [value, parsed, picmonic],
+  );
+
+  const startOutlining = React.useCallback(() => {
+    if (missingOutlines.length === 0) return;
+    const ids = missingOutlines.map((m) => m.symbolId);
+    const status = useStore.getState().startOutlineWalkthrough(ids);
+    // No background yet — route the first symbol through the confirm dialog's
+    // background picker; the rest can be walked once a background is set.
+    if (status === "needs-backdrop") {
+      useStore.getState().requestOutlineConfirm(ids[0]);
+    }
+  }, [missingOutlines]);
+
   const lintCounts = React.useMemo(() => {
     let errors = 0;
     let warnings = 0;
@@ -120,6 +137,18 @@ export function NotesPanel() {
           notes
         </span>
         <div className="flex items-center gap-3">
+          {missingOutlines.length > 0 && (
+            <button
+              type="button"
+              onClick={startOutlining}
+              title="Draw outlines for symbols that don't have one yet"
+              className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-500/80 hover:text-amber-400"
+            >
+              <span className="size-[5px] rounded-full bg-amber-500" />
+              {missingOutlines.length} need outline
+              {missingOutlines.length === 1 ? "" : "s"}
+            </button>
+          )}
           {(lintCounts.errors > 0 || lintCounts.warnings > 0) && (
             <button
               type="button"

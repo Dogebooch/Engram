@@ -19,6 +19,8 @@ import {
   type CanvasState,
   type FactHotspots,
   type ImageSymbolLayer,
+  type RegionPoint,
+  type RegionShape,
   type RegionSymbolLayer,
   type SymbolLayer,
   type Group,
@@ -38,6 +40,16 @@ export interface AddSymbolInput {
   rotation?: number;
 }
 
+export interface SetSymbolOutlineInput {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  shape: RegionShape;
+  points?: RegionPoint[];
+  rotation?: number;
+}
+
 type SymbolLayerPatch =
   | Partial<Omit<ImageSymbolLayer, "id" | "kind">>
   | Partial<Omit<RegionSymbolLayer, "id" | "kind" | "ref">>;
@@ -47,6 +59,16 @@ export type ReorderMode = "back" | "forward" | "toBack" | "toFront";
 export interface CanvasSlice {
   addSymbol: (input: AddSymbolInput) => string | null;
   updateSymbol: (id: string, patch: SymbolLayerPatch) => void;
+  /**
+   * Create-or-replace the layer with `id` as a region outline, WITHOUT touching
+   * notes (the bullet already exists). When a layer with `id` is present (image
+   * OR region) it is replaced by a region of the same id, preserving
+   * layerIndex/groupId/animation; when absent a new region is appended so the
+   * bullet resolves. Selects the layer. Single history entry. Returns false
+   * (no write) on an invalid polygon. Distinct from `addRegionWithNoteSync`,
+   * which mints a fresh id and inserts a new bullet.
+   */
+  setSymbolOutline: (id: string, input: SetSymbolOutlineInput) => boolean;
   deleteSymbols: (ids: readonly string[]) => void;
   duplicateSymbols: (ids: readonly string[]) => string[];
   reorderSymbol: (id: string, mode: ReorderMode) => void;
@@ -224,6 +246,54 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
         },
       };
     });
+  },
+
+  setSymbolOutline: (id, input) => {
+    if (!id) return false;
+    if (input.shape === "polygon" && (!input.points || input.points.length < 3)) {
+      return false;
+    }
+    const cid = get().currentPicmonicId;
+    if (!cid) return false;
+    const picmonic = get().picmonics[cid];
+    if (!picmonic) return false;
+
+    const existing =
+      picmonic.canvas.symbols.find((sy) => sy.id === id) ?? null;
+    const layer: RegionSymbolLayer = {
+      id,
+      kind: "region",
+      ref: null,
+      shape: input.shape,
+      points: input.shape === "polygon" ? input.points : undefined,
+      x: input.x,
+      y: input.y,
+      width: input.width,
+      height: input.height,
+      rotation: input.rotation ?? existing?.rotation ?? 0,
+      layerIndex: existing?.layerIndex ?? 0,
+      groupId: existing?.groupId ?? null,
+      animation: existing?.animation ?? null,
+      animationDelay: existing?.animationDelay ?? null,
+      animationDuration: existing?.animationDuration ?? null,
+    };
+
+    set((s) => {
+      const p = s.picmonics[cid];
+      if (!p) return s;
+      const symbols = p.canvas.symbols.slice();
+      const at = symbols.findIndex((sy) => sy.id === id);
+      if (at === -1) symbols.push(layer);
+      else symbols[at] = layer;
+      return {
+        picmonics: {
+          ...s.picmonics,
+          [cid]: patchCanvas(p, { symbols }),
+        },
+        selectedSymbolIds: [id],
+      };
+    });
+    return true;
   },
 
   deleteSymbols: (ids) => {

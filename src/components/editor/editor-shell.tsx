@@ -19,6 +19,7 @@ import { useSaveFlowMonitor } from "@/lib/storage/use-save-flow-monitor";
 import { clearHistory } from "@/lib/store/temporal";
 import { useUpdaterCheck } from "@/lib/updater";
 import { CanvasErrorBoundary } from "./error-boundary";
+import { AddOutlineConfirm } from "./dialogs/add-outline-confirm";
 import { FactPicker } from "./dialogs/fact-picker";
 import { SymbolDeleteConfirm } from "./dialogs/symbol-delete-confirm";
 import { HelpDialog } from "./help-dialog";
@@ -158,6 +159,7 @@ export function EditorShell() {
         </div>
         <FactPicker />
         <SymbolDeleteConfirm />
+        <AddOutlineConfirm />
         <HelpDialog />
       </div>
       <PlayerOverlay />

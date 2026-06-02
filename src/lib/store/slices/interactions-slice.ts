@@ -41,6 +41,13 @@ export interface PendingSymbolDeleteState {
   ids: readonly string[];
 }
 
+export interface OutlineWalkthroughState {
+  /** Symbol ids missing an outline, in author order. */
+  queue: readonly string[];
+  /** 0-based position of the symbol currently being outlined. */
+  index: number;
+}
+
 export interface InteractionsSlice {
   factPicker: FactPickerState | null;
   addSymbolTargetFactId: string | null;
@@ -55,6 +62,16 @@ export interface InteractionsSlice {
    * confirmation via the delete-confirm dialog. Transient — never persisted.
    */
   pendingSymbolDelete: PendingSymbolDeleteState | null;
+  /**
+   * The symbol whose outline the next closed region-draft polygon binds to.
+   * When set, `closeRegionDraft` routes to `setSymbolOutline(id)` instead of
+   * minting a new bullet. Transient — never persisted, never in history.
+   */
+  outlineTargetSymbolId: string | null;
+  /** Symbol awaiting the "Add an outline?" confirm dialog. Transient. */
+  outlineConfirmSymbolId: string | null;
+  /** Active "outline every missing symbol" walkthrough, or null. Transient. */
+  outlineWalkthrough: OutlineWalkthroughState | null;
   openFactPicker: (symbolIds: readonly string[]) => void;
   openMoveFactPicker: (symbolId: string, fromFactId: string) => void;
   closeFactPicker: () => void;
@@ -87,6 +104,27 @@ export interface InteractionsSlice {
   confirmPendingSymbolDelete: (
     opts?: ConfirmPendingSymbolDeleteOptions,
   ) => void;
+  /** Arm the next region-draft polygon to bind to this symbol id (or clear). */
+  setOutlineTarget: (id: string | null) => void;
+  /** Open the per-chip "Add an outline?" confirm for this symbol. */
+  requestOutlineConfirm: (id: string) => void;
+  /** Dismiss the "Add an outline?" confirm. */
+  dismissOutlineConfirm: () => void;
+  /**
+   * Arm an outline draw for `id`: selects the symbol (so notes scroll to its
+   * bullet) and enters annotation mode. Returns "needs-backdrop" when no
+   * background image is set yet (target is still armed so the caller can route
+   * to a background-picker, after which the canvas auto-continues).
+   */
+  startOutlineForSymbol: (id: string) => "ready" | "needs-backdrop";
+  /** Begin a one-by-one walkthrough over symbols missing outlines. */
+  startOutlineWalkthrough: (
+    ids: readonly string[],
+  ) => "ready" | "needs-backdrop" | "empty";
+  /** Advance to the next walkthrough symbol; ends the walkthrough past the end. */
+  advanceOutlineWalkthrough: () => "next" | "done" | "inactive";
+  /** Abort/clear the walkthrough and disarm the outline target + annotation. */
+  endOutlineWalkthrough: () => void;
 }
 
 export const createInteractionsSlice: StateCreator<
@@ -103,6 +141,9 @@ export const createInteractionsSlice: StateCreator<
   annotationMode: false,
   helpOpen: false,
   pendingSymbolDelete: null,
+  outlineTargetSymbolId: null,
+  outlineConfirmSymbolId: null,
+  outlineWalkthrough: null,
   openFactPicker: (symbolIds) => {
     if (symbolIds.length === 0) return;
     set({ factPicker: { open: true, mode: "tag", symbolIds: [...symbolIds] } });
@@ -144,5 +185,51 @@ export const createInteractionsSlice: StateCreator<
     if (opts?.dontAskAgain) state.setConfirmSymbolDelete(false);
     state.deleteSymbols(pending.ids);
     set({ pendingSymbolDelete: null });
+  },
+  setOutlineTarget: (id) => set({ outlineTargetSymbolId: id }),
+  requestOutlineConfirm: (id) => {
+    if (!id) return;
+    set({ outlineConfirmSymbolId: id });
+  },
+  dismissOutlineConfirm: () => set({ outlineConfirmSymbolId: null }),
+  startOutlineForSymbol: (id) => {
+    if (!id) return "needs-backdrop";
+    const state = get();
+    set({ outlineTargetSymbolId: id });
+    const cid = state.currentPicmonicId;
+    const backdrop = cid ? state.picmonics[cid]?.canvas.backdrop : null;
+    if (!backdrop?.uploadedBlobId) return "needs-backdrop";
+    state.setLastSyncSource("canvas");
+    state.setSelectedSymbolIds([id]);
+    state.setAnnotationMode(true);
+    return "ready";
+  },
+  startOutlineWalkthrough: (ids) => {
+    if (ids.length === 0) return "empty";
+    const queue = [...ids];
+    set({ outlineWalkthrough: { queue, index: 0 } });
+    const status = get().startOutlineForSymbol(queue[0]);
+    if (status === "needs-backdrop") {
+      // Can't draw without a background — abandon the queue; the caller routes
+      // the first symbol through the confirm dialog's background-picker.
+      set({ outlineWalkthrough: null });
+    }
+    return status;
+  },
+  advanceOutlineWalkthrough: () => {
+    const wt = get().outlineWalkthrough;
+    if (!wt) return "inactive";
+    const nextIndex = wt.index + 1;
+    if (nextIndex >= wt.queue.length) {
+      get().endOutlineWalkthrough();
+      return "done";
+    }
+    set({ outlineWalkthrough: { queue: wt.queue, index: nextIndex } });
+    get().startOutlineForSymbol(wt.queue[nextIndex]);
+    return "next";
+  },
+  endOutlineWalkthrough: () => {
+    set({ outlineWalkthrough: null, outlineTargetSymbolId: null });
+    get().setAnnotationMode(false);
   },
 });

@@ -10,9 +10,13 @@ import {
   normalizeRect,
   type Rect as MarqueeRect,
 } from "@/lib/canvas/marquee-hit-test";
+import { toast } from "sonner";
 import { addRegionWithNoteSync } from "@/lib/canvas/add-symbol-with-note-sync";
+import { describeSymbol } from "@/lib/canvas/missing-outlines";
+import { parseNotes } from "@/lib/notes/parse";
 import { useStore } from "@/lib/store";
 import { usePicmonic } from "@/lib/store/hooks";
+import type { OutlineWalkthroughState } from "@/lib/store/slices/interactions-slice";
 import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
 import type { RegionPoint } from "@/lib/types/canvas";
 import { BackdropLayer } from "./backdrop-layer";
@@ -143,7 +147,8 @@ export function CanvasStage() {
   const selectedIds = useStore((s) => s.selectedSymbolIds);
   const cursorSymbolIds = useStore((s) => s.cursorSymbolIds);
   const annotationMode = useStore((s) => s.annotationMode);
-  const setAnnotationMode = useStore((s) => s.setAnnotationMode);
+  const outlineTargetId = useStore((s) => s.outlineTargetSymbolId);
+  const outlineWalkthrough = useStore((s) => s.outlineWalkthrough);
   const clearSelection = useStore((s) => s.clearSelection);
   const setSelectedSymbolIds = useStore((s) => s.setSelectedSymbolIds);
   const selectedSet = React.useMemo(() => new Set(selectedIds), [selectedIds]);
@@ -303,18 +308,38 @@ export function CanvasStage() {
     setRegionDraft(IDLE_REGION_DRAFT);
   }, [setRegionDraft]);
 
+  const advanceWalkthrough = React.useCallback(() => {
+    const status = useStore.getState().advanceOutlineWalkthrough();
+    if (status === "done") toast("All symbols outlined", { duration: 1600 });
+    return status;
+  }, []);
+
   const closeRegionDraft = React.useCallback(() => {
     const draft = regionDraftRef.current;
     if (draft.kind !== "active") return false;
     const region = closePolygonPoints(draft.points);
     if (!region) return false;
-    addRegionWithNoteSync({
-      ...region,
-      shape: "polygon",
-    });
+    const s = useStore.getState();
+    const targetId = s.outlineTargetSymbolId;
+    if (targetId) {
+      // Bind the outline to the existing bullet's symbol — no new bullet.
+      if (!s.setSymbolOutline(targetId, { ...region, shape: "polygon" })) {
+        return false;
+      }
+      const wt = s.outlineWalkthrough;
+      if (wt && wt.queue[wt.index] === targetId) {
+        advanceWalkthrough();
+      } else {
+        // Single-symbol flow — exit annotation mode once the one outline lands.
+        s.setOutlineTarget(null);
+        s.setAnnotationMode(false);
+      }
+    } else {
+      addRegionWithNoteSync({ ...region, shape: "polygon" });
+    }
     setRegionDraft(IDLE_REGION_DRAFT);
     return true;
-  }, [setRegionDraft]);
+  }, [advanceWalkthrough, setRegionDraft]);
 
   const handleStageContextMenu = React.useCallback(
     (e: KonvaEventObject<PointerEvent>) => {
@@ -472,6 +497,29 @@ export function CanvasStage() {
       setRegionDraft(IDLE_REGION_DRAFT);
     }
   }, [annotationMode, setRegionDraft]);
+
+  // Resume an armed outline once a background image lands (the "no backdrop"
+  // path: click chip → choose background → drop straight into drawing).
+  React.useEffect(() => {
+    if (outlineTargetId && backdrop?.uploadedBlobId && !annotationMode) {
+      useStore.getState().startOutlineForSymbol(outlineTargetId);
+    }
+  }, [outlineTargetId, backdrop?.uploadedBlobId, annotationMode]);
+
+  const notes = picmonic?.notes ?? "";
+  const outlineLabel = React.useMemo(() => {
+    if (!outlineTargetId) return null;
+    return describeSymbol(notes, parseNotes(notes), outlineTargetId);
+  }, [outlineTargetId, notes]);
+
+  const handleOutlineDone = React.useCallback(() => {
+    const s = useStore.getState();
+    if (s.outlineWalkthrough) s.endOutlineWalkthrough();
+    else {
+      s.setOutlineTarget(null);
+      s.setAnnotationMode(false);
+    }
+  }, []);
 
   React.useEffect(() => {
     if (regionDraft.kind === "idle") return;
@@ -768,7 +816,10 @@ export function CanvasStage() {
       {annotationMode && (
         <AnnotationModeBadge
           canAnnotate={!!backdrop?.uploadedBlobId}
-          onDone={() => setAnnotationMode(false)}
+          outlineLabel={outlineLabel}
+          walkthrough={outlineWalkthrough}
+          onSkip={advanceWalkthrough}
+          onDone={handleOutlineDone}
         />
       )}
       <CornerReadout scale={box.scale} />
@@ -798,20 +849,45 @@ function CornerReadout({ scale }: { scale: number }) {
 
 function AnnotationModeBadge({
   canAnnotate,
+  outlineLabel,
+  walkthrough,
+  onSkip,
   onDone,
 }: {
   canAnnotate: boolean;
+  outlineLabel: string | null;
+  walkthrough: OutlineWalkthroughState | null;
+  onSkip: () => void;
   onDone: () => void;
 }) {
+  const label = !canAnnotate
+    ? "Add background first"
+    : outlineLabel
+      ? `Outline: ${outlineLabel}`
+      : "Outline symbol";
   return (
-    <div className="pointer-events-none absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-2 rounded-md border border-border/70 bg-card/90 px-2.5 py-1.5 shadow-lg backdrop-blur">
-      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-        {canAnnotate ? "Outline symbol" : "Add background first"}
+    <div className="pointer-events-none absolute left-1/2 top-3 z-20 flex max-w-[28rem] -translate-x-1/2 items-center gap-2 rounded-md border border-border/70 bg-card/90 px-2.5 py-1.5 shadow-lg backdrop-blur">
+      <span className="max-w-[18rem] truncate font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+        {label}
       </span>
+      {walkthrough && (
+        <span className="shrink-0 font-mono text-[10px] tracking-[0.12em] text-foreground/70">
+          {walkthrough.index + 1} / {walkthrough.queue.length}
+        </span>
+      )}
+      {walkthrough && (
+        <button
+          type="button"
+          onClick={onSkip}
+          className="pointer-events-auto shrink-0 rounded-sm px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-foreground/80 transition-colors hover:bg-foreground/[0.06]"
+        >
+          Skip
+        </button>
+      )}
       <button
         type="button"
         onClick={onDone}
-        className="pointer-events-auto rounded-sm px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-foreground/80 transition-colors hover:bg-foreground/[0.06]"
+        className="pointer-events-auto shrink-0 rounded-sm px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-foreground/80 transition-colors hover:bg-foreground/[0.06]"
       >
         Done
       </button>
