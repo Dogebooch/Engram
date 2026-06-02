@@ -143,7 +143,7 @@ export function useCanvasTagDrag(symbolId: string): CanvasTagDragHandlers {
 
       const stage = node.getStage();
       const container = stage?.container();
-      if (container) container.style.cursor = "grab";
+      if (container) container.style.cursor = "pointer";
 
       if (state.dropFactId) {
         // Tag drop: revert position, tag the symbol.

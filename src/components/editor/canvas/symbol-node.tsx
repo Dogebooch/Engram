@@ -130,7 +130,7 @@ export const SymbolNode = React.memo(function SymbolNode({
   const handleMouseEnter = React.useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
       const container = e.target.getStage()?.container();
-      if (container) container.style.cursor = "grab";
+      if (container) container.style.cursor = "pointer";
     },
     [],
   );
