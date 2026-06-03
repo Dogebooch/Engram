@@ -470,13 +470,8 @@ def make_bundle(
         key=symbol_sort_key,
     )
     placed_symbols: list[dict[str, Any]] = []
-    rejected_symbols: list[dict[str, Any]] = []
     seen_bullets: set[tuple[str, str]] = set()
     for symbol in raw_symbols:
-        localized_to_backdrop = bool(symbol.get("localized_to_backdrop"))
-        source_keyframe = int(symbol.get("source_keyframe_index", -1))
-        box_width = int(symbol.get("vlm_width") or info.width)
-        box_height = int(symbol.get("vlm_height") or info.height)
         bullet_key = (
             slugify(clean_text(symbol.get("fact"))),
             clean_text(symbol.get("symbol_key"))
@@ -484,27 +479,18 @@ def make_bundle(
         )
         if bullet_key in seen_bullets:
             continue
-        if not localized_to_backdrop and source_keyframe != backdrop.index:
-            rejected = {
-                **symbol,
-                "rejection_reason": "not localized to the representative frame",
-            }
-            rejected_symbols.append(rejected)
-            continue
-        if not is_placeable_symbol(symbol, box_width, box_height):
-            rejected = {
-                **symbol,
-                "rejection_reason": "missing or whole-frame bounding box",
-            }
-            rejected_symbols.append(rejected)
-            continue
         seen_bullets.add(bullet_key)
         placed_symbols.append(symbol)
 
-    draft["rejected_symbols"] = rejected_symbols
+    # Facts-only friendly: every distinct bullet is kept. A symbol that lacks a
+    # usable backdrop-frame box (or isn't localized to it) is emitted below as an
+    # un-traced placeholder region, which the editor lists under "needs outline"
+    # for the user to draw by hand. Nothing is dropped.
+    draft["rejected_symbols"] = []
 
     notes_lines = [f"# {info.title}", ""]
     canvas_symbols = []
+    placeholder_count = 0
     layer_id_by_key: dict[str, str] = {}
     fact_order: list[str] = []
     fact_symbols: dict[str, list[dict[str, Any]]] = {}
@@ -525,18 +511,14 @@ def make_bundle(
         layer_id_by_key[symbol_key] = layer_id
         box_width = int(symbol.get("vlm_width") or info.width)
         box_height = int(symbol.get("vlm_height") or info.height)
-        box = clamp_box(symbol.get("bbox") or {}, box_width, box_height)
-        scale_x = STAGE_WIDTH / max(1, box_width)
-        scale_y = STAGE_HEIGHT / max(1, box_height)
+        localized = bool(symbol.get("localized_to_backdrop")) or (
+            int(symbol.get("source_keyframe_index", -1)) == backdrop.index
+        )
         layer = {
             "id": layer_id,
             "kind": "region",
             "ref": None,
             "shape": "rect",
-            "x": round(box["x"] * scale_x, 2),
-            "y": round(box["y"] * scale_y, 2),
-            "width": round(box["width"] * scale_x, 2),
-            "height": round(box["height"] * scale_y, 2),
             "rotation": 0,
             "layerIndex": len(canvas_symbols),
             "groupId": None,
@@ -544,9 +526,30 @@ def make_bundle(
             "animationDelay": None,
             "animationDuration": None,
         }
-        polygon = scaled_polygon(symbol.get("polygon"), scale_x, scale_y)
-        if polygon:
-            layer.update(polygon)
+        if localized and is_placeable_symbol(symbol, box_width, box_height):
+            box = clamp_box(symbol.get("bbox") or {}, box_width, box_height)
+            scale_x = STAGE_WIDTH / max(1, box_width)
+            scale_y = STAGE_HEIGHT / max(1, box_height)
+            layer.update(
+                x=round(box["x"] * scale_x, 2),
+                y=round(box["y"] * scale_y, 2),
+                width=round(box["width"] * scale_x, 2),
+                height=round(box["height"] * scale_y, 2),
+            )
+            polygon = scaled_polygon(symbol.get("polygon"), scale_x, scale_y)
+            if polygon:
+                layer.update(polygon)
+        else:
+            # No usable box -> un-traced placeholder the user outlines by hand.
+            # Stagger across the stage so multiple placeholders stay grabbable.
+            col, row = placeholder_count % 5, placeholder_count // 5
+            placeholder_count += 1
+            layer.update(
+                x=round(80 + col * 360),
+                y=round(80 + row * 240),
+                width=300,
+                height=200,
+            )
         canvas_symbols.append(layer)
 
     for fact in fact_order:
