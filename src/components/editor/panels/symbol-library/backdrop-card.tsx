@@ -329,7 +329,7 @@ function ActionButton({
               "flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1.5",
               "text-[10px] font-medium uppercase tracking-[0.12em]",
               "border border-border/70 bg-card/50 text-muted-foreground",
-              "transition-colors hover:bg-white/[0.04] hover:text-foreground",
+              "transition-colors hover:bg-muted/80 hover:text-foreground",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40",
               "disabled:opacity-50 disabled:pointer-events-none",
               destructive &&

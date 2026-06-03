@@ -154,14 +154,14 @@ export function SymbolLibrary() {
             className={cn(
               "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.16em] transition-colors",
               traceOnAdd
-                ? "border-amber-500/50 bg-amber-500/15 text-amber-400"
+                ? "border-accent/55 bg-accent/15 text-accent"
                 : "border-border/70 text-muted-foreground/55 hover:text-muted-foreground",
             )}
           >
             <span
               className={cn(
                 "size-[5px] rounded-full",
-                traceOnAdd ? "bg-amber-500" : "bg-muted-foreground/40",
+                traceOnAdd ? "bg-accent" : "bg-muted-foreground/40",
               )}
             />
             trace

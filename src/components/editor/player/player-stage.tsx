@@ -22,7 +22,7 @@ import {
   type HotspotContextMenuState,
 } from "./hotspot-context-menu";
 
-const STAGE_FALLBACK = "oklch(0.105 0 0)";
+const STAGE_FALLBACK = "oklch(0.255 0.025 188)";
 const HOTSPOT_OVERLAP_THRESHOLD = 34;
 const HOTSPOT_SPREAD = 88;
 

@@ -260,7 +260,7 @@ function DescribePopoverInner({
 
   return (
     <div
-      className="eng-describe-popover absolute z-40 flex w-[300px] flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-[0_12px_44px_-14px_rgba(0,0,0,0.85)] ring-1 ring-foreground/12"
+      className="eng-describe-popover absolute z-40 flex w-[300px] flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-[0_12px_44px_-14px_color-mix(in_oklch,var(--background)_85%,transparent)] ring-1 ring-border"
       style={{ left, top }}
       data-eng-describe-popover
       onKeyDown={handleKeyDown}

@@ -72,13 +72,13 @@ export const LibraryCard = React.memo(function LibraryCard({
             data-symbol-id={entry.id}
             className={cn(
               "group relative flex flex-col items-center justify-center rounded-md outline-none cursor-pointer",
-              "border border-white/[0.04] bg-white/[0.02]",
-              "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]",
+              "border border-border/55 bg-card/40",
+              "shadow-[inset_0_1px_0_0_color-mix(in_oklch,var(--foreground)_5%,transparent)]",
               "transition-[background-color,border-color,box-shadow,transform] duration-150 ease-out",
-              "hover:border-white/[0.10] hover:bg-white/[0.05]",
-              "hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_2px_8px_-2px_rgba(0,0,0,0.5)]",
+              "hover:border-border hover:bg-card/75",
+              "hover:shadow-[inset_0_1px_0_0_color-mix(in_oklch,var(--foreground)_8%,transparent),0_2px_8px_-2px_color-mix(in_oklch,var(--background)_80%,transparent)]",
               "focus-visible:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/30",
-              "active:translate-y-px active:bg-white/[0.06] active:shadow-[inset_0_1px_2px_0_rgba(0,0,0,0.4)]",
+              "active:translate-y-px active:bg-muted/80 active:shadow-[inset_0_1px_2px_0_color-mix(in_oklch,var(--background)_80%,transparent)]",
               isSmall ? "h-12 w-12 p-1.5" : "h-[72px] w-full p-2",
             )}
             aria-label={`Add ${entry.displayName} to canvas`}

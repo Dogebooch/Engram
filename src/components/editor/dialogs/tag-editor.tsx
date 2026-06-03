@@ -129,7 +129,7 @@ export function TagEditor({
           {tags.map((t) => (
             <span
               key={t}
-              className="inline-flex items-center gap-1 rounded-sm bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] tracking-tight text-accent-foreground/90 ring-1 ring-accent/30"
+              className="inline-flex items-center gap-1 rounded-sm bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] text-accent-foreground/90 ring-1 ring-accent/30"
             >
               {t}
               <button

@@ -164,7 +164,7 @@ function ReplaceSymbolPopoverInner() {
               "flex flex-col gap-0",
               "h-[420px] w-[360px]",
               "origin-(--transform-origin) rounded-md border border-border/80 bg-popover/95 text-popover-foreground",
-              "shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6),0_2px_8px_-2px_rgba(0,0,0,0.5)]",
+              "shadow-[0_10px_30px_-10px_color-mix(in_oklch,var(--background)_76%,transparent),0_2px_8px_-2px_color-mix(in_oklch,var(--background)_62%,transparent)]",
               "backdrop-blur-md",
               "outline-none",
               "data-[starting-style]:scale-95 data-[starting-style]:opacity-0",
@@ -184,7 +184,7 @@ function ReplaceSymbolPopoverInner() {
                 )}
                 {currentEntry && (
                   <span
-                    className="flex size-6 shrink-0 items-center justify-center rounded border border-border/60 bg-white/[0.03]"
+                    className="flex size-6 shrink-0 items-center justify-center rounded border border-border/60 bg-card/45"
                     aria-label={`Currently: ${currentEntry.displayName}`}
                     title={`Currently: ${currentEntry.displayName}`}
                   >

@@ -10,7 +10,7 @@ export function LibraryLoadingState() {
         {Array.from({ length: 18 }).map((_, i) => (
           <div
             key={i}
-            className="aspect-square animate-pulse rounded-md border border-white/[0.03] bg-white/[0.02]"
+            className="aspect-square animate-pulse rounded-md border border-border/45 bg-card/35"
             style={{ animationDelay: `${(i % 6) * 80}ms` }}
           />
         ))}
@@ -22,7 +22,7 @@ export function LibraryLoadingState() {
 export function LibraryMissingIndexState() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-      <div className="flex size-9 items-center justify-center rounded-full border border-destructive/40 bg-destructive/[0.08] text-destructive shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
+      <div className="flex size-9 items-center justify-center rounded-full border border-destructive/40 bg-destructive/[0.08] text-destructive shadow-[inset_0_1px_0_0_color-mix(in_oklch,var(--foreground)_5%,transparent)]">
         <TriangleAlertIcon className="size-4" />
       </div>
       <p className="text-sm font-medium text-foreground">Symbol index missing</p>

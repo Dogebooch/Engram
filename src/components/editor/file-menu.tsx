@@ -96,28 +96,39 @@ export function FileMenu() {
                   Recent picmonics
                 </DropdownMenuLabel>
               </DropdownMenuGroup>
-              {others.map((entry) => (
-                <DropdownMenuItem
-                  key={entry.id}
-                  onClick={() => void handleOpen(entry.id)}
-                  className="gap-2"
-                >
-                  {entry.thumbDataUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={entry.thumbDataUrl}
-                      alt=""
-                      className="h-6 w-10 shrink-0 rounded-sm border border-border/60 object-cover"
-                    />
-                  ) : (
-                    <span
-                      aria-hidden
-                      className="h-6 w-10 shrink-0 rounded-sm border border-border/60 bg-card/40"
-                    />
-                  )}
-                  <span className="flex-1 truncate text-sm">{entry.name}</span>
-                </DropdownMenuItem>
-              ))}
+              {others.map((entry) => {
+                const thumbDataUrl =
+                  entry.symbolCount > 0 || entry.factCount > 0
+                    ? entry.thumbDataUrl
+                    : null;
+
+                return (
+                  <DropdownMenuItem
+                    key={entry.id}
+                    onClick={() => void handleOpen(entry.id)}
+                    className="gap-2"
+                  >
+                    {thumbDataUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={thumbDataUrl}
+                        alt=""
+                        className="h-6 w-10 shrink-0 rounded-sm border border-border/60 object-cover"
+                      />
+                    ) : (
+                      <span
+                        aria-hidden
+                        className="h-6 w-10 shrink-0 rounded-sm border border-border/60 bg-stage"
+                        style={{
+                          backgroundImage:
+                            "radial-gradient(ellipse at center, var(--stage-vignette-inner) 0%, var(--stage-vignette-outer) 70%)",
+                        }}
+                      />
+                    )}
+                    <span className="flex-1 truncate text-sm">{entry.name}</span>
+                  </DropdownMenuItem>
+                );
+              })}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setCurrentPicmonic(null)}>
                 Back to home…

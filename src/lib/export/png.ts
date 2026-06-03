@@ -47,7 +47,7 @@ export async function exportStageToPng(
   }
 }
 
-const DEFAULT_PAPER_FILL = "oklch(0.105 0 0)";
+const DEFAULT_PAPER_FILL = "oklch(0.255 0.025 188)";
 
 function resolvePaperFill(): string {
   if (typeof window === "undefined") return DEFAULT_PAPER_FILL;

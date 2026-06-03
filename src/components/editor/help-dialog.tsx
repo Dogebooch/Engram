@@ -194,7 +194,7 @@ function Kbd({ children }: { children: React.ReactNode }) {
         "inline-flex h-5 min-w-[1.25rem] items-center justify-center px-1.5",
         "rounded-[3px] border border-border/55 bg-card/70",
         "font-mono text-[11px] font-medium text-foreground/85",
-        "shadow-[inset_0_-1px_0_rgba(255,255,255,0.04)]",
+        "shadow-[inset_0_-1px_0_color-mix(in_oklch,var(--foreground)_5%,transparent)]",
       )}
     >
       {children}

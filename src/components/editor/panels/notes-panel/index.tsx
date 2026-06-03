@@ -145,9 +145,9 @@ export function NotesPanel() {
               type="button"
               onClick={startOutlining}
               title="Draw outlines for symbols that don't have one yet"
-              className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-amber-500 transition-colors hover:border-amber-500/60 hover:bg-amber-500/20"
+              className="inline-flex items-center gap-1.5 rounded-full border border-accent/45 bg-accent/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-accent transition-colors hover:border-accent/65 hover:bg-accent/18"
             >
-              <span className="size-[5px] rounded-full bg-amber-500" />
+              <span className="size-[5px] rounded-full bg-accent" />
               outline {missingOutlines.length}
             </button>
           )}
@@ -160,13 +160,13 @@ export function NotesPanel() {
                 "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] transition-colors",
                 lintCounts.errors > 0
                   ? "text-destructive hover:bg-destructive/10"
-                  : "text-amber-500/80 hover:bg-amber-500/10",
+                  : "text-accent/85 hover:bg-accent/10",
               )}
             >
               <span
                 className={cn(
                   "size-[5px] rounded-full",
-                  lintCounts.errors > 0 ? "bg-destructive" : "bg-amber-500",
+                  lintCounts.errors > 0 ? "bg-destructive" : "bg-accent",
                 )}
               />
               {lintCounts.errors + lintCounts.warnings}

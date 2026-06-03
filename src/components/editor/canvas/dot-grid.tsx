@@ -10,7 +10,7 @@ import {
 } from "@/lib/constants";
 import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
 
-const DOT_FALLBACK = "oklch(0.32 0 0)";
+const DOT_FALLBACK = "oklch(0.43 0.035 160)";
 
 export const DotGrid = React.memo(function DotGrid() {
   const fill = useThemedCssVar("--stage-grid", DOT_FALLBACK) ?? DOT_FALLBACK;

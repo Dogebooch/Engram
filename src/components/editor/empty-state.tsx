@@ -35,7 +35,7 @@ export function EmptyState() {
             <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />
             v0.1 · phase 1
           </span>
-          <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground">
+          <h1 className="text-3xl font-semibold leading-tight text-foreground">
             Build your first mnemonic scene.
           </h1>
           <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">

@@ -36,7 +36,7 @@ import { useThumbnailCapture } from "./use-thumbnail-capture";
 
 // Konva fallback for SSR / first-paint before CSS variables resolve. Matches the
 // dark-mode `--stage` token so the unflashed render is indistinguishable.
-const STAGE_PAPER_FALLBACK = "oklch(0.105 0 0)";
+const STAGE_PAPER_FALLBACK = "oklch(0.255 0.025 188)";
 
 const MARQUEE_DRAG_THRESHOLD = 4;
 const REGION_DRAG_THRESHOLD = 4;
@@ -146,7 +146,7 @@ export function CanvasStage() {
   const symbols = picmonic?.canvas.symbols ?? EMPTY_SYMBOLS;
   const backdrop = picmonic?.canvas.backdrop ?? null;
   const stageFill = useThemedCssVar("--stage", STAGE_PAPER_FALLBACK) ?? STAGE_PAPER_FALLBACK;
-  const accent = useThemedCssVar("--accent", "#7dd3fc") ?? "#7dd3fc";
+  const accent = useThemedCssVar("--accent", "oklch(0.68 0.095 52)") ?? "oklch(0.68 0.095 52)";
   const selectedIds = useStore((s) => s.selectedSymbolIds);
   const cursorSymbolIds = useStore((s) => s.cursorSymbolIds);
   const annotationMode = useStore((s) => s.annotationMode);
@@ -676,7 +676,7 @@ export function CanvasStage() {
         <div
           data-engram-canvas-paper
           data-drag-hover={dragHover ? "" : undefined}
-          className="pointer-events-auto absolute rounded-[2px] shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_24px_60px_-30px_rgba(0,0,0,0.9)] ring-1 ring-black/40 after:pointer-events-none after:absolute after:inset-0 after:rounded-[2px] after:opacity-0 after:transition-opacity after:duration-200 after:ease-out after:shadow-[inset_0_0_0_1px_var(--accent),inset_0_0_56px_-12px_var(--accent),0_0_0_1px_color-mix(in_oklch,var(--accent)_50%,transparent)] data-[drag-hover]:after:opacity-100"
+          className="pointer-events-auto absolute rounded-[2px] shadow-[0_0_0_1px_color-mix(in_oklch,var(--border)_75%,transparent),0_24px_60px_-30px_color-mix(in_oklch,var(--background)_90%,transparent)] ring-1 ring-border/70 after:pointer-events-none after:absolute after:inset-0 after:rounded-[2px] after:opacity-0 after:transition-opacity after:duration-200 after:ease-out after:shadow-[inset_0_0_0_1px_var(--accent),inset_0_0_56px_-12px_var(--accent),0_0_0_1px_color-mix(in_oklch,var(--accent)_50%,transparent)] data-[drag-hover]:after:opacity-100"
           style={{
             left: box.offsetX,
             top: box.offsetY,

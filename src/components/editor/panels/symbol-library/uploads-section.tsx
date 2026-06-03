@@ -151,7 +151,7 @@ function UploadCard({ asset, onActivate }: UploadCardProps) {
         aria-label={asset.displayName}
         className={cn(
           "relative flex h-12 w-12 flex-col items-center justify-center rounded-md p-1.5",
-          "border border-white/[0.04] bg-white/[0.02]",
+          "border border-border/55 bg-card/40",
         )}
       >
         {fallbackUrl ? (

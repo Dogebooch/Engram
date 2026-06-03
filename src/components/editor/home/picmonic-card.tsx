@@ -40,6 +40,8 @@ export function PicmonicCard({
 }: PicmonicCardProps) {
   const visibleTags = entry.tags.slice(0, 3);
   const hiddenTagCount = Math.max(0, entry.tags.length - visibleTags.length);
+  const thumbDataUrl =
+    entry.symbolCount > 0 || entry.factCount > 0 ? entry.thumbDataUrl : null;
 
   return (
     <div className="group relative flex flex-col">
@@ -49,25 +51,25 @@ export function PicmonicCard({
         className={cn(
           "block w-full overflow-hidden rounded-lg border border-border/60 bg-card/40 text-left",
           "transition-[border-color,transform,box-shadow] duration-150 ease-out",
-          "hover:border-foreground/30 hover:-translate-y-px hover:shadow-[0_12px_30px_-20px_rgba(0,0,0,0.8)]",
+          "hover:border-foreground/30 hover:-translate-y-px hover:shadow-[0_12px_30px_-20px_color-mix(in_oklch,var(--background)_85%,transparent)]",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
         )}
       >
         <div
           className="relative aspect-[16/9] w-full overflow-hidden bg-stage"
           style={
-            entry.thumbDataUrl
+            thumbDataUrl
               ? undefined
               : {
                   backgroundImage:
-                    "radial-gradient(ellipse at center, oklch(0.13 0 0) 0%, oklch(0.105 0 0) 70%)",
+                    "radial-gradient(ellipse at center, var(--stage-vignette-inner) 0%, var(--stage-vignette-outer) 70%)",
                 }
           }
         >
-          {entry.thumbDataUrl ? (
+          {thumbDataUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={entry.thumbDataUrl}
+              src={thumbDataUrl}
               alt=""
               className="h-full w-full object-cover"
               draggable={false}
@@ -87,7 +89,7 @@ export function PicmonicCard({
           <h3 className="truncate text-sm font-medium text-foreground" title={entry.name}>
             {entry.name}
           </h3>
-          <div className="flex items-center gap-1.5 font-mono text-[10px] tabular-nums tracking-tight text-muted-foreground">
+          <div className="flex items-center gap-1.5 font-mono text-[10px] tabular-nums text-muted-foreground">
             <span>
               {entry.symbolCount} {entry.symbolCount === 1 ? "sym" : "syms"}
             </span>
@@ -125,7 +127,7 @@ export function PicmonicCard({
             );
           })}
           {hiddenTagCount > 0 && (
-            <span className="font-mono text-[10px] tracking-tight text-muted-foreground/60">
+            <span className="font-mono text-[10px] text-muted-foreground/60">
               +{hiddenTagCount}
             </span>
           )}

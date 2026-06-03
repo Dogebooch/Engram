@@ -120,12 +120,12 @@ export function Home() {
             <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">
               your library
             </span>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+            <h1 className="mt-1 text-2xl font-semibold text-foreground">
               Picmonics
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            <span className="font-mono text-[11px] tabular-nums tracking-tight text-muted-foreground">
+            <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
               {(index?.length ?? 0)} total
             </span>
             <ImportButton />
@@ -238,7 +238,7 @@ function EmptyHero({ onCreate }: { onCreate: () => void }) {
             <span aria-hidden className="size-1.5 rounded-full bg-accent" />
             v{APP_VERSION} · phase 6
           </span>
-          <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground">
+          <h1 className="text-3xl font-semibold leading-tight text-foreground">
             Build your first mnemonic scene.
           </h1>
           <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">

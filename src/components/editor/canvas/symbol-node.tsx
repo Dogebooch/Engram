@@ -11,12 +11,12 @@ import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
 import { isRegionSymbolLayer, type SymbolLayer } from "@/lib/types/canvas";
 import { useCanvasTagDrag } from "./use-canvas-tag-drag";
 
-const ACCENT_FALLBACK = "oklch(0.78 0.13 75)";
+const ACCENT_FALLBACK = "oklch(0.68 0.095 52)";
 const DESTRUCTIVE_FALLBACK = "oklch(0.7 0.19 22)";
-const FOREGROUND_FALLBACK = "oklch(0.96 0 0)";
-const PLACEHOLDER_FILL_FALLBACK = "oklch(1 0 0 / 0.04)";
-const PLACEHOLDER_FILL_WEAK_FALLBACK = "oklch(1 0 0 / 0.02)";
-const PLACEHOLDER_FILL_STRONG_FALLBACK = "oklch(1 0 0 / 0.18)";
+const FOREGROUND_FALLBACK = "oklch(0.885 0.03 82)";
+const PLACEHOLDER_FILL_FALLBACK = "oklch(0.885 0.03 82 / 0.055)";
+const PLACEHOLDER_FILL_WEAK_FALLBACK = "oklch(0.885 0.03 82 / 0.03)";
+const PLACEHOLDER_FILL_STRONG_FALLBACK = "oklch(0.885 0.03 82 / 0.22)";
 
 interface SymbolNodeProps {
   layer: SymbolLayer;

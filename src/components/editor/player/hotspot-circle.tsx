@@ -7,9 +7,9 @@ import { Circle, Group, Text } from "react-konva";
 import { STAGE_HEIGHT, STAGE_WIDTH } from "@/lib/constants";
 import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
 
-const ACCENT_FALLBACK = "oklch(0.78 0.13 75)";
-const STAGE_FALLBACK = "oklch(0.105 0 0)";
-const ACCENT_FG_FALLBACK = "oklch(0.13 0 0)";
+const ACCENT_FALLBACK = "oklch(0.68 0.095 52)";
+const STAGE_FALLBACK = "oklch(0.255 0.025 188)";
+const ACCENT_FG_FALLBACK = "oklch(0.18 0.018 60)";
 
 const RADIUS = 18;
 const HALO_RADIUS = 20;
@@ -173,7 +173,7 @@ export const HotspotCircle = React.memo(function HotspotCircle({
         strokeWidth={hover ? 2.5 : 2}
         fill={isActive ? accent : stageFill}
         fillEnabled
-        shadowColor="black"
+        shadowColor="oklch(0.18 0.018 188)"
         shadowBlur={hover ? 14 : 10}
         shadowOpacity={0.4}
         shadowOffsetY={2}

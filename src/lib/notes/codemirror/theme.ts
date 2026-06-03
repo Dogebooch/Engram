@@ -67,7 +67,7 @@ export const engramHighlightStyle = HighlightStyle.define([
     letterSpacing: "0",
     lineHeight: "1.4",
   },
-  // h2 = Fact. Distinctly demoted: monospace caps-style title, amber tint.
+  // h2 = Fact. Distinctly demoted: monospace caps-style title, accent tint.
   {
     tag: t.heading2,
     color: subHeadingColor,

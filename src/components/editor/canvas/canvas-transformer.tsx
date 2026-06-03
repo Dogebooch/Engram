@@ -8,8 +8,8 @@ import { useStore } from "@/lib/store";
 import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
 import { isRegionSymbolLayer } from "@/lib/types/canvas";
 
-const ACCENT_FALLBACK = "oklch(0.78 0.13 75)";
-const STAGE_FALLBACK = "oklch(0.105 0 0)";
+const ACCENT_FALLBACK = "oklch(0.68 0.095 52)";
+const STAGE_FALLBACK = "oklch(0.255 0.025 188)";
 
 interface CanvasTransformerProps {
   selectedIds: string[];

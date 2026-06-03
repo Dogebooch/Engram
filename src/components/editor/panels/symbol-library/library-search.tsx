@@ -47,7 +47,7 @@ export function LibrarySearch({ value, onChange }: LibrarySearchProps) {
         spellCheck={false}
         autoComplete="off"
         data-engram-library-search
-        className="h-8 pl-7 pr-8 text-xs font-medium tracking-tight placeholder:font-normal placeholder:tracking-normal"
+        className="h-8 pl-7 pr-8 text-xs font-medium placeholder:font-normal placeholder:tracking-normal"
       />
       {value === "" ? (
         <kbd
@@ -62,7 +62,7 @@ export function LibrarySearch({ value, onChange }: LibrarySearchProps) {
           type="button"
           aria-label="Clear search"
           onClick={() => onChange("")}
-          className="absolute right-1.5 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-white/[0.06] hover:text-foreground"
+          className="absolute right-1.5 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-muted/80 hover:text-foreground"
         >
           <XIcon className="size-3" />
         </button>
