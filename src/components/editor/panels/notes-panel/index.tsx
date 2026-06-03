@@ -196,12 +196,13 @@ function NotesEmptyOverlay() {
         <div className="eng-notes-empty__hint">
           <span className="eng-notes-empty__caret">▍</span>
           <span className="eng-notes-empty__comment">
-            Start typing your notes here.
+            To get started, add a section by typing # &apos;Section Name&apos; in
+            the Markdown column.
           </span>
         </div>
         <div className="eng-notes-empty__rule" aria-hidden />
         <div className="eng-notes-empty__keys">
-          <span>Use a short fact, then add a symbol.</span>
+          <span>Then add a ## fact under it, and tag a symbol.</span>
         </div>
       </div>
     </div>
