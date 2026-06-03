@@ -16,6 +16,7 @@ import { FileMenu } from "./file-menu";
 import { PicmonicName } from "./picmonic-name";
 import { SaveStatus } from "./save-status";
 import { ThemeToggle } from "./theme-toggle";
+import { ReviewExitDialog } from "./dialogs/review-exit-dialog";
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
 
@@ -30,15 +31,26 @@ export function Topbar() {
   const setHelpOpen = useStore((s) => s.setHelpOpen);
 
   const inEditor = Boolean(currentId);
+  const [reviewOpen, setReviewOpen] = React.useState(false);
 
-  // Flush any debounce-pending save (canvas/notes 500ms, index 250ms) before
-  // dropping the active picmonic. Without this, edits made within the debounce
-  // window are silently lost when the brand button or quota badge sends the
-  // user home.
+  // Flush any debounce-pending save before dropping the active picmonic.
+  // For session-created/imported picmonics, surface the review modal first so
+  // the user has a one-glance summary before the editor closes.
   const goHome = React.useCallback(async () => {
+    const s = useStore.getState();
+    const cid = s.currentPicmonicId;
+    if (cid && s.sessionPicmonicIds[cid]) {
+      setReviewOpen(true);
+      return;
+    }
     await Promise.all([flushPendingSave(), flushIndexPersist()]);
     setCurrentPicmonic(null);
   }, [setCurrentPicmonic]);
+
+  const reviewPicmonic = React.useMemo(() => {
+    if (!reviewOpen || !currentId) return null;
+    return useStore.getState().picmonics[currentId] ?? null;
+  }, [reviewOpen, currentId]);
 
   return (
     <header
@@ -175,6 +187,12 @@ export function Topbar() {
           </>
         ) : null}
       </div>
+      <ReviewExitDialog
+        open={reviewOpen}
+        picmonic={reviewPicmonic}
+        onKeepEditing={() => setReviewOpen(false)}
+        onAfterExit={() => setReviewOpen(false)}
+      />
     </header>
   );
 }

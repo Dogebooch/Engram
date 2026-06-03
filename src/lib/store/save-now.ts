@@ -2,6 +2,7 @@
 
 import { set as idbSet } from "idb-keyval";
 import { picmonicKey } from "@/lib/constants";
+import { clearCrashMirror } from "@/lib/storage/crash-mirror";
 import { useStore } from "./index";
 
 /**
@@ -25,6 +26,7 @@ export async function saveCurrentPicmonicNow(): Promise<boolean> {
   s.setSaveStatus("saving");
   try {
     await idbSet(picmonicKey(cid), picmonic);
+    clearCrashMirror(cid);
     const after = useStore.getState();
     if (after.currentPicmonicId !== cid) return true;
     after.setLastSavedAt(Date.now());

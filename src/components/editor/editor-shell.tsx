@@ -71,8 +71,8 @@ export function EditorShell() {
         <div className="flex flex-1 overflow-hidden">
           <Home />
         </div>
-        <FactPicker />
-        <SymbolDeleteConfirm />
+        {/* FactPicker and SymbolDeleteConfirm are editor-scoped — leaking their
+            (sr-only) dialog headers into the home DOM was P2-11 noise. */}
         <PlayerOverlay />
         <HelpDialog />
       </div>

@@ -6,7 +6,7 @@ import {
   set as idbSet,
   keys as idbKeys,
 } from "idb-keyval";
-import { IDB_KEYS } from "@/lib/constants";
+import { IDB_KEYS, picmonicKey } from "@/lib/constants";
 import { debounce } from "@/lib/debounce";
 import { parseNotes } from "@/lib/notes/parse";
 import { UNASSIGNED_FACT_NAME } from "@/lib/notes/types";
@@ -38,13 +38,39 @@ const persistDebounced = debounce((index: PicmonicIndex) => {
 }, 250);
 
 /**
- * Flush any debounce-pending index write and await its completion. Used by
- * navigation (brand-button → home) and beforeunload so an in-flight 250ms
- * timer can't drop a metadata/thumbnail update.
+ * Flush any debounce-pending index write and await its completion.
  */
 export async function flushIndexPersist(): Promise<void> {
   persistDebounced.flush();
   if (inFlightPersist) await inFlightPersist;
+}
+
+/**
+ * Walk the index and verify each entry has a corresponding picmonic record.
+ * Drops orphan entries (index lying about content) and returns their count
+ * so the UI can surface a one-time toast. Runs once per session as part of
+ * `loadIndex()`.
+ */
+async function sweepOrphans(index: PicmonicIndex): Promise<{
+  cleaned: PicmonicIndex;
+  orphanCount: number;
+}> {
+  const cleaned: PicmonicIndex = [];
+  let orphanCount = 0;
+  for (const entry of index) {
+    try {
+      const record = await idbGet<Picmonic>(picmonicKey(entry.id));
+      if (record && typeof record === "object" && "id" in record) {
+        cleaned.push(entry);
+      } else {
+        orphanCount += 1;
+      }
+    } catch (err) {
+      console.error("[engram] orphan sweep: read failed for", entry.id, err);
+      cleaned.push(entry);
+    }
+  }
+  return { cleaned, orphanCount };
 }
 
 export const useIndexStore = create<IndexState>((set, get) => ({
@@ -56,7 +82,14 @@ export const useIndexStore = create<IndexState>((set, get) => ({
     try {
       const stored = await idbGet<PicmonicIndex>(IDB_KEYS.picmonicIndex);
       if (stored && Array.isArray(stored)) {
-        set({ index: stored, loading: false });
+        const { cleaned, orphanCount } = await sweepOrphans(stored);
+        if (orphanCount > 0) {
+          await idbSet(IDB_KEYS.picmonicIndex, cleaned);
+          console.warn(
+            `[engram] orphan sweep removed ${orphanCount} index entr${orphanCount === 1 ? "y" : "ies"} with no backing record`,
+          );
+        }
+        set({ index: cleaned, loading: false });
         return;
       }
       // Migration: scan all engram:picmonic:* records and seed.

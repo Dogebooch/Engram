@@ -3,6 +3,7 @@
 import {
   createStore,
   get as idbGet,
+  keys as idbKeys,
   set as idbSet,
   del as idbDel,
   type UseStore,
@@ -27,4 +28,9 @@ export async function getBlob(id: string): Promise<Blob | undefined> {
 
 export async function deleteBlob(id: string): Promise<void> {
   await idbDel(id, getStore());
+}
+
+export async function listBlobIds(): Promise<string[]> {
+  const ks = await idbKeys(getStore());
+  return ks.filter((k): k is string => typeof k === "string");
 }

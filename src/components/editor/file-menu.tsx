@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { toast } from "sonner";
 import {
   ChevronDownIcon,
   DownloadIcon,
@@ -39,6 +40,7 @@ export function FileMenu() {
   const currentId = useCurrentPicmonicId();
   const setCurrentPicmonic = useStore((s) => s.setCurrentPicmonic);
   const loadPicmonicById = useStore((s) => s.loadPicmonicById);
+  const removeIndexEntry = useIndexStore((s) => s.removeIndexEntry);
   const index = useIndexStore((s) => s.index);
   const {
     inputRef: bundleInputRef,
@@ -55,10 +57,24 @@ export function FileMenu() {
 
   const handleOpen = React.useCallback(
     async (id: string) => {
-      const ok = await loadPicmonicById(id);
-      if (ok) setCurrentPicmonic(id);
+      const result = await loadPicmonicById(id);
+      if (result === "loaded") {
+        setCurrentPicmonic(id);
+        return;
+      }
+      if (result === "missing") {
+        toast.error("This picmonic's data is missing.", {
+          description: "It was likely interrupted before its first save.",
+          action: {
+            label: "Remove from library",
+            onClick: () => removeIndexEntry(id),
+          },
+        });
+      } else {
+        toast.error("Couldn't load picmonic.");
+      }
     },
-    [loadPicmonicById, setCurrentPicmonic],
+    [loadPicmonicById, removeIndexEntry, setCurrentPicmonic],
   );
 
   const handleSave = React.useCallback(() => {

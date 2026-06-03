@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import { cancelMarqueeIfActive } from "@/components/editor/canvas/canvas-stage";
+import {
+  cancelMarqueeIfActive,
+  resetCanvasViewport,
+  setCanvasViewportToHundred,
+} from "@/components/editor/canvas/canvas-stage";
+import {
+  serializeForClipboard,
+  tryParseClipboard,
+} from "@/components/editor/canvas/clipboard";
 import { useStore } from "@/lib/store";
 import { flushPendingSave } from "@/lib/store/debounced-save";
 import { saveCurrentPicmonicNow } from "@/lib/store/save-now";
@@ -320,6 +328,69 @@ export function useEditorKeybindings(): void {
     t.redo();
   }, []);
 
+  const nudgeSymbols = useStore((s) => s.nudgeSymbols);
+  const pasteSymbols = useStore((s) => s.pasteSymbols);
+
+  const onNudge = useCallback(
+    (dx: number, dy: number) => (e: KeyboardEvent) => {
+      const ids = useStore.getState().selectedSymbolIds;
+      if (ids.length === 0) return;
+      e.preventDefault();
+      const factor = e.shiftKey ? 10 : 1;
+      nudgeSymbols(ids, dx * factor, dy * factor);
+    },
+    [nudgeSymbols],
+  );
+
+  const onCopy = useCallback((e: KeyboardEvent) => {
+    const s = useStore.getState();
+    const ids = s.selectedSymbolIds;
+    if (ids.length === 0 || !s.currentPicmonicId) return;
+    const picmonic = s.picmonics[s.currentPicmonicId];
+    if (!picmonic) return;
+    const idSet = new Set(ids);
+    const layers = picmonic.canvas.symbols
+      .filter((sy) => idSet.has(sy.id))
+      .map((sy) => ({
+        ref: sy.ref,
+        x: sy.x,
+        y: sy.y,
+        width: sy.width,
+        height: sy.height,
+        rotation: sy.rotation,
+      }));
+    if (layers.length === 0) return;
+    e.preventDefault();
+    const text = serializeForClipboard(layers);
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(text).catch(() => {
+        toast.error("Couldn't copy to clipboard");
+      });
+    }
+  }, []);
+
+  const onPaste = useCallback((e: KeyboardEvent) => {
+    if (typeof navigator === "undefined" || !navigator.clipboard?.readText) return;
+    e.preventDefault();
+    void navigator.clipboard.readText().then((text) => {
+      const layers = tryParseClipboard(text);
+      if (!layers) return;
+      pasteSymbols(layers);
+    }).catch(() => {
+      /* paste denied / no permission — silent */
+    });
+  }, [pasteSymbols]);
+
+  const onFitViewport = useCallback((e: KeyboardEvent) => {
+    e.preventDefault();
+    resetCanvasViewport();
+  }, []);
+
+  const onHundredViewport = useCallback((e: KeyboardEvent) => {
+    e.preventDefault();
+    setCanvasViewportToHundred();
+  }, []);
+
   useKeybinding({ key: "n", mod: true }, onNew);
   useKeybinding({ key: "b", mod: true }, onToggleLeft);
   useKeybinding({ key: "\\", mod: true }, onToggleRight);
@@ -348,4 +419,20 @@ export function useEditorKeybindings(): void {
   useKeybinding({ key: "z", mod: true, shift: false }, onUndo);
   useKeybinding({ key: "z", mod: true, shift: true }, onRedo);
   useKeybinding({ key: "y", mod: true, shift: false }, onRedo);
+
+  // Arrow nudge: 1px (10px with shift). No mod so they don't collide with
+  // browser text-cursor navigation in CodeMirror (allowInTypingFields stays
+  // false by default, so CM still gets first crack).
+  useKeybinding({ key: "ArrowLeft", mod: false }, onNudge(-1, 0));
+  useKeybinding({ key: "ArrowRight", mod: false }, onNudge(1, 0));
+  useKeybinding({ key: "ArrowUp", mod: false }, onNudge(0, -1));
+  useKeybinding({ key: "ArrowDown", mod: false }, onNudge(0, 1));
+
+  // Copy / paste of selected outlines via the system clipboard.
+  useKeybinding({ key: "c", mod: true, shift: false }, onCopy);
+  useKeybinding({ key: "v", mod: true, shift: false }, onPaste);
+
+  // Viewport: 1 = fit, 2 = 100%.
+  useKeybinding({ key: "1", mod: false, shift: false }, onFitViewport);
+  useKeybinding({ key: "2", mod: false, shift: false }, onHundredViewport);
 }

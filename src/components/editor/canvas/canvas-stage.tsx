@@ -3,7 +3,7 @@
 import * as React from "react";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { Layer, Rect, Stage } from "react-konva";
+import { Layer, Line, Rect, Stage } from "react-konva";
 import { STAGE_HEIGHT, STAGE_WIDTH } from "@/lib/constants";
 import {
   marqueeHitTest,
@@ -24,12 +24,16 @@ import { SymbolNode } from "./symbol-node";
 import { useBackdropFileDrop } from "./use-backdrop-file-drop";
 import { useCanvasDrop } from "./use-canvas-drop";
 import { useThumbnailCapture } from "./use-thumbnail-capture";
+import type { AlignmentGuide } from "./alignment-guides";
+import { OutlinesPanel } from "./outlines-panel";
+import { SetupChecklist } from "./setup-checklist";
 
-// Konva fallback for SSR / first-paint before CSS variables resolve. Matches the
-// dark-mode `--stage` token so the unflashed render is indistinguishable.
 const STAGE_PAPER_FALLBACK = "oklch(0.105 0 0)";
 
 const MARQUEE_DRAG_THRESHOLD = 4;
+const ZOOM_MIN = 0.25;
+const ZOOM_MAX = 4;
+const ZOOM_STEP = 1.1;
 
 interface FitBox {
   width: number;
@@ -39,7 +43,14 @@ interface FitBox {
   offsetY: number;
 }
 
+interface Viewport {
+  zoom: number;
+  panX: number;
+  panY: number;
+}
+
 const ZERO_BOX: FitBox = { width: 0, height: 0, scale: 0, offsetX: 0, offsetY: 0 };
+const RESET_VIEWPORT: Viewport = { zoom: 1, panX: 0, panY: 0 };
 
 type MarqueeState =
   | { kind: "idle" }
@@ -62,12 +73,23 @@ type MarqueeState =
 
 const IDLE_MARQUEE: MarqueeState = { kind: "idle" };
 
-// Module-scoped cancel hook so the global Escape handler in keybindings.ts
-// can abort an in-flight marquee without prop drilling.
 let marqueeCancelHandler: (() => boolean) | null = null;
+let viewportControl: {
+  reset: () => void;
+  fit: () => void;
+  to100: () => void;
+} | null = null;
 
 export function cancelMarqueeIfActive(): boolean {
   return marqueeCancelHandler ? marqueeCancelHandler() : false;
+}
+
+export function resetCanvasViewport(): void {
+  viewportControl?.fit();
+}
+
+export function setCanvasViewportToHundred(): void {
+  viewportControl?.to100();
 }
 
 export function CanvasStage() {
@@ -75,6 +97,9 @@ export function CanvasStage() {
   const stageRef = React.useRef<Konva.Stage | null>(null);
   const symbolRefs = React.useRef<Map<string, Konva.Image>>(new Map());
   const [box, setBox] = React.useState<FitBox>(ZERO_BOX);
+  const [viewport, setViewport] = React.useState<Viewport>(RESET_VIEWPORT);
+  const [spaceHeld, setSpaceHeld] = React.useState(false);
+  const [panning, setPanning] = React.useState(false);
 
   const picmonic = usePicmonic();
   const symbols = picmonic?.canvas.symbols ?? EMPTY_SYMBOLS;
@@ -90,9 +115,8 @@ export function CanvasStage() {
     () => new Set(cursorSymbolIds),
     [cursorSymbolIds],
   );
+  const [alignGuides, setAlignGuides] = React.useState<AlignmentGuide[]>([]);
 
-  // For any selected symbol that's grouped, paint a subtle dashed outline on
-  // every member of that group — the visual decode for "these are linked".
   const groupOutlineSymbols = React.useMemo(() => {
     if (selectedIds.length === 0 || symbols.length === 0) return EMPTY_SYMBOLS;
     const selSet = new Set(selectedIds);
@@ -114,12 +138,21 @@ export function CanvasStage() {
     };
   }, []);
 
-  // react-konva does not auto-redraw the layer bitmap when only Rect/Circle
-  // `fill` props change (no other geometry diff). When the theme flips, force
-  // a synchronous draw so the paper + dot grid pick up the new tokens.
   React.useEffect(() => {
     stageRef.current?.draw();
   }, [stageFill]);
+
+  // Reset viewport when switching picmonics so we don't carry zoom/pan into a
+  // different scene. Derived during render via a "previous id" ref instead of
+  // an effect, so we don't pay an extra render cycle on every picmonic switch.
+  const picmonicId = picmonic?.id ?? null;
+  const lastPicmonicIdRef = React.useRef<string | null>(picmonicId);
+  if (lastPicmonicIdRef.current !== picmonicId) {
+    lastPicmonicIdRef.current = picmonicId;
+    if (viewport !== RESET_VIEWPORT) {
+      setViewport(RESET_VIEWPORT);
+    }
+  }
 
   const handleStageRef = React.useCallback((node: Konva.Stage | null) => {
     stageRef.current = node;
@@ -178,10 +211,6 @@ export function CanvasStage() {
     [],
   );
 
-  // Marquee state machine — purely local; selection commits only on mouseup.
-  // The ref tracks the same value the React state holds; we keep both because
-  // event handlers need the latest value synchronously (ref) while the render
-  // path needs to react to changes (state).
   const marqueeStateRef = React.useRef<MarqueeState>(IDLE_MARQUEE);
   const [marquee, setMarqueeState] = React.useState<MarqueeState>(IDLE_MARQUEE);
   const setMarquee = React.useCallback(
@@ -196,20 +225,34 @@ export function CanvasStage() {
     [],
   );
 
-  // Latest symbols available to mouseup handler without recreating callbacks
-  // each render.
   const symbolsRef = React.useRef(symbols);
   React.useEffect(() => {
     symbolsRef.current = symbols;
   }, [symbols]);
 
+  const viewportRef = React.useRef(viewport);
+  React.useEffect(() => {
+    viewportRef.current = viewport;
+  }, [viewport]);
+  const boxRef = React.useRef(box);
+  React.useEffect(() => {
+    boxRef.current = box;
+  }, [box]);
+
+  // Convert a client (viewport pixel) coordinate into stage-world coordinates
+  // accounting for fit-scale + user zoom + pan.
   const stageLocalFromClient = React.useCallback(
     (clientX: number, clientY: number): { x: number; y: number } | null => {
       const stage = stageRef.current;
       if (!stage) return null;
       const r = stage.container().getBoundingClientRect();
-      const sc = stage.scaleX() || 1;
-      return { x: (clientX - r.left) / sc, y: (clientY - r.top) / sc };
+      const b = boxRef.current;
+      const v = viewportRef.current;
+      const totalScale = (b.scale || 1) * v.zoom;
+      return {
+        x: (clientX - r.left - v.panX) / totalScale,
+        y: (clientY - r.top - v.panY) / totalScale,
+      };
     },
     [],
   );
@@ -218,8 +261,6 @@ export function CanvasStage() {
 
   const handleStageContextMenu = React.useCallback(
     (e: KonvaEventObject<PointerEvent>) => {
-      // Only fire for clicks on empty stage; per-symbol and Transformer
-      // handlers stop propagation via cancelBubble.
       if (e.target !== e.target.getStage()) return;
       e.evt.preventDefault();
       const local = stageLocalFromClient(e.evt.clientX, e.evt.clientY);
@@ -232,9 +273,9 @@ export function CanvasStage() {
   const handleStageMouseDown = React.useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
       if (e.target !== e.target.getStage()) return;
-      // Only react to primary button; right-click is consumed by the div
-      // onContextMenu and per-symbol handlers.
       if (e.evt.button !== 0) return;
+      // Suppress marquee while space-pan is active; that gesture pans instead.
+      if (spaceHeld) return;
       const local = stageLocalFromClient(e.evt.clientX, e.evt.clientY);
       if (!local) return;
       setMarquee({
@@ -245,12 +286,9 @@ export function CanvasStage() {
         baseSelection: useStore.getState().selectedSymbolIds.slice(),
       });
     },
-    [stageLocalFromClient],
+    [spaceHeld, stageLocalFromClient],
   );
 
-  // Document-level mousemove/mouseup so the user can drag past the stage
-  // bounds without the marquee getting stuck. Attached only while a drag is
-  // pending or active.
   React.useEffect(() => {
     if (marquee.kind === "idle") return;
 
@@ -278,10 +316,6 @@ export function CanvasStage() {
     };
 
     const onUp = () => {
-      // Read latest marquee state via ref so we can run side-effects
-      // (selection writes) outside the setMarquee updater. Updater functions
-      // must be pure — running setState on another store there triggers the
-      // "setState while rendering" warning.
       const prev = marqueeStateRef.current;
       if (prev.kind === "pending") {
         if (useStore.getState().selectedSymbolIds.length > 0) {
@@ -327,7 +361,6 @@ export function CanvasStage() {
     };
   }, [marquee.kind, clearSelection, setSelectedSymbolIds, stageLocalFromClient]);
 
-  // Register the global marquee-cancel hook for the Escape ladder.
   React.useEffect(() => {
     marqueeCancelHandler = () => {
       let cancelled = false;
@@ -345,29 +378,149 @@ export function CanvasStage() {
     };
   }, []);
 
+  // Wheel zoom (around cursor). Plain wheel scrolls; ctrl/meta+wheel zooms in
+  // the same gesture browsers already use for in-page zoom, which feels native.
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const offX = e.clientX - rect.left - boxRef.current.offsetX;
+      const offY = e.clientY - rect.top - boxRef.current.offsetY;
+      setViewport((prev) => {
+        const dir = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
+        const nextZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, prev.zoom * dir));
+        if (nextZoom === prev.zoom) return prev;
+        // Pan target: keep the world point under cursor stationary.
+        // worldX = (offX - panX) / (fit * zoom). After zoom, set panX so
+        // worldX maps to same screen offX.
+        const fit = boxRef.current.scale || 1;
+        const worldX = (offX - prev.panX) / (fit * prev.zoom);
+        const worldY = (offY - prev.panY) / (fit * prev.zoom);
+        const panX = offX - worldX * fit * nextZoom;
+        const panY = offY - worldY * fit * nextZoom;
+        return { zoom: nextZoom, panX, panY };
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  // Space-drag-pan. Hold space, then click-drag to pan. Space alone changes
+  // cursor; the actual pan is a click+drag while space is held.
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      e.preventDefault();
+      setSpaceHeld(true);
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return;
+      setSpaceHeld(false);
+      setPanning(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!spaceHeld) return;
+    const el = containerRef.current;
+    if (!el) return;
+    let startX = 0;
+    let startY = 0;
+    let startPanX = 0;
+    let startPanY = 0;
+    let active = false;
+    const onDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      startX = e.clientX;
+      startY = e.clientY;
+      startPanX = viewportRef.current.panX;
+      startPanY = viewportRef.current.panY;
+      active = true;
+      setPanning(true);
+    };
+    const onMove = (e: MouseEvent) => {
+      if (!active) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      setViewport((prev) => ({ ...prev, panX: startPanX + dx, panY: startPanY + dy }));
+    };
+    const onUp = () => {
+      active = false;
+      setPanning(false);
+    };
+    el.addEventListener("mousedown", onDown);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      el.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [spaceHeld]);
+
+  // Imperative reset for keybindings.ts to call without prop drilling.
+  React.useEffect(() => {
+    viewportControl = {
+      reset: () => setViewport(RESET_VIEWPORT),
+      fit: () => setViewport(RESET_VIEWPORT),
+      to100: () => {
+        const b = boxRef.current;
+        if (b.scale <= 0) return;
+        const targetZoom = 1 / b.scale;
+        // Center the world in the viewport when going to 100%.
+        const panX = (b.width - STAGE_WIDTH * b.scale * targetZoom) / 2;
+        const panY = (b.height - STAGE_HEIGHT * b.scale * targetZoom) / 2;
+        setViewport({ zoom: targetZoom, panX, panY });
+      },
+    };
+    return () => {
+      viewportControl = null;
+    };
+  }, []);
+
   const symbolsKey = React.useMemo(
     () => symbols.map((s) => s.id).join("|"),
     [symbols],
   );
 
-  // Marquee Rect props (only used while active).
   const marqueeRect: MarqueeRect | null =
     marquee.kind === "active"
       ? normalizeRect(marquee.startX, marquee.startY, marquee.endX, marquee.endY)
       : null;
 
+  const totalScale = (box.scale || 1) * viewport.zoom;
+  const pxToWorld = totalScale > 0 ? 1 / totalScale : 1;
+
+  const cursorClass = panning
+    ? "cursor-grabbing"
+    : spaceHeld
+      ? "cursor-grab"
+      : "";
+
   return (
     <div
       ref={containerRef}
       data-engram-canvas-root
-      className="relative h-full w-full overflow-hidden bg-stage"
+      role="application"
+      aria-label="Mnemonic scene canvas. Drag symbols from the library to outline; arrow keys nudge; hold Space to pan; Ctrl/Cmd-scroll to zoom."
+      className={`relative h-full w-full overflow-hidden bg-stage ${cursorClass}`}
       style={{
         backgroundImage:
           "radial-gradient(ellipse at center, var(--stage-vignette-inner) 0%, var(--stage-vignette-outer) 70%)",
       }}
       onContextMenu={(e) => {
-        // Suppress browser default context menu over the canvas area; the
-        // SymbolContextMenu (per-symbol) handles right-click.
         e.preventDefault();
       }}
     >
@@ -387,8 +540,10 @@ export function CanvasStage() {
             ref={handleStageRef}
             width={box.width}
             height={box.height}
-            scaleX={box.scale}
-            scaleY={box.scale}
+            scaleX={totalScale}
+            scaleY={totalScale}
+            x={viewport.panX}
+            y={viewport.panY}
             onMouseDown={handleStageMouseDown}
             onContextMenu={handleStageContextMenu}
           >
@@ -413,10 +568,14 @@ export function CanvasStage() {
                   selected={selectedSet.has(layer.id)}
                   glowing={glowSet.has(layer.id)}
                   onMount={handleSymbolMount}
+                  onAlignmentGuides={setAlignGuides}
                 />
               ))}
             </Layer>
-            <Layer name="export-chrome" listening={false}>
+            {/* Single overlay layer collapses former group-outline / transformer / marquee
+                trio into one Konva layer so the stage stays under the recommended
+                3-5 layer ceiling. */}
+            <Layer name="overlay">
               {groupOutlineSymbols.map((sy) => (
                 <Rect
                   key={`group-outline-${sy.id}`}
@@ -431,17 +590,25 @@ export function CanvasStage() {
                   opacity={0.45}
                   cornerRadius={4}
                   fill={undefined}
+                  listening={false}
                 />
               ))}
-            </Layer>
-            <Layer name="export-chrome">
+              {alignGuides.map((g, i) => (
+                <Line
+                  key={`align-${i}`}
+                  points={g.points}
+                  stroke={accent}
+                  strokeWidth={1 * pxToWorld}
+                  dash={[4 * pxToWorld, 4 * pxToWorld]}
+                  opacity={0.85}
+                  listening={false}
+                />
+              ))}
               <CanvasTransformer
                 selectedIds={selectedIds}
                 symbolsKey={symbolsKey}
                 getNode={(id) => symbolRefs.current.get(id) ?? null}
               />
-            </Layer>
-            <Layer name="marquee" listening={false}>
               {marqueeRect && (
                 <>
                   <Rect
@@ -451,6 +618,7 @@ export function CanvasStage() {
                     height={marqueeRect.height}
                     fill={accent}
                     opacity={0.1}
+                    listening={false}
                   />
                   <Rect
                     x={marqueeRect.x}
@@ -458,9 +626,10 @@ export function CanvasStage() {
                     width={marqueeRect.width}
                     height={marqueeRect.height}
                     stroke={accent}
-                    strokeWidth={1 / box.scale}
-                    dash={[4 / box.scale, 4 / box.scale]}
+                    strokeWidth={pxToWorld}
+                    dash={[4 * pxToWorld, 4 * pxToWorld]}
                     opacity={0.85}
+                    listening={false}
                   />
                 </>
               )}
@@ -483,7 +652,25 @@ export function CanvasStage() {
           </div>
         </div>
       )}
-      <CornerReadout scale={box.scale} />
+      <CornerReadout
+        scale={box.scale}
+        zoom={viewport.zoom}
+        symbolCount={symbols.length}
+      />
+      <OutlinesPanel symbols={symbols} />
+      <SetupChecklist />
+      {picmonic && symbols.length === 0 && box.scale > 0 && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-12 z-10 flex justify-center"
+        >
+          <div className="flex items-center gap-3 rounded-full border border-border/60 bg-card/70 px-4 py-2 backdrop-blur-sm">
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              Drag a symbol from the library to start outlining
+            </span>
+          </div>
+        </div>
+      )}
       <SymbolContextMenu />
       <StageContextMenu />
       <ReplaceSymbolPopover />
@@ -493,10 +680,24 @@ export function CanvasStage() {
 
 const EMPTY_SYMBOLS = [] as const;
 
-function CornerReadout({ scale }: { scale: number }) {
-  const pct = scale > 0 ? Math.round(scale * 100) : null;
+function CornerReadout({
+  scale,
+  zoom,
+  symbolCount,
+}: {
+  scale: number;
+  zoom: number;
+  symbolCount: number;
+}) {
+  const pct = scale > 0 ? Math.round(scale * zoom * 100) : null;
   return (
     <div className="pointer-events-none absolute bottom-2 right-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
+      {symbolCount > 0 && (
+        <>
+          <span className="text-muted-foreground/80">{symbolCount} outline{symbolCount === 1 ? "" : "s"}</span>
+          <span className="text-muted-foreground/30">·</span>
+        </>
+      )}
       <span>1920 × 1080 · 16:9</span>
       {pct !== null && (
         <>

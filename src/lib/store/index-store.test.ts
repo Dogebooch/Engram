@@ -38,6 +38,10 @@ afterEach(async () => {
 
 describe("useIndexStore", () => {
   it("loads existing index from IDB", async () => {
+    const p = makePicmonic("a", "Alpha", 1);
+    p.meta.tags = ["x"];
+    p.meta.updatedAt = 2;
+    await idbSet(picmonicKey(p.id), p);
     const seeded: PicmonicIndex = [
       {
         id: "a",
@@ -53,6 +57,30 @@ describe("useIndexStore", () => {
     await idbSet(IDB_KEYS.picmonicIndex, seeded);
     await useIndexStore.getState().loadIndex();
     expect(useIndexStore.getState().index).toEqual(seeded);
+  });
+
+  it("orphan sweep drops index entries with no backing record", async () => {
+    const valid = makePicmonic("ok", "Has Record", 1);
+    await idbSet(picmonicKey(valid.id), valid);
+    const seeded: PicmonicIndex = [
+      entryFromPicmonic(valid, null),
+      {
+        id: "orphan",
+        name: "No Record",
+        tags: [],
+        createdAt: 1,
+        updatedAt: 2,
+        thumbDataUrl: null,
+        symbolCount: 0,
+        factCount: 0,
+      },
+    ];
+    await idbSet(IDB_KEYS.picmonicIndex, seeded);
+    await useIndexStore.getState().loadIndex();
+    const idx = useIndexStore.getState().index!;
+    expect(idx.map((e) => e.id)).toEqual(["ok"]);
+    const persisted = await idbGet<PicmonicIndex>(IDB_KEYS.picmonicIndex);
+    expect(persisted!.map((e) => e.id)).toEqual(["ok"]);
   });
 
   it("migrates from raw picmonic:* keys when index is missing", async () => {

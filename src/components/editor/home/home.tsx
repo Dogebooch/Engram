@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { ArrowRightIcon, BrainIcon, FileTextIcon, SearchIcon, ShapesIcon } from "lucide-react";
+import { toast } from "sonner";
+import { ArrowRightIcon, BrainIcon, FileTextIcon, ImageIcon, SearchIcon, ShapesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useStore } from "@/lib/store";
@@ -13,6 +14,9 @@ import { TagEditor } from "@/components/editor/dialogs/tag-editor";
 import { HomeExportDialog } from "./export-menu";
 import { ImportButton } from "./import-button";
 import { PicmonicCard } from "./picmonic-card";
+import { UploadPicmonicButton } from "./upload-picmonic-button";
+import { useUploadPicmonic } from "./use-upload-picmonic";
+import { useImageDrop } from "./use-image-drop";
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
 import { TagFilter } from "./tag-filter";
@@ -45,6 +49,7 @@ interface DialogState {
 export function Home() {
   const index = useIndexStore((s) => s.index);
   const loading = useIndexStore((s) => s.loading);
+  const removeIndexEntry = useIndexStore((s) => s.removeIndexEntry);
   const createPicmonic = useStore((s) => s.createPicmonic);
   const loadPicmonicById = useStore((s) => s.loadPicmonicById);
   const deletePicmonic = useStore((s) => s.deletePicmonic);
@@ -94,8 +99,29 @@ export function Home() {
 
   const clearTags = () => setSelectedTags(new Set());
 
+  const { fromFile, busy: uploadBusy } = useUploadPicmonic();
+  const { containerRef: dropRef, hovering: imageHovering } = useImageDrop(fromFile);
+
   const handleOpen = async (id: string) => {
-    await loadPicmonicById(id);
+    const result = await loadPicmonicById(id);
+    if (result === "loaded") return;
+    if (result === "missing") {
+      const entry = index?.find((e) => e.id === id);
+      toast.error(
+        entry?.name
+          ? `Couldn't load "${entry.name}" — its data is missing.`
+          : "Picmonic data is missing.",
+        {
+          description: "It was likely interrupted before its first save.",
+          action: {
+            label: "Remove from library",
+            onClick: () => removeIndexEntry(id),
+          },
+        },
+      );
+    } else {
+      toast.error("Couldn't load picmonic.");
+    }
   };
 
   const onConfirmDelete = async () => {
@@ -109,11 +135,18 @@ export function Home() {
 
   // Empty index: keep the existing welcome hero. No churn.
   if (!loading && (index?.length ?? 0) === 0) {
-    return <EmptyHero onCreate={() => createPicmonic()} />;
+    return (
+      <EmptyHero
+        onCreate={() => createPicmonic()}
+        dropRef={dropRef}
+        imageHovering={imageHovering}
+        uploadBusy={uploadBusy}
+      />
+    );
   }
 
   return (
-    <div className="h-full w-full overflow-y-auto bg-stage">
+    <div ref={dropRef} className="relative h-full w-full overflow-y-auto bg-stage">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 pb-16 pt-8">
         <header className="flex items-end justify-between gap-4">
           <div>
@@ -128,6 +161,7 @@ export function Home() {
             <span className="font-mono text-[11px] tabular-nums tracking-tight text-muted-foreground">
               {(index?.length ?? 0)} total
             </span>
+            <UploadPicmonicButton size="sm" variant="default" />
             <ImportButton />
           </div>
         </header>
@@ -143,6 +177,8 @@ export function Home() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="pl-7"
+              autoFocus
+              aria-label="Search picmonics by name"
             />
           </div>
           <TagFilter
@@ -221,61 +257,103 @@ export function Home() {
         open={dialog?.type === "export"}
         onOpenChange={(o) => !o && setDialog(null)}
       />
+      {(imageHovering || uploadBusy) && <HomeDropOverlay busy={uploadBusy} />}
     </div>
   );
 }
 
-function EmptyHero({ onCreate }: { onCreate: () => void }) {
+function HomeDropOverlay({ busy }: { busy: boolean }) {
   return (
-    <div className="flex h-full w-full items-center justify-center bg-stage p-10">
-      <div className="relative flex w-full max-w-2xl flex-col items-start gap-8">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -left-32 -top-24 -z-10 size-72 rounded-full bg-accent/10 blur-3xl"
-        />
-        <div className="space-y-3">
-          <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/40 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-            <span aria-hidden className="size-1.5 rounded-full bg-accent" />
-            v{APP_VERSION} · phase 6
+    <div
+      aria-hidden
+      className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm"
+    >
+      <div className="flex flex-col items-center gap-3 rounded-lg border-2 border-dashed border-[var(--accent)]/80 bg-card/70 px-10 py-8 text-center">
+        <ImageIcon className="size-7 text-foreground/80" />
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+          {busy ? "Creating picmonic…" : "Drop to create a picture mnemonic"}
+        </span>
+        {!busy && (
+          <span className="text-sm text-foreground/85">
+            The image becomes the backdrop of a new picmonic.
           </span>
-          <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground">
-            Build your first mnemonic scene.
-          </h1>
-          <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
-            engram is a local-first, Obsidian-native editor for Picmonic-style mnemonics.
-            Nothing leaves your machine. Refresh-safe. Markdown is the source of truth.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            size="lg"
-            onClick={onCreate}
-            className="group bg-accent text-accent-foreground hover:bg-accent/90"
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface EmptyHeroProps {
+  onCreate: () => void;
+  dropRef: React.RefObject<HTMLDivElement | null>;
+  imageHovering: boolean;
+  uploadBusy: boolean;
+}
+
+function EmptyHero({ onCreate, dropRef, imageHovering, uploadBusy }: EmptyHeroProps) {
+  return (
+    <div ref={dropRef} className="relative flex h-full w-full items-center justify-center bg-stage p-10">
+      {(imageHovering || uploadBusy) && <HomeDropOverlay busy={uploadBusy} />}
+      <EmptyHeroInner onCreate={onCreate} />
+    </div>
+  );
+}
+
+function EmptyHeroInner({ onCreate }: { onCreate: () => void }) {
+  return (
+    <div className="relative flex w-full max-w-2xl flex-col items-start gap-8">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-32 -top-24 -z-10 size-72 rounded-full bg-accent/10 blur-3xl"
+      />
+      <div className="space-y-3">
+        <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/40 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+          <span aria-hidden className="size-1.5 rounded-full bg-accent" />
+          v{APP_VERSION} · phase 6
+        </span>
+        <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground">
+          Build your first mnemonic scene.
+        </h1>
+        <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+          engram is a local-first, Obsidian-native editor for Picmonic-style mnemonics.
+          Nothing leaves your machine. Refresh-safe. Markdown is the source of truth.
+        </p>
+        <p className="max-w-xl text-xs leading-relaxed text-muted-foreground/70">
+          Have a Sketchy or Picmonic image? Drop it anywhere on this page, or use
+          the upload button below.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <UploadPicmonicButton size="lg" />
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
+          or
+        </span>
+        <Button
+          size="lg"
+          variant="outline"
+          onClick={onCreate}
+          className="group"
+        >
+          Start blank
+          <ArrowRightIcon className="transition-transform group-hover:translate-x-0.5" />
+        </Button>
+        <ImportButton variant="ghost" />
+      </div>
+      <div className="grid w-full gap-4 sm:grid-cols-3">
+        {POINTS.map(({ icon: Icon, title, body }) => (
+          <div
+            key={title}
+            className="group rounded-lg border border-border/60 bg-card/40 p-4 transition-colors hover:border-border hover:bg-card/70"
           >
-            Create your first Picmonic
-            <ArrowRightIcon className="transition-transform group-hover:translate-x-0.5" />
-          </Button>
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
-            or
-          </span>
-          <ImportButton variant="ghost" />
-        </div>
-        <div className="grid w-full gap-4 sm:grid-cols-3">
-          {POINTS.map(({ icon: Icon, title, body }) => (
-            <div
-              key={title}
-              className="group rounded-lg border border-border/60 bg-card/40 p-4 transition-colors hover:border-border hover:bg-card/70"
-            >
-              <div className="mb-3 flex size-7 items-center justify-center rounded-md border border-border bg-background/60 text-muted-foreground transition-colors group-hover:text-accent">
-                <Icon className="size-3.5" />
-              </div>
-              <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground/90">
-                {title}
-              </h3>
-              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{body}</p>
+            <div className="mb-3 flex size-7 items-center justify-center rounded-md border border-border bg-background/60 text-muted-foreground transition-colors group-hover:text-accent">
+              <Icon className="size-3.5" />
             </div>
-          ))}
-        </div>
+            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground/90">
+              {title}
+            </h3>
+            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{body}</p>
+          </div>
+        ))}
       </div>
     </div>
   );

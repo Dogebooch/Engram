@@ -37,12 +37,25 @@ export interface AddSymbolInput {
 
 export type ReorderMode = "back" | "forward" | "toBack" | "toFront";
 
+export interface PastedLayer {
+  ref: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+}
+
 export interface CanvasSlice {
   addSymbol: (input: AddSymbolInput) => string | null;
   updateSymbol: (
     id: string,
     patch: Partial<Omit<SymbolLayer, "id">>,
   ) => void;
+  /** Move every selected symbol by (dx, dy) in world units, single history entry. */
+  nudgeSymbols: (ids: readonly string[], dx: number, dy: number) => void;
+  /** Add fresh layers from clipboard data; returns the new ids in order. */
+  pasteSymbols: (layers: readonly PastedLayer[]) => string[];
   deleteSymbols: (ids: readonly string[]) => void;
   duplicateSymbols: (ids: readonly string[]) => string[];
   reorderSymbol: (id: string, mode: ReorderMode) => void;
@@ -165,6 +178,62 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       };
     });
     return layer.id;
+  },
+
+  nudgeSymbols: (ids, dx, dy) => {
+    if (ids.length === 0 || (dx === 0 && dy === 0)) return;
+    const idSet = new Set(ids);
+    set((s) => {
+      const cid = s.currentPicmonicId;
+      if (!cid) return s;
+      const picmonic = s.picmonics[cid];
+      if (!picmonic) return s;
+      const symbols = picmonic.canvas.symbols.map((sy) =>
+        idSet.has(sy.id) ? { ...sy, x: sy.x + dx, y: sy.y + dy } : sy,
+      );
+      return {
+        picmonics: {
+          ...s.picmonics,
+          [cid]: patchCanvas(picmonic, { symbols }),
+        },
+      };
+    });
+  },
+
+  pasteSymbols: (layers) => {
+    if (layers.length === 0) return [];
+    const cid = get().currentPicmonicId;
+    if (!cid) return [];
+    const picmonic = get().picmonics[cid];
+    if (!picmonic) return [];
+    const fresh: SymbolLayer[] = layers.map((p) => ({
+      id: newId(),
+      ref: p.ref,
+      x: p.x + SYMBOL_DUPLICATE_OFFSET,
+      y: p.y + SYMBOL_DUPLICATE_OFFSET,
+      width: p.width,
+      height: p.height,
+      rotation: p.rotation,
+      layerIndex: 0,
+      groupId: null,
+      animation: null,
+      animationDelay: null,
+      animationDuration: null,
+    }));
+    const ids = fresh.map((d) => d.id);
+    set((s) => {
+      const p = s.picmonics[cid];
+      if (!p) return s;
+      const symbols = [...p.canvas.symbols, ...fresh];
+      return {
+        picmonics: {
+          ...s.picmonics,
+          [cid]: patchCanvas(p, { symbols }),
+        },
+        selectedSymbolIds: ids,
+      };
+    });
+    return ids;
   },
 
   updateSymbol: (id, patch) => {

@@ -193,6 +193,7 @@ export async function importBundle(
     tags: Array.isArray(meta.tags) ? meta.tags.filter((t) => typeof t === "string") : [],
     createdAt: typeof meta.createdAt === "number" ? meta.createdAt : now,
     updatedAt: now,
+    source: "imported",
   };
 
   return {

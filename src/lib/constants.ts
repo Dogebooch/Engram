@@ -5,7 +5,7 @@ export const STAGE_ASPECT = STAGE_WIDTH / STAGE_HEIGHT;
 export const GRID_SPACING = 64;
 export const GRID_DOT_RADIUS = 1.25;
 
-export const SAVE_DEBOUNCE_MS = 500;
+export const SAVE_DEBOUNCE_MS = 250;
 
 export const IDB_KEYS = {
   uiPrefs: "engram:ui-prefs:v2",
@@ -13,6 +13,12 @@ export const IDB_KEYS = {
   picmonicIndex: "engram:picmonic-index:v1",
   userAssetsIndex: "engram:user-assets-index:v1",
 } as const;
+
+export const CRASH_MIRROR_PREFIX = "engram:crash-mirror:";
+
+export function crashMirrorKey(id: string): string {
+  return `${CRASH_MIRROR_PREFIX}${id}`;
+}
 
 export function picmonicKey(id: string): string {
   return `${IDB_KEYS.picmonicPrefix}${id}`;

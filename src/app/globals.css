@@ -190,6 +190,16 @@
 
 .eng-notes-host .cm-editor {
   height: 100%;
+  outline: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  transition: border-color 120ms ease-out, box-shadow 120ms ease-out;
+}
+
+.eng-notes-host .cm-editor.cm-focused {
+  outline: none;
+  border-color: color-mix(in oklch, var(--accent) 50%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 30%, transparent);
 }
 
 .eng-notes-host .cm-scroller {

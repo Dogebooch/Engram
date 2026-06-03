@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { SAVE_DEBOUNCE_MS } from "@/lib/constants";
 import { debounce, type DebouncedFn } from "@/lib/debounce";
+import { writeCrashMirror } from "@/lib/storage/crash-mirror";
 import { useStore } from "./index";
 import { saveCurrentPicmonicNow } from "./save-now";
 
@@ -15,7 +16,7 @@ let inFlightSave: Promise<void> | null = null;
 /**
  * Flush any debounce-pending save immediately and await its completion.
  * Used by ⌘S / File ▸ Save and by navigation (brand-button → home) so neither
- * the explicit-save path nor a route change races the 500ms debounce.
+ * the explicit-save path nor a route change races the debounce.
  */
 export async function flushPendingSave(): Promise<void> {
   pendingFlush?.();
@@ -36,9 +37,6 @@ export function useDebouncedPicmonicSave(): void {
       }, SAVED_LINGER_MS);
     };
 
-    // The picmonic arg from the subscriber gates the trigger but isn't read
-     // here — saveCurrentPicmonicNow re-reads the active picmonic from the
-    // store at write time so we never persist a stale reference.
     debouncedRef.current = debounce(() => {
       const task = (async () => {
         const ok = await saveCurrentPicmonicNow();
@@ -52,9 +50,6 @@ export function useDebouncedPicmonicSave(): void {
     pendingFlush = () => debouncedRef.current?.flush();
     pendingCancel = () => debouncedRef.current?.cancel();
 
-    // Fires only when the active picmonic's reference changes (Object.is on the
-    // selected value). Unrelated dictionary mutations are skipped, and the initial
-    // subscription doesn't fire — preserving the pre-refactor save semantics.
     const unsubscribe = useStore.subscribe(
       (state) =>
         state.currentPicmonicId
@@ -62,6 +57,9 @@ export function useDebouncedPicmonicSave(): void {
           : null,
       (current) => {
         if (!current) return;
+        // Sync mirror to localStorage before the IDB debounce so a tab kill
+        // inside the debounce window still has the latest state recoverable.
+        writeCrashMirror(current);
         useStore.getState().setSaveStatus("saving");
         debouncedRef.current?.();
       },

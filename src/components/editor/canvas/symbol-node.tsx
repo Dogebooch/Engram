@@ -9,6 +9,7 @@ import { useStore } from "@/lib/store";
 import { getSymbolById, useSymbolsReady } from "@/lib/symbols";
 import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
 import type { SymbolLayer } from "@/lib/types/canvas";
+import { computeAlignmentGuides, type AlignmentGuide } from "./alignment-guides";
 import { useCanvasTagDrag } from "./use-canvas-tag-drag";
 
 const ACCENT_FALLBACK = "oklch(0.78 0.13 75)";
@@ -32,6 +33,12 @@ interface SymbolNodeProps {
    * Sequential mode to dim symbols not linked to the current fact.
    */
   dimFactor?: number;
+  /**
+   * Alignment guides emitter. Called on drag move with the guides to render,
+   * and with an empty array on drag end to clear. Editor canvas wires this;
+   * Player passes nothing.
+   */
+  onAlignmentGuides?: (guides: AlignmentGuide[]) => void;
 }
 
 export const SymbolNode = React.memo(function SymbolNode({
@@ -41,6 +48,7 @@ export const SymbolNode = React.memo(function SymbolNode({
   onMount,
   interactive = true,
   dimFactor = 1,
+  onAlignmentGuides,
 }: SymbolNodeProps) {
   const symbolsReady = useSymbolsReady();
   const entry = getSymbolById(layer.ref);
@@ -127,6 +135,36 @@ export const SymbolNode = React.memo(function SymbolNode({
       if (container) container.style.cursor = "";
     },
     [],
+  );
+
+  const handleDragMove = React.useCallback(
+    (e: KonvaEventObject<DragEvent>) => {
+      if (!onAlignmentGuides) return;
+      const node = e.target as Konva.Image;
+      const cid = useStore.getState().currentPicmonicId;
+      if (!cid) return;
+      const symbols = useStore.getState().picmonics[cid]?.canvas.symbols ?? [];
+      const siblings = symbols.filter((sy) => sy.id !== layer.id);
+      const dragging = {
+        x: node.x(),
+        y: node.y(),
+        width: layer.width,
+        height: layer.height,
+      };
+      const result = computeAlignmentGuides(dragging, siblings);
+      if (result.x !== dragging.x) node.x(result.x);
+      if (result.y !== dragging.y) node.y(result.y);
+      onAlignmentGuides(result.guides);
+    },
+    [layer.id, layer.width, layer.height, onAlignmentGuides],
+  );
+
+  const handleDragEnd = React.useCallback(
+    (e: KonvaEventObject<DragEvent>) => {
+      onAlignmentGuides?.([]);
+      tagDrag.onDragEnd(e);
+    },
+    [onAlignmentGuides, tagDrag],
   );
 
   // Library cache hasn't populated yet — hold rendering as a neutral
@@ -231,7 +269,8 @@ export const SymbolNode = React.memo(function SymbolNode({
       onMouseEnter={interactive ? handleMouseEnter : undefined}
       onMouseLeave={interactive ? handleMouseLeave : undefined}
       onDragStart={interactive ? tagDrag.onDragStart : undefined}
-      onDragEnd={interactive ? tagDrag.onDragEnd : undefined}
+      onDragMove={interactive ? handleDragMove : undefined}
+      onDragEnd={interactive ? handleDragEnd : undefined}
     />
   );
 });
