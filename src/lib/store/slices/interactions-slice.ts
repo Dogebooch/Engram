@@ -46,6 +46,8 @@ export interface InteractionsSlice {
   replacePicker: ReplacePickerState | null;
   /** Ephemeral; intentionally outside `ui` so reload defaults to closed. */
   helpOpen: boolean;
+  /** Ephemeral; intentionally outside `ui` so reload defaults to closed. */
+  settingsOpen: boolean;
   /**
    * Pending request to delete one or more canvas symbols, awaiting user
    * confirmation via the delete-confirm dialog. Transient — never persisted.
@@ -69,6 +71,7 @@ export interface InteractionsSlice {
   openReplacePicker: (x: number, y: number, symbolId: string) => void;
   closeReplacePicker: () => void;
   setHelpOpen: (open: boolean) => void;
+  setSettingsOpen: (open: boolean) => void;
   requestSymbolDelete: (ids: readonly string[]) => void;
   cancelSymbolDelete: () => void;
   /**
@@ -92,6 +95,7 @@ export const createInteractionsSlice: StateCreator<
   stageContextMenu: null,
   replacePicker: null,
   helpOpen: false,
+  settingsOpen: false,
   pendingSymbolDelete: null,
   openFactPicker: (symbolIds) => {
     if (symbolIds.length === 0) return;
@@ -108,6 +112,7 @@ export const createInteractionsSlice: StateCreator<
     set({ replacePicker: { x, y, symbolId } }),
   closeReplacePicker: () => set({ replacePicker: null }),
   setHelpOpen: (open) => set({ helpOpen: open }),
+  setSettingsOpen: (open) => set({ settingsOpen: open }),
   requestSymbolDelete: (ids) => {
     if (ids.length === 0) return;
     set({ pendingSymbolDelete: { ids: [...ids] } });

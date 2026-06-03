@@ -26,6 +26,8 @@ import { Home } from "./home/home";
 import { LeftPanel } from "./panels/left-panel";
 import { PlayerOverlay } from "./player/player-overlay";
 import { RightPanel } from "./panels/right-panel";
+import { SettingsButton } from "./settings-button";
+import { SettingsDialog } from "./settings-dialog";
 import { Topbar } from "./topbar";
 
 const CanvasStage = dynamic(
@@ -75,6 +77,8 @@ export function EditorShell() {
         <SymbolDeleteConfirm />
         <PlayerOverlay />
         <HelpDialog />
+        <SettingsDialog />
+        <SettingsButton />
       </div>
     );
   }
@@ -148,6 +152,8 @@ export function EditorShell() {
       <SymbolDeleteConfirm />
       <PlayerOverlay />
       <HelpDialog />
+      <SettingsDialog />
+      <SettingsButton />
     </div>
   );
 }

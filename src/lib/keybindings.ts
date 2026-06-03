@@ -107,6 +107,15 @@ export function useEditorKeybindings(): void {
     setHelpOpen(true);
   }, [setHelpOpen]);
 
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen);
+  const onSettings = useCallback(
+    (e: KeyboardEvent) => {
+      e.preventDefault();
+      setSettingsOpen(true);
+    },
+    [setSettingsOpen],
+  );
+
   const onFocusSearch = useCallback((e: KeyboardEvent) => {
     e.preventDefault();
     setLeftCollapsed(false);
@@ -192,8 +201,12 @@ export function useEditorKeybindings(): void {
 
   const onEscape = useCallback(() => {
     const s = useStore.getState();
-    // Esc ladder: help → delete-confirm → fact picker → replace picker →
-    // context menu → in-flight marquee → clear selection.
+    // Esc ladder: settings → help → delete-confirm → fact picker → replace
+    // picker → context menu → in-flight marquee → clear selection.
+    if (s.settingsOpen) {
+      setSettingsOpen(false);
+      return;
+    }
     if (s.helpOpen) {
       setHelpOpen(false);
       return;
@@ -230,6 +243,7 @@ export function useEditorKeybindings(): void {
     closeFactPicker,
     closeReplacePicker,
     setHelpOpen,
+    setSettingsOpen,
   ]);
 
   const onOpenFactPicker = useCallback(
@@ -324,6 +338,7 @@ export function useEditorKeybindings(): void {
   useKeybinding({ key: "b", mod: true }, onToggleLeft);
   useKeybinding({ key: "\\", mod: true }, onToggleRight);
   useKeybinding({ key: "?", shift: true }, onHelp);
+  useKeybinding({ key: ",", mod: true }, onSettings);
   useKeybinding({ key: "/" }, onFocusSearch);
   useKeybinding({ key: "Delete" }, onDelete);
   useKeybinding({ key: "Backspace" }, onDelete);
