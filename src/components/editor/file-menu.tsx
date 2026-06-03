@@ -7,7 +7,6 @@ import {
   FileIcon,
   FolderOpenIcon,
   ImportIcon,
-  RefreshCwIcon,
   SaveIcon,
 } from "lucide-react";
 import {
@@ -29,7 +28,6 @@ import { useIndexStore } from "@/lib/store/index-store";
 import { useBundleImport } from "@/lib/import/use-bundle-import";
 import { saveCurrentPicmonicNow } from "@/lib/store/save-now";
 import { flushPendingSave } from "@/lib/store/debounced-save";
-import { checkForUpdates } from "@/lib/updater";
 import { useExportActions } from "./use-export-actions";
 
 const RECENT_LIMIT = 8;
@@ -184,13 +182,6 @@ export function FileMenu() {
               </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuSub>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem onClick={() => void checkForUpdates()}>
-            <RefreshCwIcon />
-            Check for updates&hellip;
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <input

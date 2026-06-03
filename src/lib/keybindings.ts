@@ -82,6 +82,7 @@ export function useEditorKeybindings(): void {
   const cancelSymbolDelete = useStore((s) => s.cancelSymbolDelete);
   const selectAllSymbols = useStore((s) => s.selectAllSymbols);
   const enterPlayer = useStore((s) => s.enterPlayer);
+  const toggleCommandPalette = useStore((s) => s.toggleCommandPalette);
 
   const onNew = useCallback(
     (e: KeyboardEvent) => {
@@ -111,6 +112,14 @@ export function useEditorKeybindings(): void {
   const onHelp = useCallback(() => {
     setHelpOpen(true);
   }, [setHelpOpen]);
+
+  const onToggleCommandPalette = useCallback(
+    (e: KeyboardEvent) => {
+      e.preventDefault();
+      toggleCommandPalette();
+    },
+    [toggleCommandPalette],
+  );
 
   const onFocusSearch = useCallback((e: KeyboardEvent) => {
     e.preventDefault();
@@ -345,6 +354,9 @@ export function useEditorKeybindings(): void {
   }, []);
 
   useKeybinding({ key: "n", mod: true }, onNew);
+  useKeybinding({ key: "k", mod: true }, onToggleCommandPalette, {
+    allowInTypingFields: true,
+  });
   useKeybinding({ key: "b", mod: true }, onToggleLeft);
   useKeybinding({ key: "\\", mod: true }, onToggleRight);
   useKeybinding({ key: "?", shift: true }, onHelp);

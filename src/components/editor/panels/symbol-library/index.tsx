@@ -7,6 +7,7 @@ import {
   STAGE_WIDTH,
   SYMBOL_DEFAULT_SIZE,
 } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import { useCurrentPicmonicId } from "@/lib/store/hooks";
 import { addSymbolWithNoteSync } from "@/lib/canvas/add-symbol-with-note-sync";
@@ -44,6 +45,8 @@ export function SymbolLibrary() {
   const recentIds = useStore((s) => s.ui.recentSymbolIds);
   const addTargetFactId = useStore((s) => s.addSymbolTargetFactId);
   const clearAddTarget = useStore((s) => s.clearAddSymbolTargetFact);
+  const traceOnAdd = useStore((s) => s.ui.traceOnAdd);
+  const toggleTraceOnAdd = useStore((s) => s.toggleTraceOnAdd);
   const currentPicmonicId = useCurrentPicmonicId();
   const notes = useStore((s) =>
     s.currentPicmonicId ? (s.picmonics[s.currentPicmonicId]?.notes ?? "") : "",
@@ -114,12 +117,15 @@ export function SymbolLibrary() {
         });
         return;
       }
-      addSymbolWithNoteSync({
+      const id = addSymbolWithNoteSync({
         ref: entry.id,
         x: CENTER_X,
         y: CENTER_Y,
         targetFactId: addTargetFactId,
       });
+      if (id && useStore.getState().ui.traceOnAdd) {
+        useStore.getState().armSymbolForBuild(id);
+      }
     },
     [addTargetFactId, currentPicmonicId],
   );
@@ -139,11 +145,33 @@ export function SymbolLibrary() {
         <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Library
         </span>
-        {totalLabel && (
-          <span className="font-mono text-[10px] text-muted-foreground/60">
-            {totalLabel}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleTraceOnAdd}
+            aria-pressed={traceOnAdd}
+            title="Trace after adding: start a symbol's outline as soon as you place it (needs a background image)"
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.16em] transition-colors",
+              traceOnAdd
+                ? "border-amber-500/50 bg-amber-500/15 text-amber-400"
+                : "border-border/70 text-muted-foreground/55 hover:text-muted-foreground",
+            )}
+          >
+            <span
+              className={cn(
+                "size-[5px] rounded-full",
+                traceOnAdd ? "bg-amber-500" : "bg-muted-foreground/40",
+              )}
+            />
+            trace
+          </button>
+          {totalLabel && (
+            <span className="font-mono text-[10px] text-muted-foreground/60">
+              {totalLabel}
+            </span>
+          )}
+        </div>
       </div>
 
       <AddRow />

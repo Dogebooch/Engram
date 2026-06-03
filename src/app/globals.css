@@ -189,9 +189,9 @@
   --eng-card-pad-y: 6px;
   --eng-row-gap: 3px;
   /* Neutral card surfaces — amber is reserved for deliberate accents */
-  --eng-card-surface: color-mix(in oklch, var(--foreground) 3%, transparent);
-  --eng-card-header: color-mix(in oklch, var(--foreground) 5.5%, transparent);
-  --eng-card-border: color-mix(in oklch, var(--border) 85%, transparent);
+  --eng-card-surface: color-mix(in oklch, var(--foreground) 5%, transparent);
+  --eng-card-header: color-mix(in oklch, var(--foreground) 8.5%, transparent);
+  --eng-card-border: color-mix(in oklch, var(--border) 95%, transparent);
   --eng-card-radius: 7px;
   /* Unified highlight language (selection / glow / flags) */
   --eng-highlight-bg: color-mix(in oklch, var(--accent) 9%, transparent);
@@ -465,7 +465,7 @@
 body:not([data-engram-tag-dragging])
   .eng-notes-host
   .cm-line.eng-note-fact-line[data-fact-active] {
-  box-shadow: inset 2.5px 0 0 0 color-mix(in oklch, var(--accent) 60%, transparent);
+  box-shadow: inset 3px 0 0 0 color-mix(in oklch, var(--accent) 80%, transparent);
 }
 
 /* Per-fact footer: the card's bottom edge + the "+ symbol" hand-off to the
@@ -484,7 +484,7 @@ body:not([data-engram-tag-dragging])
   border-radius: 0 0 var(--eng-card-radius) var(--eng-card-radius);
   box-shadow: inset 0 1px 0 0
     color-mix(in oklch, var(--eng-card-border) 55%, transparent);
-  color: color-mix(in oklch, var(--muted-foreground) 60%, transparent);
+  color: color-mix(in oklch, var(--muted-foreground) 78%, transparent);
   font-family: var(--font-mono);
   font-size: var(--eng-step-micro);
   letter-spacing: 0.04em;
@@ -561,7 +561,7 @@ body:not([data-engram-tag-dragging])
   .eng-fact-footer[data-fact-active] {
   box-shadow:
     inset 0 1px 0 0 color-mix(in oklch, var(--eng-card-border) 55%, transparent),
-    inset 2.5px 0 0 0 color-mix(in oklch, var(--accent) 60%, transparent);
+    inset 3px 0 0 0 color-mix(in oklch, var(--accent) 80%, transparent);
 }
 
 /* Tier 3 — symbol bullet rows live INSIDE the fact card (the card owns the

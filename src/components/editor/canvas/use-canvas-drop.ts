@@ -5,6 +5,7 @@ import type Konva from "konva";
 import { SYMBOL_DEFAULT_SIZE, SYMBOL_DRAG_MIME } from "@/lib/constants";
 import { addSymbolWithNoteSync } from "@/lib/canvas/add-symbol-with-note-sync";
 import { clampToStage } from "@/lib/canvas/clamp-stage";
+import { useStore } from "@/lib/store";
 
 interface Args {
   stageRef: React.RefObject<Konva.Stage | null>;
@@ -68,7 +69,10 @@ export function useCanvasDrop({
       const half = SYMBOL_DEFAULT_SIZE / 2;
       const { x, y } = clampToStage(localX - half, localY - half);
 
-      addSymbolWithNoteSync({ ref: symbolId, x, y });
+      const id = addSymbolWithNoteSync({ ref: symbolId, x, y });
+      if (id && useStore.getState().ui.traceOnAdd) {
+        useStore.getState().armSymbolForBuild(id);
+      }
     };
 
     el.addEventListener("dragenter", onDragEnter);

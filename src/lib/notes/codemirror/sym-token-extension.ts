@@ -35,10 +35,20 @@ let activeOnPointerDown:
       resolved: ResolvedSymbolChip,
     ) => void)
   | null = null;
+let activeOnDoubleClick:
+  | ((uuid: string, factId: string | null, resolved: ResolvedSymbolChip) => void)
+  | null = null;
 let activeOnHoverChange: ((uuid: string | null) => void) | null = null;
 
 export function setSymbolChipResolver(resolver: SymbolChipResolver): void {
   activeResolver = resolver;
+}
+
+/** Double-click a chip → open the structured Describe editor for that symbol. */
+export function setSymbolChipOnDoubleClick(
+  handler: (uuid: string, factId: string | null, resolved: ResolvedSymbolChip) => void,
+): void {
+  activeOnDoubleClick = handler;
 }
 
 /**
@@ -146,6 +156,12 @@ class SymbolChipWidget extends WidgetType {
       if (e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
+      // Second click of a double-click routes to the Describe editor instead of
+      // re-running select (which would re-prompt the outline confirm).
+      if (e.detail >= 2 && activeOnDoubleClick) {
+        activeOnDoubleClick(this.uuid, this.factId, this.resolved);
+        return;
+      }
       activeOnPointerDown?.(this.uuid, this.factId, e, this.resolved);
     });
     span.addEventListener("mouseenter", () => {

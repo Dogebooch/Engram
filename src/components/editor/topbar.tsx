@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CircleHelpIcon, PanelRightIcon, PlayIcon, PlusIcon, ShapesIcon } from "lucide-react";
+import { PanelRightIcon, PlayIcon, PlusIcon, ShapesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -11,12 +11,10 @@ import { flushPendingSave } from "@/lib/store/debounced-save";
 import { flushIndexPersist } from "@/lib/store/index-store";
 import { AppMenu } from "./app-menu";
 import { EditMenu } from "./edit-menu";
-import { EditorExportMenu } from "./editor-export-menu";
 import { FileMenu } from "./file-menu";
 import { PicmonicName } from "./picmonic-name";
 import { SaveStatus } from "./save-status";
 import { SymbolLibraryDrawer } from "./panels/symbol-library/symbol-library-drawer";
-import { ThemeToggle } from "./theme-toggle";
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
 
@@ -27,7 +25,6 @@ export function Topbar() {
   const createPicmonic = useStore((s) => s.createPicmonic);
   const setCurrentPicmonic = useStore((s) => s.setCurrentPicmonic);
   const enterPlayer = useStore((s) => s.enterPlayer);
-  const setHelpOpen = useStore((s) => s.setHelpOpen);
 
   const inEditor = Boolean(currentId);
 
@@ -81,7 +78,6 @@ export function Topbar() {
         {inEditor ? (
           <>
             <SaveStatus />
-            <EditorExportMenu />
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -102,25 +98,6 @@ export function Topbar() {
             <div className="mx-1 h-4 w-px bg-border/80" aria-hidden="true" />
           </>
         ) : null}
-
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setHelpOpen(true)}
-                aria-label="Keyboard shortcuts"
-                className="text-muted-foreground/70"
-              >
-                <CircleHelpIcon />
-              </Button>
-            }
-          />
-          <TooltipContent>Shortcuts (?)</TooltipContent>
-        </Tooltip>
-
-        <ThemeToggle />
 
         <AppMenu />
 

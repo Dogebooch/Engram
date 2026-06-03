@@ -57,6 +57,8 @@ export interface InteractionsSlice {
   annotationMode: boolean;
   /** Ephemeral; intentionally outside `ui` so reload defaults to closed. */
   helpOpen: boolean;
+  /** Command palette (⌘K) visibility. Transient — reload defaults to closed. */
+  commandPaletteOpen: boolean;
   /**
    * Pending request to delete one or more canvas symbols, awaiting user
    * confirmation via the delete-confirm dialog. Transient — never persisted.
@@ -103,6 +105,8 @@ export interface InteractionsSlice {
   closeReplacePicker: () => void;
   setAnnotationMode: (active: boolean) => void;
   setHelpOpen: (open: boolean) => void;
+  setCommandPaletteOpen: (open: boolean) => void;
+  toggleCommandPalette: () => void;
   requestSymbolDelete: (ids: readonly string[]) => void;
   cancelSymbolDelete: () => void;
   /**
@@ -126,6 +130,12 @@ export interface InteractionsSlice {
    * to a background-picker, after which the canvas auto-continues).
    */
   startOutlineForSymbol: (id: string) => "ready" | "needs-backdrop";
+  /**
+   * "Trace after adding": arm outline drawing for a just-placed symbol. Enters
+   * annotation mode when a backdrop exists; otherwise no-ops (the symbol is
+   * already the selection, so the Describe popover opens on its own).
+   */
+  armSymbolForBuild: (id: string) => void;
   /** Begin a one-by-one walkthrough over symbols missing outlines. */
   startOutlineWalkthrough: (
     ids: readonly string[],
@@ -155,6 +165,7 @@ export const createInteractionsSlice: StateCreator<
   replacePicker: null,
   annotationMode: false,
   helpOpen: false,
+  commandPaletteOpen: false,
   pendingSymbolDelete: null,
   outlineTargetSymbolId: null,
   outlineConfirmSymbolId: null,
@@ -193,6 +204,9 @@ export const createInteractionsSlice: StateCreator<
     // library add doesn't silently inherit a stale outline target.
     set(active ? { annotationMode: true } : { annotationMode: false, addSymbolTargetFactId: null }),
   setHelpOpen: (open) => set({ helpOpen: open }),
+  setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
+  toggleCommandPalette: () =>
+    set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
   requestSymbolDelete: (ids) => {
     if (ids.length === 0) return;
     set({ pendingSymbolDelete: { ids: [...ids] } });
@@ -223,6 +237,15 @@ export const createInteractionsSlice: StateCreator<
     state.setSelectedSymbolIds([id]);
     state.setAnnotationMode(true);
     return "ready";
+  },
+  armSymbolForBuild: (id) => {
+    if (!id) return;
+    // Drawing needs a background; without one, clear the armed target so a later
+    // region draft doesn't bind to this symbol. The Describe popover still opens
+    // because the new symbol is the active selection.
+    if (get().startOutlineForSymbol(id) === "needs-backdrop") {
+      set({ outlineTargetSymbolId: null });
+    }
   },
   startOutlineWalkthrough: (ids) => {
     if (ids.length === 0) return "empty";

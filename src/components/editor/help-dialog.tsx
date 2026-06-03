@@ -25,6 +25,7 @@ const SECTIONS: ShortcutSection[] = [
   {
     name: "Editor",
     rows: [
+      { label: "Command palette", keys: ["⌘", "K"] },
       { label: "New Picmonic", keys: ["⌘", "N"] },
       { label: "Toggle library", keys: ["⌘", "B"] },
       { label: "Toggle notes", keys: ["⌘", "\\"] },

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import { useCurrentPicmonicId, usePicmonic } from "@/lib/store/hooks";
 import { pauseHistory, resumeHistory } from "@/lib/store/temporal";
@@ -133,45 +134,43 @@ export function NotesPanel() {
   return (
     <div className="flex h-full flex-col bg-card/40">
       <div className="flex h-9 items-center justify-between gap-2 border-b border-border px-3">
-        <span className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
+        <span className="font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground/80">
           outline
         </span>
-        <div className="flex items-center gap-3">
+        {/* One quiet status row: the outline CTA is primary (the bulk path for
+            traced scenes), lint issues are a secondary indicator. */}
+        <div className="flex items-center gap-1.5">
           {missingOutlines.length > 0 && (
             <button
               type="button"
               onClick={startOutlining}
               title="Draw outlines for symbols that don't have one yet"
-              className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-500/80 hover:text-amber-400"
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-amber-500 transition-colors hover:border-amber-500/60 hover:bg-amber-500/20"
             >
               <span className="size-[5px] rounded-full bg-amber-500" />
-              {missingOutlines.length} need outline
-              {missingOutlines.length === 1 ? "" : "s"}
+              outline {missingOutlines.length}
             </button>
           )}
-          {(lintCounts.errors > 0 || lintCounts.warnings > 0) && (
+          {lintCounts.errors + lintCounts.warnings > 0 && (
             <button
               type="button"
               onClick={jumpToFirstIssue}
               title="Jump to first issue"
-              className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground/70 hover:text-foreground"
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] transition-colors",
+                lintCounts.errors > 0
+                  ? "text-destructive hover:bg-destructive/10"
+                  : "text-amber-500/80 hover:bg-amber-500/10",
+              )}
             >
-              {lintCounts.errors > 0 && (
-                <span className="flex items-center gap-1 text-destructive">
-                  <span className="size-[5px] rounded-full bg-destructive" />
-                  {lintCounts.errors} error{lintCounts.errors === 1 ? "" : "s"}
-                </span>
-              )}
-              {lintCounts.errors > 0 && lintCounts.warnings > 0 && (
-                <span className="text-muted-foreground/40">·</span>
-              )}
-              {lintCounts.warnings > 0 && (
-                <span className="flex items-center gap-1 text-amber-500">
-                  <span className="size-[5px] rounded-full bg-amber-500" />
-                  {lintCounts.warnings} issue
-                  {lintCounts.warnings === 1 ? "" : "s"}
-                </span>
-              )}
+              <span
+                className={cn(
+                  "size-[5px] rounded-full",
+                  lintCounts.errors > 0 ? "bg-destructive" : "bg-amber-500",
+                )}
+              />
+              {lintCounts.errors + lintCounts.warnings}
+              {lintCounts.errors + lintCounts.warnings === 1 ? " issue" : " issues"}
             </button>
           )}
         </div>

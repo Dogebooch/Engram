@@ -5,12 +5,29 @@ import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import { usePicmonic } from "@/lib/store/hooks";
 
+// True when the store's "just created" flag points at the active Picmonic.
+function isJustCreatedActive(justId: string | null): boolean {
+  if (!justId) return false;
+  return justId === useStore.getState().currentPicmonicId;
+}
+
 export function PicmonicName() {
   const picmonic = usePicmonic();
   const renamePicmonic = useStore((s) => s.renamePicmonic);
 
-  const [editing, setEditing] = React.useState(false);
-  const [draft, setDraft] = React.useState("");
+  // Freshly created Picmonic → open in rename (name-first). The at-mount case
+  // (created from Home) is consumed by the lazy initializer; the while-mounted
+  // case (⌘N already in the editor) is caught by the store subscription below.
+  // Both avoid synchronous setState in an effect body.
+  const [editing, setEditing] = React.useState(() =>
+    isJustCreatedActive(useStore.getState().ui.justCreatedPicmonicId),
+  );
+  const [draft, setDraft] = React.useState(() => {
+    const s = useStore.getState();
+    return isJustCreatedActive(s.ui.justCreatedPicmonicId)
+      ? (s.picmonics[s.currentPicmonicId ?? ""]?.meta.name ?? "")
+      : "";
+  });
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   React.useEffect(() => {
@@ -21,6 +38,22 @@ export function PicmonicName() {
       });
     }
   }, [editing]);
+
+  React.useEffect(() => {
+    // Clear any flag the lazy initializer already consumed, then watch for a
+    // later create while we stay mounted.
+    useStore.getState().clearJustCreatedPicmonic();
+    return useStore.subscribe(
+      (s) => s.ui.justCreatedPicmonicId,
+      (justId) => {
+        if (!isJustCreatedActive(justId)) return;
+        const s = useStore.getState();
+        setDraft(s.picmonics[s.currentPicmonicId ?? ""]?.meta.name ?? "");
+        setEditing(true);
+        s.clearJustCreatedPicmonic();
+      },
+    );
+  }, []);
 
   if (!picmonic) return null;
 

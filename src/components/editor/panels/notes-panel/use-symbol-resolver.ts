@@ -6,6 +6,7 @@ import { getSymbolById, loadSymbols } from "@/lib/symbols";
 import { symbolHasOutline } from "@/lib/canvas/symbol-outline";
 import { isImageSymbolLayer } from "@/lib/types/canvas";
 import {
+  setSymbolChipOnDoubleClick,
   setSymbolChipOnHoverChange,
   setSymbolChipOnPointerDown,
   setSymbolChipResolver,
@@ -59,6 +60,18 @@ export function useSymbolResolver(view: EditorView | null): void {
           }
         },
       });
+    });
+
+    setSymbolChipOnDoubleClick((uuid) => {
+      // Edit the bullet's text in the structured Describe popover rather than
+      // hand-typing `→`/`;` in markdown. Selecting it (single) makes the
+      // popover anchor on the canvas; dismiss any outline prompt the first
+      // click of the double-click may have raised.
+      const state = useStore.getState();
+      state.setLastSyncSource("editor");
+      state.setSelectedSymbolIds([uuid]);
+      state.dismissOutlineConfirm();
+      state.openDescribePopover(uuid);
     });
 
     setSymbolChipOnHoverChange((uuid: string | null) => {

@@ -70,7 +70,9 @@ export const createPicmonicSlice: StateCreator<RootState, [], [], PicmonicSlice>
     set((s) => ({
       picmonics: { ...s.picmonics, [p.id]: p },
       currentPicmonicId: p.id,
-      ui: { ...s.ui, rightCollapsed: true },
+      // Show the notes panel on a fresh scene so its getting-started guidance
+      // is visible, and flag the new id so the title enters rename-on-create.
+      ui: { ...s.ui, rightCollapsed: false, justCreatedPicmonicId: p.id },
     }));
     useIndexStore.getState().upsertIndexEntry(entryFromPicmonic(p, null));
     return p.id;

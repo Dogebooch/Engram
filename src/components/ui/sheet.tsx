@@ -37,7 +37,12 @@ function SheetContent({
       <DialogPrimitive.Popup
         data-slot="sheet-content"
         className={cn(
-          "fixed top-0 z-50 flex h-full w-[clamp(280px,22vw,360px)] flex-col bg-popover text-popover-foreground shadow-xl outline-none duration-200 data-open:animate-in data-closed:animate-out",
+          // `top-0!`: Base UI portals the popup under `[data-base-ui-portal]`,
+          // where a higher-specificity author rule overrides the plain `top-0`
+          // utility with `top:auto`. That drops this `fixed` sheet to its static
+          // position (off-screen at the bottom). The important modifier pins it
+          // to the viewport top; `h-full` then gives it full height.
+          "fixed top-0! z-50 flex h-full w-[clamp(280px,22vw,360px)] flex-col bg-popover text-popover-foreground shadow-xl outline-none duration-200 data-open:animate-in data-closed:animate-out",
           side === "left" &&
             "left-0 border-r border-border data-open:slide-in-from-left data-closed:slide-out-to-left",
           side === "right" &&

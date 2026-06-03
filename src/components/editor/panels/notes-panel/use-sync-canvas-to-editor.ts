@@ -5,12 +5,15 @@ import { EditorView } from "@codemirror/view";
 import type { EditorView as EditorViewType } from "@codemirror/view";
 import { useStore } from "@/lib/store";
 import type { ParsedNotes } from "@/lib/notes/types";
-import {
-  setTransientHighlightEffect,
-} from "./transient-highlight";
+import { setTransientHighlightEffect } from "./transient-highlight";
 
-const HIGHLIGHT_FADE_MS = 850;
-
+/**
+ * Canvas → editor sync. Selecting a symbol on the canvas scrolls its bullet
+ * into view and lights it. The glow pulses once then settles to a calm resting
+ * tint (CSS `forwards`); we keep the decoration applied for the lifetime of the
+ * selection so the "you are here" anchor persists while editing, and clear it
+ * only when the selection empties.
+ */
 export function useSyncCanvasToEditor(
   view: EditorViewType | null,
   parsed: ParsedNotes,
@@ -18,8 +21,6 @@ export function useSyncCanvasToEditor(
   const selectedSymbolIds = useStore((s) => s.selectedSymbolIds);
   const lastSyncSource = useStore((s) => s.lastSyncSource);
   const setLastSyncSource = useStore((s) => s.setLastSyncSource);
-
-  const fadeTimerRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     if (!view) return;
@@ -55,22 +56,6 @@ export function useSyncCanvasToEditor(
       ],
     });
 
-    if (fadeTimerRef.current != null) {
-      window.clearTimeout(fadeTimerRef.current);
-    }
-    fadeTimerRef.current = window.setTimeout(() => {
-      view.dispatch({ effects: setTransientHighlightEffect.of(null) });
-      fadeTimerRef.current = null;
-    }, HIGHLIGHT_FADE_MS);
-
     setLastSyncSource("canvas");
   }, [view, selectedSymbolIds, parsed, lastSyncSource, setLastSyncSource]);
-
-  React.useEffect(() => {
-    return () => {
-      if (fadeTimerRef.current != null) {
-        window.clearTimeout(fadeTimerRef.current);
-      }
-    };
-  }, []);
 }

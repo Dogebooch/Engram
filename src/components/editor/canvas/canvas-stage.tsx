@@ -3,7 +3,9 @@
 import * as React from "react";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
+import { ShapesIcon } from "lucide-react";
 import { Layer, Line, Rect, Stage } from "react-konva";
+import { Button } from "@/components/ui/button";
 import { STAGE_HEIGHT, STAGE_WIDTH } from "@/lib/constants";
 import {
   marqueeHitTest,
@@ -152,6 +154,7 @@ export function CanvasStage() {
   const outlineWalkthrough = useStore((s) => s.outlineWalkthrough);
   const clearSelection = useStore((s) => s.clearSelection);
   const setSelectedSymbolIds = useStore((s) => s.setSelectedSymbolIds);
+  const setLibraryDrawerOpen = useStore((s) => s.setLibraryDrawerOpen);
   const selectedSet = React.useMemo(() => new Set(selectedIds), [selectedIds]);
   const hoveredSymbolId = useStore((s) => s.hoveredSymbolId);
   const glowSet = React.useMemo(() => {
@@ -833,6 +836,12 @@ export function CanvasStage() {
         />
       )}
       {box.scale > 0 && <DescribePopover box={box} />}
+      {symbols.length === 0 &&
+        !backdrop?.uploadedBlobId &&
+        !annotationMode &&
+        !fileHover && (
+          <CanvasEmptyState onAddSymbol={() => setLibraryDrawerOpen(true)} />
+        )}
       <CornerReadout scale={box.scale} />
       <SymbolContextMenu />
       <StageContextMenu />
@@ -842,6 +851,37 @@ export function CanvasStage() {
 }
 
 const EMPTY_SYMBOLS = [] as const;
+
+// Shown on a blank stage (no backdrop, no symbols). Names the two authoring
+// paths — drop/paste an image to trace, or add a library symbol — so a fresh
+// scene is never an unexplained void.
+function CanvasEmptyState({ onAddSymbol }: { onAddSymbol: () => void }) {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
+      <div className="pointer-events-auto flex w-[min(30rem,86%)] flex-col items-center gap-5 rounded-xl border border-border/60 bg-card/70 px-8 py-9 text-center shadow-xl backdrop-blur-sm">
+        <div className="flex flex-col items-center gap-1.5">
+          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+            New scene
+          </span>
+          <h2 className="text-lg font-medium text-foreground">Start your mnemonic</h2>
+          <p className="max-w-[24rem] text-sm leading-relaxed text-muted-foreground">
+            Drop or paste an image to set a background, then trace your symbols on
+            it — or add a symbol from the library to build on a blank stage.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Button onClick={onAddSymbol} size="sm" aria-label="Add a symbol">
+            <ShapesIcon />
+            Add a symbol
+          </Button>
+          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground/60">
+            or drop / paste an image
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function CornerReadout({ scale }: { scale: number }) {
   const pct = scale > 0 ? Math.round(scale * 100) : null;

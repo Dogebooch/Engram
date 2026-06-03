@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { SYMBOL_DRAG_MIME } from "@/lib/constants";
+import { useStore } from "@/lib/store";
 import type { SymbolEntry } from "@/lib/symbols";
 import { cn } from "@/lib/utils";
 import {
@@ -31,6 +32,11 @@ export const LibraryCard = React.memo(function LibraryCard({
       if (img instanceof HTMLImageElement) {
         e.dataTransfer.setDragImage(img, img.width / 2, img.height / 2);
       }
+      // The library is a modal drawer whose full-screen backdrop would swallow
+      // the drop. Close it on the next tick (after the drag image is captured)
+      // so the symbol can land on the now-exposed canvas at the cursor; the
+      // drag continues even though this card unmounts.
+      setTimeout(() => useStore.getState().setLibraryDrawerOpen(false), 0);
     },
     [entry.id, entry.displayName],
   );
