@@ -27,6 +27,15 @@ The pipeline tool is `tools/video-ingest/ingest_video.py`; the MVS transcript br
 change them (see `docs/PIPELINE-SCHEMA.md`). Run everything with the project venv:
 `.\.venv-video-ingest\Scripts\python.exe`. Default out-root: `P:\Python Projects\Engram\video-ingest-runs`.
 
+## Batch / resume (building the whole library)
+For ingesting many videos across sessions, don't track progress by hand — it's **derived** by
+`tools/video-ingest/ingest_queue.py` (pending = MVS index − built `.engram.zip`s − skiplist), so a
+fresh session always continues where the last left off. The **`/ingest-next [N]`** skill wraps the loop:
+it pulls the next `N` pending videos (`ingest_queue.py next`), runs each through the steps below
+facts-only, prints `ingest_queue.py status`, and stops. Default `N`=5; a `dense` (long-transcript)
+video counts as ~2–3 toward the cap. Use `ingest_queue.py skip/flag/reset` for exceptions. Order is
+source → course → title (course-by-course). For a single ad-hoc video, just run the steps below directly.
+
 ## Workflow (facts-only — the default fast path)
 
 ### 1. Extract frames (Python, mechanical) — no transcription
