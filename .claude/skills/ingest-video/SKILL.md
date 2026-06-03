@@ -1,6 +1,7 @@
 ---
 name: ingest-video
 description: Turn a Pixorize/Sketchy/Picmonic-style mnemonic study video into an Engram .engram.zip bundle and import it into the running dev app, with Claude acting as the vision model that identifies and describes every symbol from the narration. Default path is facts-only — Claude writes accurate fact/description/meaning/evidence per symbol and does NOT place boxes; each becomes an un-traced placeholder the user draws via the editor's "needs outline" walkthrough. Rough-box pre-placement and SAM auto-outlining are optional. Use when the user asks to "ingest", "import", "package", or "evaluate" a mnemonic/medical teaching video into Engram.
+argument-hint: <video title or MVS path>
 ---
 
 # Ingest a mnemonic video into Engram (Claude-as-VLM)
