@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CircleHelpIcon, PanelLeftIcon, PanelRightIcon, PlayIcon, PlusIcon } from "lucide-react";
+import { CircleHelpIcon, PanelRightIcon, PlayIcon, PlusIcon, ShapesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ import { EditorExportMenu } from "./editor-export-menu";
 import { FileMenu } from "./file-menu";
 import { PicmonicName } from "./picmonic-name";
 import { SaveStatus } from "./save-status";
+import { SymbolLibraryDrawer } from "./panels/symbol-library/symbol-library-drawer";
 import { ThemeToggle } from "./theme-toggle";
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
@@ -22,7 +23,6 @@ const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
 export function Topbar() {
   const ui = useUiPrefs();
   const currentId = useCurrentPicmonicId();
-  const toggleLeft = useStore((s) => s.toggleLeftCollapsed);
   const toggleRight = useStore((s) => s.toggleRightCollapsed);
   const createPicmonic = useStore((s) => s.createPicmonic);
   const setCurrentPicmonic = useStore((s) => s.setCurrentPicmonic);
@@ -49,23 +49,12 @@ export function Topbar() {
       )}
     >
       {inEditor ? (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={toggleLeft}
-                aria-label={ui.leftCollapsed ? "Show library" : "Hide library"}
-                aria-pressed={!ui.leftCollapsed}
-                className={cn(ui.leftCollapsed && "text-muted-foreground/60")}
-              >
-                <PanelLeftIcon />
-              </Button>
-            }
-          />
-          <TooltipContent>{ui.leftCollapsed ? "Show library" : "Hide library"}</TooltipContent>
-        </Tooltip>
+        <SymbolLibraryDrawer>
+          <Button variant="ghost" size="sm" aria-label="Insert symbol">
+            <ShapesIcon />
+            <span className="hidden md:inline">Insert symbol</span>
+          </Button>
+        </SymbolLibraryDrawer>
       ) : null}
 
       <Brand canGoHome={inEditor} onHome={() => void goHome()} />

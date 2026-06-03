@@ -72,6 +72,15 @@ export interface InteractionsSlice {
   outlineConfirmSymbolId: string | null;
   /** Active "outline every missing symbol" walkthrough, or null. Transient. */
   outlineWalkthrough: OutlineWalkthroughState | null;
+  /**
+   * The symbol whose description/meaning/why is being edited in the canvas
+   * popover. Visibility is also gated on that symbol being the sole selection
+   * (see describe-popover.tsx), so this only needs the id. Transient — never
+   * persisted; reload defaults to closed.
+   */
+  describePopover: { symbolId: string } | null;
+  /** Whether the stock-symbol library slide-over is open. Transient. */
+  libraryDrawerOpen: boolean;
   openFactPicker: (symbolIds: readonly string[]) => void;
   openMoveFactPicker: (symbolId: string, fromFactId: string) => void;
   closeFactPicker: () => void;
@@ -125,6 +134,12 @@ export interface InteractionsSlice {
   advanceOutlineWalkthrough: () => "next" | "done" | "inactive";
   /** Abort/clear the walkthrough and disarm the outline target + annotation. */
   endOutlineWalkthrough: () => void;
+  /** Open the describe popover for a symbol (no-op on empty id). */
+  openDescribePopover: (symbolId: string) => void;
+  /** Dismiss the describe popover without changing the selection. */
+  closeDescribePopover: () => void;
+  setLibraryDrawerOpen: (open: boolean) => void;
+  toggleLibraryDrawer: () => void;
 }
 
 export const createInteractionsSlice: StateCreator<
@@ -144,6 +159,8 @@ export const createInteractionsSlice: StateCreator<
   outlineTargetSymbolId: null,
   outlineConfirmSymbolId: null,
   outlineWalkthrough: null,
+  describePopover: null,
+  libraryDrawerOpen: false,
   openFactPicker: (symbolIds) => {
     if (symbolIds.length === 0) return;
     set({ factPicker: { open: true, mode: "tag", symbolIds: [...symbolIds] } });
@@ -171,7 +188,10 @@ export const createInteractionsSlice: StateCreator<
   openReplacePicker: (x, y, symbolId) =>
     set({ replacePicker: { x, y, symbolId } }),
   closeReplacePicker: () => set({ replacePicker: null }),
-  setAnnotationMode: (active) => set({ annotationMode: active }),
+  setAnnotationMode: (active) =>
+    // Leaving annotation mode also disarms the "active Fact" so a later
+    // library add doesn't silently inherit a stale outline target.
+    set(active ? { annotationMode: true } : { annotationMode: false, addSymbolTargetFactId: null }),
   setHelpOpen: (open) => set({ helpOpen: open }),
   requestSymbolDelete: (ids) => {
     if (ids.length === 0) return;
@@ -232,4 +252,12 @@ export const createInteractionsSlice: StateCreator<
     set({ outlineWalkthrough: null, outlineTargetSymbolId: null });
     get().setAnnotationMode(false);
   },
+  openDescribePopover: (symbolId) => {
+    if (!symbolId) return;
+    set({ describePopover: { symbolId } });
+  },
+  closeDescribePopover: () => set({ describePopover: null }),
+  setLibraryDrawerOpen: (open) => set({ libraryDrawerOpen: open }),
+  toggleLibraryDrawer: () =>
+    set((s) => ({ libraryDrawerOpen: !s.libraryDrawerOpen })),
 });

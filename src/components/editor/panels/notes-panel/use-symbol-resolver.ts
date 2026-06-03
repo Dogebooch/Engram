@@ -62,12 +62,9 @@ export function useSymbolResolver(view: EditorView | null): void {
     });
 
     setSymbolChipOnHoverChange((uuid: string | null) => {
-      const setHover = useStore.getState().setHoveredFact;
-      // hovering a chip in editor → tag-style hover not yet wired to fact;
-      // hover the symbol instead by using selection.hoveredFactId? Phase 4.
-      // For Phase 3, just leave as no-op visual aid for chip itself.
-      void uuid;
-      void setHover;
+      // Hovering a symbol chip in the notes outline highlights its mask on the
+      // canvas (glow). Fires on enter/leave only — no per-mousemove store churn.
+      useStore.getState().setHoveredSymbol(uuid);
     });
   }, []);
 

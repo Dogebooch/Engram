@@ -156,7 +156,9 @@ export function addRegionWithNoteSync(input: AddRegionInput): string | null {
       picmonics: { ...s.picmonics, [cid]: next },
       selectedSymbolIds: [layer.id],
       lastSyncSource: "canvas",
-      addSymbolTargetFactId: null,
+      // NOTE: the active Fact (addSymbolTargetFactId) is intentionally NOT
+      // cleared here, so consecutive outlines in one annotation session keep
+      // filing under the same Fact. It is cleared on annotation-mode exit.
     };
   });
 

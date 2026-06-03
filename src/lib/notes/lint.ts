@@ -47,7 +47,7 @@ function messageFor(code: LintCode): string {
     case "malformed-symbol-token":
       return "Symbol token UUID is not a valid v4 form.";
     case "empty-description":
-      return "Description is empty — add visual text before the `→`. Format: `{sym:UUID} Visual description → meaning; encoding`.";
+      return "Description is empty — add visual text before the `→`. Format: `{sym:UUID} Visual description → meaning; why`.";
     case "unknown-symbol-uuid":
       return "Symbol UUID does not match any canvas symbol.";
     case "missing-arrow":

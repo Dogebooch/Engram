@@ -61,9 +61,10 @@ function focusLibrarySearch() {
 }
 
 export function useEditorKeybindings(): void {
-  const toggleLeft = useStore((s) => s.toggleLeftCollapsed);
+  const toggleLibraryDrawer = useStore((s) => s.toggleLibraryDrawer);
   const toggleRight = useStore((s) => s.toggleRightCollapsed);
-  const setLeftCollapsed = useStore((s) => s.setLeftCollapsed);
+  const setLibraryDrawerOpen = useStore((s) => s.setLibraryDrawerOpen);
+  const closeDescribePopover = useStore((s) => s.closeDescribePopover);
   const createPicmonic = useStore((s) => s.createPicmonic);
   const deleteSymbols = useStore((s) => s.deleteSymbols);
   const duplicateSymbols = useStore((s) => s.duplicateSymbols);
@@ -93,9 +94,9 @@ export function useEditorKeybindings(): void {
   const onToggleLeft = useCallback(
     (e: KeyboardEvent) => {
       e.preventDefault();
-      toggleLeft();
+      toggleLibraryDrawer();
     },
-    [toggleLeft],
+    [toggleLibraryDrawer],
   );
 
   const onToggleRight = useCallback(
@@ -113,9 +114,9 @@ export function useEditorKeybindings(): void {
 
   const onFocusSearch = useCallback((e: KeyboardEvent) => {
     e.preventDefault();
-    setLeftCollapsed(false);
+    setLibraryDrawerOpen(true);
     focusLibrarySearch();
-  }, [setLeftCollapsed]);
+  }, [setLibraryDrawerOpen]);
 
   const onDelete = useCallback(
     (e: KeyboardEvent) => {
@@ -223,6 +224,10 @@ export function useEditorKeybindings(): void {
       closeStageContextMenu();
       return;
     }
+    if (s.describePopover) {
+      closeDescribePopover();
+      return;
+    }
     if (cancelRegionDraftIfActive()) return;
     if (cancelMarqueeIfActive()) return;
     if (s.annotationMode) {
@@ -246,6 +251,7 @@ export function useEditorKeybindings(): void {
     closeStageContextMenu,
     closeFactPicker,
     closeReplacePicker,
+    closeDescribePopover,
     setAnnotationMode,
     setHelpOpen,
   ]);

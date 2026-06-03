@@ -21,13 +21,14 @@ import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
 import type { RegionPoint } from "@/lib/types/canvas";
 import { BackdropLayer } from "./backdrop-layer";
 import { CanvasTransformer } from "./canvas-transformer";
+import { DescribePopover } from "./describe-popover";
 import { setCurrentStage } from "./canvas-stage-ref";
 import { DotGrid } from "./dot-grid";
 import { ReplaceSymbolPopover } from "./replace-symbol-popover";
 import { StageContextMenu } from "./stage-context-menu";
 import { SymbolContextMenu } from "./symbol-context-menu";
 import { SymbolNode } from "./symbol-node";
-import { useBackdropFileDrop } from "./use-backdrop-file-drop";
+import { useCanvasFileDrop } from "./use-canvas-file-drop";
 import { useCanvasDrop } from "./use-canvas-drop";
 import { useThumbnailCapture } from "./use-thumbnail-capture";
 
@@ -152,10 +153,12 @@ export function CanvasStage() {
   const clearSelection = useStore((s) => s.clearSelection);
   const setSelectedSymbolIds = useStore((s) => s.setSelectedSymbolIds);
   const selectedSet = React.useMemo(() => new Set(selectedIds), [selectedIds]);
-  const glowSet = React.useMemo(
-    () => new Set(cursorSymbolIds),
-    [cursorSymbolIds],
-  );
+  const hoveredSymbolId = useStore((s) => s.hoveredSymbolId);
+  const glowSet = React.useMemo(() => {
+    const set = new Set(cursorSymbolIds);
+    if (hoveredSymbolId) set.add(hoveredSymbolId);
+    return set;
+  }, [cursorSymbolIds, hoveredSymbolId]);
 
   // For any selected symbol that's grouped, paint a subtle dashed outline on
   // every member of that group — the visual decode for "these are linked".
@@ -171,7 +174,7 @@ export function CanvasStage() {
   }, [selectedIds, symbols]);
 
   const { dragHover } = useCanvasDrop({ stageRef, containerRef });
-  const { fileHover } = useBackdropFileDrop({ containerRef });
+  const { fileHover } = useCanvasFileDrop({ stageRef, containerRef });
   useThumbnailCapture(stageRef);
 
   React.useEffect(() => {
@@ -330,12 +333,17 @@ export function CanvasStage() {
       if (wt && wt.queue[wt.index] === targetId) {
         advanceWalkthrough();
       } else {
-        // Single-symbol flow — exit annotation mode once the one outline lands.
+        // Single-symbol flow — exit annotation mode once the one outline lands,
+        // then open the describe popover so the user can caption it.
         s.setOutlineTarget(null);
         s.setAnnotationMode(false);
+        s.openDescribePopover(targetId);
       }
     } else {
-      addRegionWithNoteSync({ ...region, shape: "polygon" });
+      // Free outline: mint a bullet and open the describe popover on it. Stay in
+      // annotation mode so the next region can be drawn immediately.
+      const newRegionId = addRegionWithNoteSync({ ...region, shape: "polygon" });
+      if (newRegionId) s.openDescribePopover(newRegionId);
     }
     setRegionDraft(IDLE_REGION_DRAFT);
     return true;
@@ -364,6 +372,8 @@ export function CanvasStage() {
       if (!local) return;
       if (annotationMode && backdrop?.uploadedBlobId) {
         if (e.evt.detail > 1) return;
+        // Starting a new outline dismisses any open describe popover.
+        useStore.getState().closeDescribePopover();
         const point = { x: clampStageX(local.x), y: clampStageY(local.y) };
         regionDragRef.current = { down: point, last: point, drawing: false };
         setRegionDraft((prev) => {
@@ -808,7 +818,7 @@ export function CanvasStage() {
               Drop image
             </span>
             <span className="text-sm font-medium text-foreground">
-              Set as background
+              {backdrop?.uploadedBlobId ? "Add as symbol" : "Set as background"}
             </span>
           </div>
         </div>
@@ -822,6 +832,7 @@ export function CanvasStage() {
           onDone={handleOutlineDone}
         />
       )}
+      {box.scale > 0 && <DescribePopover box={box} />}
       <CornerReadout scale={box.scale} />
       <SymbolContextMenu />
       <StageContextMenu />
@@ -864,7 +875,7 @@ function AnnotationModeBadge({
     ? "Add background first"
     : outlineLabel
       ? `Outline: ${outlineLabel}`
-      : "Outline symbol";
+      : "Click to outline a symbol";
   return (
     <div className="pointer-events-none absolute left-1/2 top-3 z-20 flex max-w-[28rem] -translate-x-1/2 items-center gap-2 rounded-md border border-border/70 bg-card/90 px-2.5 py-1.5 shadow-lg backdrop-blur">
       <span className="max-w-[18rem] truncate font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">

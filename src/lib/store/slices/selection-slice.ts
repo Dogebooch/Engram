@@ -11,6 +11,8 @@ export interface CursorContext {
 export interface SelectionSlice {
   selectedSymbolIds: string[];
   hoveredFactId: string | null;
+  /** Symbol highlighted by hovering its row/chip in the notes outline. */
+  hoveredSymbolId: string | null;
   cursorFactId: string | null;
   cursorSymbolIds: string[];
   lastActiveFactId: string | null;
@@ -38,6 +40,7 @@ export interface SelectionSlice {
   selectAllSymbols: () => void;
   clearSelection: () => void;
   setHoveredFact: (id: string | null) => void;
+  setHoveredSymbol: (id: string | null) => void;
   setCursorContext: (ctx: CursorContext) => void;
   setLastSyncSource: (src: SyncSource) => void;
 }
@@ -61,6 +64,7 @@ function membersOfGroup(
 export const createSelectionSlice: StateCreator<RootState, [], [], SelectionSlice> = (set, get) => ({
   selectedSymbolIds: [],
   hoveredFactId: null,
+  hoveredSymbolId: null,
   cursorFactId: null,
   cursorSymbolIds: [],
   lastActiveFactId: null,
@@ -102,8 +106,10 @@ export const createSelectionSlice: StateCreator<RootState, [], [], SelectionSlic
     const ids = picmonic.canvas.symbols.map((sy) => sy.id);
     set({ selectedSymbolIds: ids });
   },
-  clearSelection: () => set({ selectedSymbolIds: [], hoveredFactId: null }),
+  clearSelection: () =>
+    set({ selectedSymbolIds: [], hoveredFactId: null, hoveredSymbolId: null }),
   setHoveredFact: (id) => set({ hoveredFactId: id }),
+  setHoveredSymbol: (id) => set({ hoveredSymbolId: id }),
   setCursorContext: (ctx) =>
     set((s) => ({
       cursorFactId: ctx.factId,

@@ -24,7 +24,6 @@ import { FactPicker } from "./dialogs/fact-picker";
 import { SymbolDeleteConfirm } from "./dialogs/symbol-delete-confirm";
 import { HelpDialog } from "./help-dialog";
 import { Home } from "./home/home";
-import { LeftPanel } from "./panels/left-panel";
 import { PlayerOverlay } from "./player/player-overlay";
 import { RightPanel } from "./panels/right-panel";
 import { Topbar } from "./topbar";
@@ -48,15 +47,11 @@ export function EditorShell() {
   const ui = useUiPrefs();
   const currentId = useCurrentPicmonicId();
   const playerOpen = useStore((s) => s.player.open);
-  const setLeftPanelSize = useStore((s) => s.setLeftPanelSize);
   const setRightPanelSize = useStore((s) => s.setRightPanelSize);
-  const setLeftCollapsed = useStore((s) => s.setLeftCollapsed);
   const setRightCollapsed = useStore((s) => s.setRightCollapsed);
 
-  const leftRef = usePanelRef();
   const rightRef = usePanelRef();
 
-  useSyncCollapse(leftRef, ui.leftCollapsed);
   useSyncCollapse(rightRef, ui.rightCollapsed);
 
   // Undo history is per-picmonic. Wipe the temporal stack whenever the active
@@ -97,31 +92,6 @@ export function EditorShell() {
         <Topbar />
         <div className="flex flex-1 overflow-hidden">
           <ResizablePanelGroup orientation="horizontal" className="flex-1">
-            <ResizablePanel
-              id="library"
-              panelRef={leftRef}
-              defaultSize={`${ui.leftPanelSize}%`}
-              minSize={`${PANEL_DEFAULTS.leftMin}%`}
-              maxSize={`${PANEL_DEFAULTS.leftMax}%`}
-              collapsible
-              collapsedSize="0%"
-              onResize={(size) => {
-                const pct = size.asPercentage;
-                if (pct <= 0.5) {
-                  if (!useStore.getState().ui.leftCollapsed) setLeftCollapsed(true);
-                } else {
-                  if (useStore.getState().ui.leftCollapsed) setLeftCollapsed(false);
-                  if (Math.abs(pct - useStore.getState().ui.leftPanelSize) > 0.25) {
-                    setLeftPanelSize(pct);
-                  }
-                }
-              }}
-            >
-              <LeftPanel />
-            </ResizablePanel>
-
-            <ResizableHandle />
-
             <ResizablePanel
               id="canvas"
               minSize={`${PANEL_DEFAULTS.centerMin}%`}

@@ -39,7 +39,7 @@ export function NotesPanel() {
     setFactHeadingOnAddToFact((factId: string) => {
       const state = useStore.getState();
       state.setAddSymbolTargetFact(factId);
-      state.setLeftCollapsed(false);
+      state.setLibraryDrawerOpen(true);
       window.dispatchEvent(new CustomEvent("engram:focus-library-search"));
     });
   }, []);
@@ -134,7 +134,7 @@ export function NotesPanel() {
     <div className="flex h-full flex-col bg-card/40">
       <div className="flex h-9 items-center justify-between gap-2 border-b border-border px-3">
         <span className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
-          notes
+          outline
         </span>
         <div className="flex items-center gap-3">
           {missingOutlines.length > 0 && (
