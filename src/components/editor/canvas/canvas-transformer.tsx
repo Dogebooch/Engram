@@ -14,6 +14,11 @@ interface CanvasTransformerProps {
   selectedIds: string[];
   symbolsKey: string;
   getNode: (id: string) => Konva.Image | null;
+  /**
+   * IDs of the currently selected region layers — excluded from the
+   * Transformer because they're locked to the backdrop (no scale/rotate).
+   */
+  regionIds: ReadonlySet<string>;
 }
 
 const ANCHOR_SIZE = 9;
@@ -38,6 +43,7 @@ export function CanvasTransformer({
   selectedIds,
   symbolsKey,
   getNode,
+  regionIds,
 }: CanvasTransformerProps) {
   const transformerRef = React.useRef<Konva.Transformer | null>(null);
   const updateSymbol = useStore((s) => s.updateSymbol);
@@ -48,12 +54,15 @@ export function CanvasTransformer({
   React.useEffect(() => {
     const tr = transformerRef.current;
     if (!tr) return;
+    // Region layers are locked to the backdrop — no scale/rotate handles.
+    // Filter them out so the Transformer only attaches to library symbols.
     const nodes = selectedIds
+      .filter((id) => !regionIds.has(id))
       .map((id) => getNode(id))
       .filter((n): n is Konva.Image => n !== null);
     tr.nodes(nodes);
     tr.getLayer()?.batchDraw();
-  }, [selectedIds, symbolsKey, getNode]);
+  }, [selectedIds, symbolsKey, getNode, regionIds]);
 
   // `shouldOverdrawWholeArea` makes the Transformer eat pointer events inside
   // its bounding box (so drag-to-move works between anchors). Without this
@@ -90,7 +99,9 @@ export function CanvasTransformer({
     [updateSymbol],
   );
 
-  if (selectedIds.length === 0) return null;
+  // Hide the Transformer entirely when the only selected layers are regions.
+  const hasNonRegionSelection = selectedIds.some((id) => !regionIds.has(id));
+  if (selectedIds.length === 0 || !hasNonRegionSelection) return null;
 
   return (
     <Transformer

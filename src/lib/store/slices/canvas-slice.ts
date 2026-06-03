@@ -33,6 +33,14 @@ export interface AddSymbolInput {
   width?: number;
   height?: number;
   rotation?: number;
+  /**
+   * When `kind === "region"`, the layer is a backdrop trace. `ref` is
+   * ignored (set to "" by the caller) and `polygon` is required. `x/y/width/
+   * height` are derived from the polygon bounding box by the caller so
+   * existing hit-test / centroid paths keep working.
+   */
+  kind?: "library" | "region";
+  polygon?: { x: number; y: number }[];
 }
 
 export type ReorderMode = "back" | "forward" | "toBack" | "toFront";
@@ -133,9 +141,12 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
   addSymbol: (input) => {
     const cid = get().currentPicmonicId;
     if (!cid) return null;
+    const isRegion = input.kind === "region";
     const layer: SymbolLayer = {
       id: newId(),
-      ref: input.ref,
+      ref: isRegion ? "" : input.ref,
+      kind: isRegion ? "region" : "library",
+      polygon: isRegion ? input.polygon?.map((p) => ({ x: p.x, y: p.y })) : undefined,
       x: input.x,
       y: input.y,
       width: input.width ?? SYMBOL_DEFAULT_SIZE,
@@ -151,10 +162,14 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       const picmonic = s.picmonics[cid];
       if (!picmonic) return s;
       const symbols = [...picmonic.canvas.symbols, layer];
-      const recent = [
-        input.ref,
-        ...s.ui.recentSymbolIds.filter((r) => r !== input.ref),
-      ].slice(0, RECENT_SYMBOLS_MAX);
+      // Region symbols never enter Recent — they're scene-local and not
+      // meaningfully reusable. Only library adds touch the recent list.
+      const recent = isRegion
+        ? s.ui.recentSymbolIds
+        : [
+            input.ref,
+            ...s.ui.recentSymbolIds.filter((r) => r !== input.ref),
+          ].slice(0, RECENT_SYMBOLS_MAX);
       return {
         picmonics: {
           ...s.picmonics,

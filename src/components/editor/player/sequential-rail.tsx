@@ -36,12 +36,16 @@ export function SequentialRail({
       const line = lines[ref.bulletLine - 1] ?? "";
       const parts = parseBullet(line);
       const layer = symbolsById.get(ref.symbolId);
-      const lib = layer ? getSymbolById(layer.ref) : undefined;
+      const isRegion = layer?.kind === "region";
+      const lib = !isRegion && layer ? getSymbolById(layer.ref) : undefined;
       return {
         symbolId: ref.symbolId,
         bulletLine: ref.bulletLine,
-        symbolName: lib?.displayName ?? null,
-        imageUrl: lib?.imageUrl ?? null,
+        // Regions don't have a library entry; the rail badges them as
+        // "region" so the sequential card doesn't read as a broken symbol.
+        symbolName: isRegion ? "region" : (lib?.displayName ?? null),
+        imageUrl: isRegion ? null : (lib?.imageUrl ?? null),
+        isRegion,
         description: parts.description,
         meaning: parts.meaning,
         encoding: parts.encoding,
@@ -90,6 +94,7 @@ export function SequentialRail({
                   <div
                     key={`${e.symbolId}-${i}-tile`}
                     className="eng-player-rail__tile"
+                    data-region={e.isRegion ? "true" : undefined}
                   >
                     {e.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -98,6 +103,22 @@ export function SequentialRail({
                         alt=""
                         className="eng-player-rail__tile-img"
                       />
+                    ) : e.isRegion ? (
+                      // Region tile: small inline polygon glyph reads as
+                      // "traced shape" — distinct from missing/broken.
+                      <svg
+                        viewBox="0 0 32 32"
+                        className="eng-player-rail__tile-img-region"
+                        aria-hidden
+                      >
+                        <polygon
+                          points="6,11 16,4 26,8 28,21 19,28 8,25 4,17"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
                     ) : (
                       <span
                         className="eng-player-rail__tile-img-missing"

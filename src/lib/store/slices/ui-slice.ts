@@ -4,6 +4,16 @@ import type { RootState } from "../types";
 
 export type PlayerMode = "hotspot" | "sequential";
 
+/**
+ * Active editor tool. Determines which interactions the canvas accepts:
+ * - `"select"`: marquee, click-to-select, drag, transformer (today's default).
+ * - `"lasso"`: pointer-tracking trace on the backdrop to author a region
+ *   symbol. Symbol click/drag and marquee are suppressed while active.
+ *
+ * Transient — never persisted; reload always returns to "select".
+ */
+export type CanvasTool = "select" | "lasso";
+
 export type QuotaThreshold = "80" | "95";
 
 export interface StorageQuotaState {
@@ -35,6 +45,23 @@ export interface UiState {
    * Excluded from persistence via [persist partialize].
    */
   autoOpenedRightForActivePicmonic: boolean;
+  /**
+   * Active canvas tool. Transient — reset to "select" on reload via the
+   * persist partialize so a hot reload mid-trace doesn't dump the user
+   * into a frozen lasso state.
+   */
+  canvasTool: CanvasTool;
+  /**
+   * When set, the canvas renders vertex-edit handles for this region
+   * layer (must be a `kind === "region"` layer). Transient.
+   */
+  regionEditingId: string | null;
+  /**
+   * When set, the lasso tool will replace this region's polygon on commit
+   * instead of creating a new SymbolLayer (the "Re-trace" affordance).
+   * Cleared on commit, on tool exit, and on Escape.
+   */
+  retraceTargetId: string | null;
 }
 
 export interface UiSlice {
@@ -56,6 +83,9 @@ export interface UiSlice {
    */
   ensureRightPanelOpenedOnce: () => void;
   resetAutoOpenedRight: () => void;
+  setCanvasTool: (tool: CanvasTool) => void;
+  setRegionEditingId: (id: string | null) => void;
+  setRetraceTargetId: (id: string | null) => void;
 }
 
 export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => ({
@@ -69,6 +99,9 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
     storageQuota: { percent: null, lastWarned: null },
     confirmSymbolDelete: true,
     autoOpenedRightForActivePicmonic: false,
+    canvasTool: "select",
+    regionEditingId: null,
+    retraceTargetId: null,
   },
   setLeftPanelSize: (size) =>
     set((s) => ({ ui: { ...s.ui, leftPanelSize: size } })),
@@ -114,5 +147,27 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
       s.ui.autoOpenedRightForActivePicmonic
         ? { ui: { ...s.ui, autoOpenedRightForActivePicmonic: false } }
         : s,
+    ),
+  setCanvasTool: (tool) =>
+    set((s) => {
+      if (s.ui.canvasTool === tool) return s;
+      // Switching tools clears any in-flight region edit / retrace target
+      // so the user never sees vertex handles for a layer they can't reach.
+      return {
+        ui: {
+          ...s.ui,
+          canvasTool: tool,
+          regionEditingId: tool === "select" ? s.ui.regionEditingId : null,
+          retraceTargetId: tool === "lasso" ? s.ui.retraceTargetId : null,
+        },
+      };
+    }),
+  setRegionEditingId: (id) =>
+    set((s) =>
+      s.ui.regionEditingId === id ? s : { ui: { ...s.ui, regionEditingId: id } },
+    ),
+  setRetraceTargetId: (id) =>
+    set((s) =>
+      s.ui.retraceTargetId === id ? s : { ui: { ...s.ui, retraceTargetId: id } },
     ),
 });

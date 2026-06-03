@@ -9,6 +9,12 @@ import { coverFit } from "./backdrop-fit";
 
 interface BackdropLayerProps {
   backdrop: Backdrop;
+  /**
+   * When true, the backdrop layer accepts pointer events so the lasso tool
+   * can start a trace by mousing-down on the image. Defaults to false (the
+   * historic behavior — backdrop is purely decorative and never selectable).
+   */
+  listening?: boolean;
 }
 
 /**
@@ -18,7 +24,10 @@ interface BackdropLayerProps {
  * exposed as an object URL for the duration of the component's mount or
  * until `uploadedBlobId` changes.
  */
-export function BackdropLayer({ backdrop }: BackdropLayerProps) {
+export function BackdropLayer({
+  backdrop,
+  listening = false,
+}: BackdropLayerProps) {
   const url = useBlobObjectUrl(backdrop.uploadedBlobId);
   const state = useImage(url);
 
@@ -28,7 +37,7 @@ export function BackdropLayer({ backdrop }: BackdropLayerProps) {
   const fit = coverFit(state.image.naturalWidth, state.image.naturalHeight);
 
   return (
-    <Layer listening={false}>
+    <Layer listening={listening}>
       <KonvaImage
         image={state.image}
         x={fit.x}

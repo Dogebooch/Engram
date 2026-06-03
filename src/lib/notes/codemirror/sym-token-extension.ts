@@ -15,6 +15,12 @@ export interface ResolvedSymbolChip {
   displayName: string;
   imageUrl: string | null;
   broken: boolean;
+  /**
+   * `"library"` (or absent — back-compat) renders the existing image-or-name
+   * chip. `"region"` renders an inline polygon glyph + "region" label, so
+   * users can distinguish trace bullets from icon bullets at a glance.
+   */
+  kind?: "library" | "region";
 }
 
 export type SymbolChipResolver = (uuid: string) => ResolvedSymbolChip;
@@ -56,7 +62,8 @@ class SymbolChipWidget extends WidgetType {
       other.uuid === this.uuid &&
       other.resolved.displayName === this.resolved.displayName &&
       other.resolved.imageUrl === this.resolved.imageUrl &&
-      other.resolved.broken === this.resolved.broken
+      other.resolved.broken === this.resolved.broken &&
+      (other.resolved.kind ?? "library") === (this.resolved.kind ?? "library")
     );
   }
 
@@ -79,6 +86,34 @@ class SymbolChipWidget extends WidgetType {
       label.textContent = "missing";
       span.appendChild(label);
       span.title = `Symbol ${this.uuid.slice(0, 8)}… not on canvas`;
+    } else if (resolved.kind === "region") {
+      span.classList.add("eng-sym-chip-region");
+      // Inline SVG polygon glyph — irregular pentagon to read as "traced
+      // shape" rather than "geometric icon". Stroke-only matches the
+      // canvas region's visual: an outline, not a filled object.
+      const glyph = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "svg",
+      );
+      glyph.setAttribute("class", "eng-sym-chip__glyph");
+      glyph.setAttribute("viewBox", "0 0 16 16");
+      glyph.setAttribute("aria-hidden", "true");
+      const path = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "polygon",
+      );
+      path.setAttribute("points", "3,5 8,2 13,4 14,11 9,14 4,12 2,8");
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "currentColor");
+      path.setAttribute("stroke-width", "1.4");
+      path.setAttribute("stroke-linejoin", "round");
+      glyph.appendChild(path);
+      span.appendChild(glyph);
+      const label = document.createElement("span");
+      label.className = "eng-sym-chip__label";
+      label.textContent = resolved.displayName || "region";
+      span.appendChild(label);
+      span.title = "Traced region";
     } else {
       if (resolved.imageUrl) {
         const img = document.createElement("img");

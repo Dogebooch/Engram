@@ -20,6 +20,15 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface BackdropCardProps {
   /**
@@ -57,6 +66,20 @@ export function BackdropCard({ compact = false }: BackdropCardProps = {}) {
     [],
   );
 
+  // When the user clicks Replace and regions exist on the current scene,
+  // gate the file picker behind a confirm dialog. Replacing the backdrop
+  // strands the polygons over a new image they no longer match — that's
+  // a deliberate user choice, not a silent side-effect.
+  const regionCount = React.useMemo(
+    () => picmonic?.canvas.symbols.filter((s) => s.kind === "region").length ?? 0,
+    [picmonic],
+  );
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+
+  const openFilePicker = React.useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
   const handlePick = React.useCallback(() => {
     if (!picmonic) {
       toast.error("Create a Picmonic first", {
@@ -64,8 +87,17 @@ export function BackdropCard({ compact = false }: BackdropCardProps = {}) {
       });
       return;
     }
-    fileInputRef.current?.click();
-  }, [picmonic]);
+    if (hasBackdrop && regionCount > 0) {
+      setConfirmOpen(true);
+      return;
+    }
+    openFilePicker();
+  }, [picmonic, hasBackdrop, regionCount, openFilePicker]);
+
+  const handleConfirmReplace = React.useCallback(() => {
+    setConfirmOpen(false);
+    openFilePicker();
+  }, [openFilePicker]);
 
   const handleChange = React.useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -279,6 +311,26 @@ export function BackdropCard({ compact = false }: BackdropCardProps = {}) {
         aria-hidden
         tabIndex={-1}
       />
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Replace background?</DialogTitle>
+            <DialogDescription>
+              This scene has {regionCount} traced{" "}
+              {regionCount === 1 ? "region" : "regions"}. Replacing the
+              background leaves them in place — they may no longer match the
+              new image.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmReplace}>Replace anyway</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { FactHotspots, SymbolLayer } from "@/lib/types/canvas";
 import type { ParsedNotes } from "@/lib/notes/types";
+import { polygonCentroid } from "./polygon-centroid";
 
 export interface Point {
   x: number;
@@ -11,8 +12,15 @@ export interface Point {
  *
  * Konva rotates around `{x, y}` (the top-left corner of the unrotated box),
  * so the visual center is the local center `(w/2, h/2)` rotated about origin.
+ *
+ * Region symbols (kind === "region") use their polygon's signed-area
+ * centroid, which is robust to non-convex traces — important because the
+ * lasso routinely produces concave shapes.
  */
 export function symbolCenter(layer: SymbolLayer): Point {
+  if (layer.kind === "region" && layer.polygon && layer.polygon.length > 0) {
+    return polygonCentroid(layer.polygon);
+  }
   const theta = (layer.rotation * Math.PI) / 180;
   const cos = Math.cos(theta);
   const sin = Math.sin(theta);

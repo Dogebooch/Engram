@@ -3,7 +3,7 @@
 import * as React from "react";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { Layer, Rect, Stage } from "react-konva";
+import { Layer, Rect, Shape, Stage } from "react-konva";
 import { STAGE_HEIGHT, STAGE_WIDTH } from "@/lib/constants";
 import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
 import { useStore } from "@/lib/store";
@@ -89,6 +89,24 @@ export function PlayerStage() {
     if (!fact) return EMPTY_SYMBOL_ID_SET;
     return new Set(fact.symbolRefs.map((r) => r.symbolId));
   }, [currentFactId, parsed]);
+
+  // Region layers belonging to the active fact — these drive the backdrop
+  // spotlight. Empty when the fact has no regions, in which case the
+  // overlay layer isn't rendered and Study mode looks identical to today.
+  const linkedRegions = React.useMemo(() => {
+    if (currentLinkedSymbolIds.size === 0) return EMPTY_REGION_LIST;
+    const out = symbols.filter(
+      (s) => s.kind === "region" && currentLinkedSymbolIds.has(s.id),
+    );
+    return out.length === 0 ? EMPTY_REGION_LIST : out;
+  }, [symbols, currentLinkedSymbolIds]);
+
+  const showSpotlight = !!currentFactId && linkedRegions.length > 0;
+
+  // Smooth the spotlight on/off — instant pop reads as harsh, fade reads
+  // as cinematic. 240ms ease-out matches the existing reveal-card timing
+  // so they arrive together when a hotspot is clicked.
+  const spotlightOpacity = useFadeOpacity(showSpotlight, 240);
 
   const [contextMenu, setContextMenu] =
     React.useState<HotspotContextMenuState | null>(null);
@@ -270,6 +288,44 @@ export function PlayerStage() {
             {backdrop && backdrop.uploadedBlobId && (
               <BackdropLayer backdrop={backdrop} />
             )}
+            {(showSpotlight || spotlightOpacity > 0) && (
+              <Layer listening={false} opacity={spotlightOpacity}>
+                <Shape
+                  sceneFunc={(ctx) => {
+                    // Outer stage rect — drawn first.
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(STAGE_WIDTH, 0);
+                    ctx.lineTo(STAGE_WIDTH, STAGE_HEIGHT);
+                    ctx.lineTo(0, STAGE_HEIGHT);
+                    ctx.closePath();
+                    // Each linked region adds an inner subpath. With the
+                    // evenodd fill rule, every odd-depth area is filled and
+                    // every even-depth area is left transparent — so the
+                    // polygons "punch holes" through the dimming rectangle
+                    // and the backdrop pixels under them stay bright.
+                    for (const r of linkedRegions) {
+                      const pts = r.polygon ?? [];
+                      if (pts.length < 3) continue;
+                      ctx.moveTo(pts[0].x, pts[0].y);
+                      for (let i = 1; i < pts.length; i++) {
+                        ctx.lineTo(pts[i].x, pts[i].y);
+                      }
+                      ctx.closePath();
+                    }
+                    ctx.fillStyle = "rgba(0,0,0,0.78)";
+                    // Konva.Context wraps the native 2d context; the
+                    // `_context` escape hatch lets us pass the fill rule.
+                    const native = (ctx as unknown as {
+                      _context: CanvasRenderingContext2D;
+                    })._context;
+                    native.fill("evenodd");
+                  }}
+                  perfectDrawEnabled={false}
+                  listening={false}
+                />
+              </Layer>
+            )}
             <Layer>
               {symbols.map((layer) => {
                 const isLinked = currentLinkedSymbolIds.has(layer.id);
@@ -332,3 +388,48 @@ export function PlayerStage() {
 const EMPTY_SYMBOLS: readonly SymbolLayer[] = [];
 const EMPTY_HOTSPOTS: FactHotspots = {};
 const EMPTY_SYMBOL_ID_SET = new Set<string>();
+const EMPTY_REGION_LIST: readonly SymbolLayer[] = [];
+
+/**
+ * Tween a boolean to an opacity value using rAF — toggling `target` ramps
+ * the returned value 0↔1 across `durationMs` with an ease-out curve. Used
+ * to fade the Study-mode spotlight on and off.
+ */
+function useFadeOpacity(target: boolean, durationMs: number): number {
+  const [opacity, setOpacity] = React.useState(target ? 1 : 0);
+  const rafRef = React.useRef<number | null>(null);
+  const startRef = React.useRef<number | null>(null);
+  const fromRef = React.useRef(target ? 1 : 0);
+  const toRef = React.useRef(target ? 1 : 0);
+
+  React.useEffect(() => {
+    fromRef.current = opacity;
+    toRef.current = target ? 1 : 0;
+    if (fromRef.current === toRef.current) return;
+    startRef.current = null;
+    const tick = (ts: number) => {
+      if (startRef.current == null) startRef.current = ts;
+      const t = Math.min(1, (ts - startRef.current) / durationMs);
+      // Ease-out cubic — fast start, soft landing.
+      const eased = 1 - Math.pow(1 - t, 3);
+      const next =
+        fromRef.current + (toRef.current - fromRef.current) * eased;
+      setOpacity(next);
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        rafRef.current = null;
+      }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    };
+    // We deliberately exclude `opacity` so the effect only re-fires when
+    // the target flips — re-firing on every interim opacity update would
+    // restart the tween mid-flight.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, durationMs]);
+
+  return opacity;
+}

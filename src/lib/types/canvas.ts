@@ -13,9 +13,34 @@ export function emptyBackdrop(): Backdrop {
   return { ref: null, uploadedBlobId: null, opacity: 1 };
 }
 
+export type SymbolKind = "library" | "region";
+
+/** Closed polygon vertex, in stage coordinates. */
+export interface PolygonPoint {
+  x: number;
+  y: number;
+}
+
 export interface SymbolLayer {
   id: string;
   ref: SymbolRef;
+  /**
+   * Discriminator for the layer's source of art:
+   *   - `"library"` (or absent — back-compat default): art comes from a
+   *     library symbol referenced by `ref`; renders as a Konva.Image.
+   *   - `"region"`: layer represents a freehand-traced area of the backdrop.
+   *     `polygon` carries the closed shape; `ref` is "" and ignored. The
+   *     layer renders as a polygon outline in the editor and drives a
+   *     spotlight reveal in Study mode.
+   */
+  kind?: SymbolKind;
+  /**
+   * Required when `kind === "region"`. Closed polygon (the renderer joins
+   * the last point back to the first) in stage coordinates. `x`, `y`,
+   * `width`, `height` mirror the polygon's bounding box so the existing
+   * marquee / hotspot / hit-test code continues to work without branching.
+   */
+  polygon?: PolygonPoint[];
   x: number;
   y: number;
   width: number;
@@ -96,12 +121,18 @@ export function emptyCanvas(): CanvasState {
 export function normalizeCanvas(c: CanvasState): CanvasState {
   const needsBackdrop =
     !c.backdrop || typeof c.backdrop.opacity !== "number";
-  if (c.factMeta && c.timeline && !needsBackdrop) return c;
+  // Back-compat: legacy records may not carry `kind` on each SymbolLayer.
+  // Default to "library" so old data round-trips without changing meaning.
+  const needsKind = c.symbols.some((s) => s.kind === undefined);
+  if (c.factMeta && c.timeline && !needsBackdrop && !needsKind) return c;
   return {
     ...c,
     backdrop: needsBackdrop
       ? { ...emptyBackdrop(), ...(c.backdrop ?? {}) }
       : c.backdrop,
+    symbols: needsKind
+      ? c.symbols.map((s) => (s.kind === undefined ? { ...s, kind: "library" } : s))
+      : c.symbols,
     factMeta: c.factMeta ?? {},
     timeline: c.timeline ?? [],
   };

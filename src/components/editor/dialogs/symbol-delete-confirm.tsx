@@ -24,6 +24,18 @@ export function SymbolDeleteConfirm() {
   const pending = useStore((s) => s.pendingSymbolDelete);
   const cancel = useStore((s) => s.cancelSymbolDelete);
   const confirmPending = useStore((s) => s.confirmPendingSymbolDelete);
+  // Look up layer kinds for the pending selection so the dialog can use
+  // the right noun ("region" vs "symbol") in its title and body.
+  const allRegions = useStore((s) => {
+    if (!pending) return false;
+    const cid = s.currentPicmonicId;
+    if (!cid) return false;
+    const symbols = s.picmonics[cid]?.canvas.symbols ?? [];
+    const idSet = new Set(pending.ids);
+    const matched = symbols.filter((sy) => idSet.has(sy.id));
+    if (matched.length === 0) return false;
+    return matched.every((sy) => sy.kind === "region");
+  });
 
   const [dontAskAgain, setDontAskAgain] = React.useState(false);
   const [prevPending, setPrevPending] = React.useState(pending);
@@ -34,6 +46,8 @@ export function SymbolDeleteConfirm() {
 
   const open = pending !== null;
   const count = pending?.ids.length ?? 0;
+  const noun = allRegions ? "region" : "symbol";
+  const nounPlural = allRegions ? "regions" : "symbols";
 
   const handleOpenChange = React.useCallback(
     (next: boolean) => {
@@ -58,12 +72,14 @@ export function SymbolDeleteConfirm() {
       >
         <DialogHeader>
           <DialogTitle>
-            {count > 1 ? `Delete ${count} symbols?` : "Delete this symbol?"}
+            {count > 1
+              ? `Delete ${count} ${nounPlural}?`
+              : `Delete this ${noun}?`}
           </DialogTitle>
           <DialogDescription>
             {count > 1
-              ? "Their canvas layers will be removed. Any references in your notes will render as [missing] chips so you can decide what to do with them."
-              : "Its canvas layer will be removed. Any reference in your notes will render as a [missing] chip so you can decide what to do with it."}
+              ? `Their canvas layers will be removed and their note bullets dropped. ${allRegions ? "The traced polygons cannot be recovered." : "Any references in your notes will render as [missing] chips so you can decide what to do with them."}`
+              : `Its canvas layer will be removed and its note bullet dropped. ${allRegions ? "The traced polygon cannot be recovered." : "Any reference in your notes will render as a [missing] chip so you can decide what to do with it."}`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="sm:justify-between sm:items-center">

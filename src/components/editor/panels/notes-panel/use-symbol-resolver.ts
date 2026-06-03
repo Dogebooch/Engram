@@ -21,6 +21,14 @@ export function useSymbolResolver(view: EditorView | null): void {
       if (!layer) {
         return { displayName: "missing", imageUrl: null, broken: true };
       }
+      if (layer.kind === "region") {
+        return {
+          displayName: "region",
+          imageUrl: null,
+          broken: false,
+          kind: "region",
+        };
+      }
       const entry = getSymbolById(layer.ref);
       if (!entry) {
         return { displayName: layer.ref, imageUrl: null, broken: false };
@@ -29,6 +37,7 @@ export function useSymbolResolver(view: EditorView | null): void {
         displayName: entry.displayName,
         imageUrl: entry.imageUrl,
         broken: false,
+        kind: "library",
       };
     });
 

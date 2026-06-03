@@ -42,8 +42,10 @@ export const SymbolNode = React.memo(function SymbolNode({
   interactive = true,
   dimFactor = 1,
 }: SymbolNodeProps) {
+  const isRegion = layer.kind === "region";
   const symbolsReady = useSymbolsReady();
-  const entry = getSymbolById(layer.ref);
+  // For region layers we never resolve a library entry; ref is "" by design.
+  const entry = isRegion ? null : getSymbolById(layer.ref);
   const url = entry?.imageUrl ?? null;
   const state = useImage(url);
 
@@ -128,6 +130,11 @@ export const SymbolNode = React.memo(function SymbolNode({
     },
     [],
   );
+
+  // Region layers are rendered by RegionNode (region-node.tsx); the
+  // canvas-stage routes them there directly. SymbolNode handles only
+  // library-symbol layers below.
+  if (isRegion) return null;
 
   // Library cache hasn't populated yet — hold rendering as a neutral
   // placeholder rather than flashing the destructive "broken" state.

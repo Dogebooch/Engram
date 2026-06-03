@@ -3,12 +3,14 @@
 import { usePicmonic } from "@/lib/store/hooks";
 import { AddSymbolCard } from "./add-symbol-card";
 import { BackdropCard } from "./backdrop-card";
+import { TraceRegionRow } from "./trace-region-row";
 
 /**
  * Top-of-library section that pairs the "Add background" and "Add symbol"
  * controls. When no backdrop is set, the two cards sit side-by-side; once a
- * backdrop is set, BackdropCard expands to its full preview/opacity layout
- * and the symbol card drops to a compact row below it.
+ * backdrop is set, BackdropCard expands to its full preview/opacity layout,
+ * the symbol card drops to a compact row below it, and a "Trace region"
+ * row appears (regions only make sense when there's a backdrop to trace).
  */
 export function AddRow() {
   const picmonic = usePicmonic();
@@ -21,6 +23,7 @@ export function AddRow() {
         <div className="border-b border-border bg-card/60 px-3 py-2.5">
           <AddSymbolCard variant="row" />
         </div>
+        <TraceRegionRow />
       </>
     );
   }

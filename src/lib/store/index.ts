@@ -53,7 +53,16 @@ export const useStore = create<RootState>()(
           storage: createJSONStorage(() => idbStateStorage),
           partialize: (s): PersistedShape => ({
             currentPicmonicId: s.currentPicmonicId,
-            ui: { ...s.ui, autoOpenedRightForActivePicmonic: false },
+            // Reset transient editor state on reload — never persist the
+            // active tool or in-flight region edit, so a refresh mid-trace
+            // returns to a clean select-mode canvas.
+            ui: {
+              ...s.ui,
+              autoOpenedRightForActivePicmonic: false,
+              canvasTool: "select",
+              regionEditingId: null,
+              retraceTargetId: null,
+            },
           }),
           version: STORE_VERSION,
           migrate: (state) => state as PersistedShape,

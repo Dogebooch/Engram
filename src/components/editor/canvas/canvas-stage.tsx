@@ -17,6 +17,10 @@ import { BackdropLayer } from "./backdrop-layer";
 import { CanvasTransformer } from "./canvas-transformer";
 import { setCurrentStage } from "./canvas-stage-ref";
 import { DotGrid } from "./dot-grid";
+import { dispatchLassoStart, LassoOverlay } from "./lasso-overlay";
+import { RegionInspector } from "./region-inspector";
+import { RegionNode } from "./region-node";
+import { RegionVertexHandles } from "./region-vertex-handles";
 import { ReplaceSymbolPopover } from "./replace-symbol-popover";
 import { StageContextMenu } from "./stage-context-menu";
 import { SymbolContextMenu } from "./symbol-context-menu";
@@ -85,7 +89,37 @@ export function CanvasStage() {
   const cursorSymbolIds = useStore((s) => s.cursorSymbolIds);
   const clearSelection = useStore((s) => s.clearSelection);
   const setSelectedSymbolIds = useStore((s) => s.setSelectedSymbolIds);
+  const canvasTool = useStore((s) => s.ui.canvasTool);
+  const regionEditingId = useStore((s) => s.ui.regionEditingId);
+  const setRegionEditingId = useStore((s) => s.setRegionEditingId);
   const selectedSet = React.useMemo(() => new Set(selectedIds), [selectedIds]);
+  // ID set of region layers — used by SymbolNode rendering and the
+  // Transformer to skip scale/rotate handles on regions.
+  const regionIdSet = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const sy of symbols) if (sy.kind === "region") set.add(sy.id);
+    return set;
+  }, [symbols]);
+  const editingRegion = React.useMemo(() => {
+    if (!regionEditingId) return null;
+    const found = symbols.find((sy) => sy.id === regionEditingId);
+    if (!found || found.kind !== "region") return null;
+    return found;
+  }, [regionEditingId, symbols]);
+  // The inspector chip is anchored to a single selected region. When the
+  // selection is empty, mixed (region + library), or contains multiple
+  // regions, no chip is shown — that's a cleaner default than guessing
+  // which region a multi-selection chip would target.
+  const inspectorRegion = React.useMemo(() => {
+    if (selectedIds.length !== 1) return null;
+    const found = symbols.find((sy) => sy.id === selectedIds[0]);
+    if (!found || found.kind !== "region") return null;
+    return found;
+  }, [selectedIds, symbols]);
+  const [containerSize, setContainerSize] = React.useState({
+    width: 0,
+    height: 0,
+  });
   const glowSet = React.useMemo(
     () => new Set(cursorSymbolIds),
     [cursorSymbolIds],
@@ -153,6 +187,11 @@ export function CanvasStage() {
         }
         return next;
       });
+      setContainerSize((prev) =>
+        Math.abs(prev.width - cw) < 0.5 && Math.abs(prev.height - ch) < 0.5
+          ? prev
+          : { width: cw, height: ch },
+      );
     };
 
     const rect = el.getBoundingClientRect();
@@ -231,10 +270,21 @@ export function CanvasStage() {
 
   const handleStageMouseDown = React.useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
+      // Lasso tool routes mousedown to the LassoOverlay regardless of
+      // whether the target is the stage paper or the backdrop image —
+      // both should start a trace.
+      if (canvasTool === "lasso" && e.evt.button === 0) {
+        if (dispatchLassoStart(e)) return;
+      }
       if (e.target !== e.target.getStage()) return;
       // Only react to primary button; right-click is consumed by the div
       // onContextMenu and per-symbol handlers.
       if (e.evt.button !== 0) return;
+      // Clicking empty stage in select mode while a region is being
+      // vertex-edited exits edit mode (mirrors clicking off a transformer).
+      if (regionEditingId) {
+        setRegionEditingId(null);
+      }
       const local = stageLocalFromClient(e.evt.clientX, e.evt.clientY);
       if (!local) return;
       setMarquee({
@@ -245,7 +295,7 @@ export function CanvasStage() {
         baseSelection: useStore.getState().selectedSymbolIds.slice(),
       });
     },
-    [stageLocalFromClient],
+    [canvasTool, regionEditingId, setRegionEditingId, stageLocalFromClient],
   );
 
   // Document-level mousemove/mouseup so the user can drag past the stage
@@ -403,18 +453,33 @@ export function CanvasStage() {
               <DotGrid />
             </Layer>
             {backdrop && backdrop.uploadedBlobId && (
-              <BackdropLayer backdrop={backdrop} />
+              <BackdropLayer
+                backdrop={backdrop}
+                listening={canvasTool === "lasso"}
+              />
             )}
-            <Layer>
-              {symbols.map((layer) => (
-                <SymbolNode
-                  key={layer.id}
-                  layer={layer}
-                  selected={selectedSet.has(layer.id)}
-                  glowing={glowSet.has(layer.id)}
-                  onMount={handleSymbolMount}
-                />
-              ))}
+            <Layer listening={canvasTool === "select"}>
+              {symbols.map((layer) =>
+                layer.kind === "region" ? (
+                  <RegionNode
+                    key={layer.id}
+                    layer={layer}
+                    selected={selectedSet.has(layer.id)}
+                    glowing={glowSet.has(layer.id)}
+                    editing={regionEditingId === layer.id}
+                    interactive
+                    dimFactor={1}
+                  />
+                ) : (
+                  <SymbolNode
+                    key={layer.id}
+                    layer={layer}
+                    selected={selectedSet.has(layer.id)}
+                    glowing={glowSet.has(layer.id)}
+                    onMount={handleSymbolMount}
+                  />
+                ),
+              )}
             </Layer>
             <Layer name="export-chrome" listening={false}>
               {groupOutlineSymbols.map((sy) => (
@@ -439,8 +504,18 @@ export function CanvasStage() {
                 selectedIds={selectedIds}
                 symbolsKey={symbolsKey}
                 getNode={(id) => symbolRefs.current.get(id) ?? null}
+                regionIds={regionIdSet}
               />
             </Layer>
+            {editingRegion && canvasTool === "select" && (
+              <RegionVertexHandles
+                region={editingRegion}
+                stageScale={box.scale}
+              />
+            )}
+            {canvasTool === "lasso" && (
+              <LassoOverlay stageRef={stageRef} stageScale={box.scale} />
+            )}
             <Layer name="marquee" listening={false}>
               {marqueeRect && (
                 <>
@@ -467,6 +542,13 @@ export function CanvasStage() {
             </Layer>
           </Stage>
         </div>
+      )}
+      {inspectorRegion && canvasTool === "select" && box.scale > 0 && (
+        <RegionInspector
+          region={inspectorRegion}
+          paperBox={box}
+          containerSize={containerSize}
+        />
       )}
       {fileHover && (
         <div
