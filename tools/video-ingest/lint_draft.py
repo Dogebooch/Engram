@@ -38,6 +38,71 @@ GROUND_MIN_RATIO = 0.6  # a quote must overlap the transcript at least this much
 UNDER_EXTRACTION_FLOOR = (
     12  # dense transcripts almost always name more symbols than this
 )
+OCR_TERM_MIN_LEN = 4  # ignore short tokens when matching on-screen labels
+OCR_MIN_TERMS = 6  # below this, OCR∩transcript is too small to trust coverage
+OCR_COVERAGE_FLOOR = (
+    0.80  # just below the known-good range (min 0.833 over 11 ready bundles)
+)
+
+# Common >=4-char English words that survive the OCR∩transcript intersection but
+# carry no completeness signal. Brand/watermark tokens (Pixorize, v1.0.0, ...) are
+# dropped by the intersection itself — they are not spoken — so only generic fillers
+# that ARE spoken belong here.
+STOPWORDS = frozenset(
+    {
+        "this",
+        "that",
+        "with",
+        "from",
+        "have",
+        "your",
+        "will",
+        "what",
+        "when",
+        "were",
+        "they",
+        "them",
+        "then",
+        "than",
+        "into",
+        "over",
+        "more",
+        "most",
+        "some",
+        "such",
+        "only",
+        "also",
+        "been",
+        "here",
+        "there",
+        "their",
+        "these",
+        "those",
+        "which",
+        "while",
+        "would",
+        "could",
+        "should",
+        "about",
+        "after",
+        "before",
+        "between",
+        "because",
+        "where",
+        "being",
+        "does",
+        "doing",
+        "each",
+        "other",
+        "like",
+        "just",
+        "very",
+        "much",
+        "many",
+        "they",
+        "well",
+    }
+)
 
 _Q = "\"'`“”‘’"
 QUOTE_RE = re.compile(f"[{_Q}]([^{_Q}]{{6,}})[{_Q}]")
@@ -118,6 +183,13 @@ def lint(run_dir: Path, draft_path: Path) -> dict:
                 "msg": "no transcript; evidence grounding skipped",
             }
         )
+
+    ocr_tokens: list[str] = []
+    opath = run_dir / "ocr.json"
+    if opath.exists():
+        o = json.loads(opath.read_text(encoding="utf-8"))
+        osegs = o.get("segments", []) if isinstance(o, dict) else []
+        ocr_tokens = norm(" ".join(clean(s.get("text")) for s in osegs)).split()
 
     duration_ms = 0
     vpath = run_dir / "video_info.json"
@@ -234,11 +306,50 @@ def lint(run_dir: Path, draft_path: Path) -> dict:
             }
         )
 
+    # OCR completeness: terms that are BOTH on-screen (ocr.json) and spoken
+    # (transcript) are the real answer key; watermarks/garble aren't spoken and
+    # drop out of the intersection. ocr_coverage is the fraction of those terms
+    # the draft actually captured.
+    transcript_set = set(transcript_tokens)
+    ocr_terms = sorted(
+        t
+        for t in set(ocr_tokens) & transcript_set
+        if len(t) >= OCR_TERM_MIN_LEN and t not in STOPWORDS
+    )
+    draft_set = set(
+        norm(
+            " ".join(
+                clean(s.get(f))
+                for s in symbols
+                if isinstance(s, dict)
+                for f in ("fact", "meaning", "symbol_description", "symbol_key")
+            )
+        ).split()
+    )
+    missing_terms = [t for t in ocr_terms if t not in draft_set]
+    ocr_coverage = (
+        round((len(ocr_terms) - len(missing_terms)) / len(ocr_terms), 3)
+        if ocr_terms
+        else None
+    )
+
     if seg_count >= DENSE_SEGMENTS and len(symbols) < UNDER_EXTRACTION_FLOOR:
         warnings.append(
             {
                 "code": "possible-under-extraction",
                 "msg": f"dense transcript ({seg_count} segs) but only {len(symbols)} symbols; check for dropped symbols",
+            }
+        )
+    if (
+        OCR_COVERAGE_FLOOR is not None
+        and len(ocr_terms) >= OCR_MIN_TERMS
+        and ocr_coverage is not None
+        and ocr_coverage < OCR_COVERAGE_FLOOR
+    ):
+        warnings.append(
+            {
+                "code": "possible-under-extraction",
+                "msg": f"ocr_coverage {ocr_coverage:.2f} (<{OCR_COVERAGE_FLOOR}); on-screen labels not in draft: {', '.join(missing_terms[:8])}",
             }
         )
 
@@ -255,6 +366,9 @@ def lint(run_dir: Path, draft_path: Path) -> dict:
             "grounded": grounded,
             "ungrounded": ungrounded,
             "duplicates": sum(1 for e in errors if e.get("code") == "duplicate-bullet"),
+            "ocr_terms": len(ocr_terms),
+            "ocr_coverage": ocr_coverage,
+            "missing_terms": missing_terms[:25],
         },
     }
 

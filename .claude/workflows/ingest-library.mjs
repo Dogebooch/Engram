@@ -1,12 +1,13 @@
 export const meta = {
   name: 'ingest-library',
   description:
-    'Autopilot: ingest pending mnemonic videos into Engram .engram.zip bundles — one fresh subagent per video, free lint gate (lint_draft.py), cheap-author (Sonnet) with difficulty-routed Opus and escalate-the-tail. Builds steps 1–6 only; dev-app import stays manual.',
+    'Autopilot: ingest pending mnemonic videos into Engram .engram.zip bundles — one fresh subagent per video, free lint gate (lint_draft.py + OCR completeness), cheap Haiku author with a Sonnet→Opus escalation ladder (dense starts on Opus). Builds steps 1–6 only; dev-app import stays manual.',
   whenToUse:
     'Bulk/unattended building of the Engram library from the MVS-derived ingest queue. Pass {videos:[...]} for an explicit set or {batch:{count,source,course}} to pull from ingest_queue.py.',
   phases: [
-    { title: 'Author', detail: 'Sonnet authors facts-only per video (Opus up-front when dense/forced), runs lint_draft.py, builds the zip if the lint is clean', model: 'sonnet' },
-    { title: 'Escalate', detail: 'Opus re-authors the lint-flagged / under-extracted / pan tail with the critique injected', model: 'opus' },
+    { title: 'Author', detail: 'Haiku authors facts-only per video (Opus up-front when dense/forced), runs lint_draft.py, builds the zip if the lint is clean', model: 'haiku' },
+    { title: 'Escalate', detail: 'Sonnet re-authors the lint-flagged / under-extracted tail with the critique injected', model: 'sonnet' },
+    { title: 'Hard', detail: 'Opus takes the videos Sonnet still cannot clear', model: 'opus' },
     { title: 'Report', detail: 'flag the unresolved videos for review and return the ledger' },
   ],
 }
@@ -101,10 +102,11 @@ function authorPrompt(video, critique) {
     `   - evidence MUST contain an EXACT quoted span copied verbatim from transcript.json plus the @m:ss stamp — the lint verifies the quote against the transcript, so do not paraphrase inside the quotes.`,
     `   - Consult ${TOOLS}\\glossary.json for consistent symbol_key/meaning on recurring visual puns.`,
     `   - Capture EVERY narrated symbol. Dense SOAP scenes name 40+ across S/O/A/P — author the full set; if you cover only part, say which in caveats.`,
+    `   - PRECISION: one record per distinct named structure or mnemonic visual. Do NOT add records for the intro/setting scenery, for a location or function that merely restates a symbol you already have, or for a meaning that duplicates another record. When two would carry the same meaning, keep one. Completeness means every distinct symbol — not re-listing the same one.`,
     ``,
     `6. LINT (the gate):`,
     `   ${PY} ${TOOLS}\\lint_draft.py --run-dir "${runDir}"`,
-    `   Read its JSON. If ok:false, FIX draft_symbols.json and re-lint until clean or you genuinely cannot (then report the remaining error codes). Treat a "possible-under-extraction" warning as a strong sign you dropped symbols — re-scan the transcript before continuing.`,
+    `   Read its JSON. If ok:false, fix draft_symbols.json and re-lint AT MOST ONCE; if it still fails, report the remaining error codes and stop — do not loop. A "possible-under-extraction" warning means you dropped symbols: if stats.missing_terms is non-empty, those on-screen labels are absent from your draft — re-scan the transcript for each before continuing.`,
     ``,
     `7. BUILD only if the lint is ok:true:`,
     `   ${PY} ${TOOLS}\\ingest_video.py --video "${video.path}" --out-root "${outRoot}" --reuse-run --draft-symbols "${runDir}\\draft_symbols.json" --backdrop-index <N>`,
@@ -115,6 +117,11 @@ function authorPrompt(video, critique) {
     `RETURN (StructuredOutput, this is data for the orchestrator not a human message): slug, built (was the .engram.zip written), backdropUsable (false if the backdrop frame is black/corrupt), zipPath, backdropIndex, symbolCount, factCount, sceneKind, caveats[], and lint:{ok,errorCodes[],warningCodes[],symbols,segments} copied from the final lint JSON, plus a short notes string.`,
   ].join('\n')
 }
+
+// Relative cost units per attempt (list-price-ish ratios, NOT dollars) — a deterministic,
+// API-independent proxy for the per-video token spend the agent() API does not expose.
+const COST_UNITS = { haiku: 1, sonnet: 3, opus: 15, 'opus-retry': 15 }
+const videoCost = (h) => (h || []).reduce((sum, x) => sum + (COST_UNITS[x.model] || 0), 0)
 
 // Reasons a stronger re-author can actually fix → worth escalating to Opus.
 function escalateReason(a) {
@@ -142,10 +149,10 @@ function critiqueFrom(a, reason) {
   return parts.join(' ')
 }
 
-function attempt(video, model, critique) {
+function attempt(video, model, critique, phase) {
   return agent(authorPrompt(video, critique), {
     label: `${model}:${video.slug}`,
-    phase: critique ? 'Escalate' : 'Author',
+    phase: phase || (critique ? 'Escalate' : 'Author'),
     model,
     schema: AUTHOR_SCHEMA,
   })
@@ -153,22 +160,30 @@ function attempt(video, model, critique) {
 
 async function processVideo(video) {
   try {
-    const primary = video.forceModel || (video.dense ? 'opus' : 'sonnet')
+    const primary = video.forceModel || (video.dense ? 'opus' : 'haiku')
     const history = []
 
     let a = await attempt(video, primary, null)
     history.push({ model: primary, built: !!(a && a.built), symbols: a ? a.symbolCount : 0 })
     let esc = escalateReason(a)
 
-    if (esc) {
-      // Sonnet that tripped a fixable flag escalates to Opus; an Opus primary gets one Opus retry on hard lint errors.
-      const allow = primary === 'sonnet' || (a && a.lint && !a.lint.ok)
-      if (allow) {
-        const b = await attempt(video, 'opus', critiqueFrom(a, esc))
-        history.push({ model: primary === 'sonnet' ? 'opus' : 'opus-retry', built: !!(b && b.built), symbols: b ? b.symbolCount : 0, escalatedFor: esc })
-        a = b
-        esc = escalateReason(b)
-      }
+    // Climb the tier ladder one rung per fixable flag (haiku → sonnet → opus).
+    // Never escalate a review reason (pan / unusable backdrop) — re-authoring can't fix it.
+    const LADDER = ['haiku', 'sonnet', 'opus']
+    let tier = LADDER.indexOf(primary)
+    while (esc && !reviewReason(a) && tier >= 0 && tier < LADDER.length - 1) {
+      tier += 1
+      const next = LADDER[tier]
+      a = await attempt(video, next, critiqueFrom(a, esc), tier === LADDER.length - 1 ? 'Hard' : 'Escalate')
+      history.push({ model: next, built: !!(a && a.built), symbols: a ? a.symbolCount : 0, escalatedFor: esc })
+      esc = escalateReason(a)
+    }
+    // A dense/forced-Opus primary still gets one Opus self-retry on hard lint errors (unchanged);
+    // a video that already climbed to Opus is not retried — Opus is reached at most once.
+    if (esc && !reviewReason(a) && tier === LADDER.length - 1 && history.length === 1 && a && a.lint && !a.lint.ok) {
+      a = await attempt(video, 'opus', critiqueFrom(a, esc), 'Hard')
+      history.push({ model: 'opus-retry', built: !!(a && a.built), symbols: a ? a.symbolCount : 0, escalatedFor: esc })
+      esc = escalateReason(a)
     }
 
     const built = !!(a && a.built && (a.lint ? a.lint.ok : true))
@@ -240,7 +255,7 @@ if (!videos) {
   videos = (pulled && pulled.videos) || []
 }
 
-log(`Ingesting ${videos.length} video(s) — fresh subagent each, Sonnet-author + Opus-escalate.`)
+log(`Ingesting ${videos.length} video(s) — fresh subagent each, Haiku floor with a Sonnet→Opus escalation ladder.`)
 
 const results = (await parallel(videos.map((v) => () => processVideo(v)))).filter(Boolean)
 
@@ -252,22 +267,35 @@ if (ok.length || review.length || failed.length) {
   await agent(queueUpdatePrompt(ok, [...review, ...failed]), { label: 'queue:update', phase: 'Report', model: 'haiku' })
 }
 
+const ledger = results.map((r) => ({
+  slug: r.slug,
+  status: r.status,
+  finalModel: r.finalModel,
+  escalated: r.escalated,
+  models: (r.history || []).map((h) => h.model),
+  costUnits: videoCost(r.history),
+  symbols: r.symbolCount,
+  sceneKind: r.sceneKind,
+  zipPath: r.zipPath,
+  caveats: r.caveats,
+  unresolvedReason: r.unresolvedReason,
+}))
+const totalCostUnits = ledger.reduce((s, r) => s + r.costUnits, 0)
+const modelMix = {}
+for (const r of ledger) for (const m of r.models) modelMix[m] = (modelMix[m] || 0) + 1
+const escalatedCount = ledger.filter((r) => r.escalated).length
+
 log(`Done: ${ok.length} ready, ${review.length} built-but-flagged, ${failed.length} failed.`)
+log(`Cost: ~${totalCostUnits} units (haiku=1, sonnet=3, opus=15) over ${ledger.length} video(s); ${escalatedCount} escalated; ${budget.spent()} output tokens this run.`)
 
 return {
   built: results.filter((r) => r.built).length,
   ok: ok.length,
   review: review.length,
   failed: failed.length,
-  ledger: results.map((r) => ({
-    slug: r.slug,
-    status: r.status,
-    finalModel: r.finalModel,
-    escalated: r.escalated,
-    symbols: r.symbolCount,
-    sceneKind: r.sceneKind,
-    zipPath: r.zipPath,
-    caveats: r.caveats,
-    unresolvedReason: r.unresolvedReason,
-  })),
+  costUnits: totalCostUnits,
+  modelMix,
+  escalatedCount,
+  outputTokens: budget.spent(),
+  ledger,
 }
