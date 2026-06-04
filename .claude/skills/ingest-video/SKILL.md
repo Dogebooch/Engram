@@ -81,7 +81,7 @@ It's noisy (watermarks, OCR garble) and is **not** evidence — keep `evidence` 
   Pick the most-complete frame and **only author symbols actually visible in it**; note in your summary
   which narrated symbols live on other pans (they'd otherwise send the user to outline something absent).
 
-Override the auto-pick (last keyframe) with `--backdrop-index N` at build time.
+Override the auto-pick (now the latest *colourful* keyframe — it auto-skips Picmonic end text-review pages) with `--backdrop-index N` at build time.
 
 ### 5. Author `draft_symbols.json` (you — the judgment step)
 Write `<out-root>\<slug>\draft_symbols.json` as `{ "model": "claude-facts-only", "symbols": [ ... ] }`,
