@@ -1,23 +1,20 @@
 {
-  "skips": {},
-  "flags": {
-    "225": "autopilot review: pan-coverage",
-    "227": "autopilot review: pan-coverage",
-    "229": "autopilot review: pan-coverage",
-    "231": "autopilot review: pan-coverage"
+  "skips": {
+    "225": "skipped",
+    "227": "skipped",
+    "229": "skipped",
+    "231": "skipped"
   },
+  "flags": {},
   "ready": {
-    "1": "autopilot ok (smoke test)",
-    "2": "autopilot ok (smoke test)",
-    "3": "autopilot ok (smoke test)",
-    "5": "autopilot ok (smoke test)",
-    "762": "autopilot ok (smoke test)",
-    "767": "autopilot ok (smoke test)",
     "223": "autopilot ok: 6 symbols",
     "224": "autopilot ok: 5 symbols",
     "226": "autopilot ok: 12 symbols",
     "228": "autopilot ok: 12 symbols",
     "230": "autopilot ok: 5 symbols",
-    "232": "autopilot ok: 10 symbols"
+    "232": "autopilot ok: 10 symbols",
+    "4": "autopilot ok: 10 symbols",
+    "233": "autopilot ok: 10 symbols",
+    "786": "autopilot ok: 33 symbols"
   }
 }
