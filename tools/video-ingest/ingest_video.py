@@ -660,6 +660,7 @@ def make_bundle(
         "id": picmonic_id,
         "name": info.title,
         "tags": build_bundle_tags(info),
+        "sourceVideo": bundle_source_video(out_dir, info),
         "createdAt": now_ms,
         "updatedAt": now_ms,
         "exportedAt": now_ms,
@@ -677,6 +678,30 @@ def make_bundle(
         zf.writestr(f"{folder}/assets/manifest.json", json.dumps(manifest, indent=2))
         zf.write(backdrop_path, f"{folder}/assets/{backdrop_id}.jpg")
     return bundle_path
+
+
+def bundle_source_video(out_dir: Path, info: VideoInfo) -> dict[str, Any]:
+    source_video: dict[str, Any] = {
+        "provider": "mvs",
+        "title": info.title,
+        "path": info.path,
+    }
+    transcript_path = out_dir / "transcript.json"
+    if transcript_path.exists():
+        try:
+            transcript = read_json(transcript_path)
+            video = transcript.get("video") if isinstance(transcript, dict) else None
+            if isinstance(video, dict):
+                source_video.update(
+                    {
+                        k: video[k]
+                        for k in ("id", "title", "path", "source", "course")
+                        if k in video and video[k] not in (None, "")
+                    }
+                )
+        except Exception:
+            pass
+    return source_video
 
 
 def clean_text(value: Any) -> str:

@@ -97,6 +97,6 @@ describe("editor → home round-trip", () => {
     await flushIndexPersist();
 
     const afterFlush = await idbGet<typeof entry[]>("engram:picmonic-index:v1");
-    expect(afterFlush).toEqual([entry]);
+    expect(afterFlush).toEqual([{ ...entry, folderId: null, sourceVideo: null }]);
   });
 });

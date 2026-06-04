@@ -18,12 +18,10 @@ interface PicmonicCardProps {
   now: number;
   onOpen: () => void;
   onRename: () => void;
-  onEditTags: () => void;
+  onMove: () => void;
   onDuplicate: () => void;
   onExport: () => void;
   onDelete: () => void;
-  onTagClick: (tag: string) => void;
-  selectedTags: ReadonlySet<string>;
 }
 
 export function PicmonicCard({
@@ -31,17 +29,14 @@ export function PicmonicCard({
   now,
   onOpen,
   onRename,
-  onEditTags,
+  onMove,
   onDuplicate,
   onExport,
   onDelete,
-  onTagClick,
-  selectedTags,
 }: PicmonicCardProps) {
-  const visibleTags = entry.tags.slice(0, 3);
-  const hiddenTagCount = Math.max(0, entry.tags.length - visibleTags.length);
   const thumbDataUrl =
     entry.symbolCount > 0 || entry.factCount > 0 ? entry.thumbDataUrl : null;
+  const sourceLabel = entry.sourceVideo?.source ?? entry.sourceVideo?.course ?? null;
 
   return (
     <div className="group relative flex flex-col">
@@ -85,6 +80,11 @@ export function PicmonicCard({
             <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">
               picmonic
             </span>
+            {entry.sourceVideo ? (
+              <span className="rounded-sm bg-accent/15 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-accent-foreground/80">
+                {entry.sourceVideo.confidence === "probable" ? "possible import" : sourceLabel ?? "imported"}
+              </span>
+            ) : null}
           </div>
           <h3 className="truncate text-sm font-medium text-foreground" title={entry.name}>
             {entry.name}
@@ -103,37 +103,6 @@ export function PicmonicCard({
         </div>
       </button>
 
-      {visibleTags.length > 0 && (
-        <div className="mt-1 flex flex-wrap items-center gap-1 px-3 pb-1">
-          {visibleTags.map((t) => {
-            const selected = selectedTags.has(t);
-            return (
-              <button
-                key={t}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onTagClick(t);
-                }}
-                className={cn(
-                  "inline-flex items-center rounded-sm px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] transition-colors",
-                  selected
-                    ? "bg-accent/20 text-accent-foreground/90 ring-1 ring-accent/40"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                {t}
-              </button>
-            );
-          })}
-          {hiddenTagCount > 0 && (
-            <span className="font-mono text-[10px] text-muted-foreground/60">
-              +{hiddenTagCount}
-            </span>
-          )}
-        </div>
-      )}
-
       <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -150,7 +119,7 @@ export function PicmonicCard({
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onOpen}>Open</DropdownMenuItem>
             <DropdownMenuItem onClick={onRename}>Rename</DropdownMenuItem>
-            <DropdownMenuItem onClick={onEditTags}>Edit tags…</DropdownMenuItem>
+            <DropdownMenuItem onClick={onMove}>Move to folder…</DropdownMenuItem>
             <DropdownMenuItem onClick={onDuplicate}>Duplicate</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onExport}>Export…</DropdownMenuItem>

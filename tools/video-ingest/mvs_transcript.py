@@ -174,6 +174,14 @@ def main() -> int:
         "status": "ok" if segments else "empty",
         "model": "mvs-index",
         "source": "medicine-video-searcher",
+        "video": {
+            "provider": "mvs",
+            "id": int(v["id"]),
+            "title": v["title"],
+            "path": v["path"],
+            "source": v["source"],
+            "course": v["course"],
+        },
         "segments": segments,
     }
     out_path.parent.mkdir(parents=True, exist_ok=True)

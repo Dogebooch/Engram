@@ -121,6 +121,68 @@ describe("importBundle round-trip", () => {
     const v4Re = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     expect(imported.id).toMatch(v4Re);
   });
+
+  it("exports sourceVideo metadata and imports it for provenance matching", async () => {
+    const source = makeSourcePicmonic({
+      meta: {
+        name: "2nd Generation Cephalosporin",
+        tags: [],
+        sourceVideo: {
+          provider: "mvs",
+          id: 5,
+          title: "2nd Generation Cephalosporin",
+          path: "P:\\Medicine Videos\\Picmonic\\Picmonic\\2nd Generation Cephalosporin.mov",
+          source: "Picmonic",
+          course: "Picmonic",
+          importedAt: 1_700_000_000_000,
+          confidence: "matched",
+        },
+        createdAt: 1_700_000_000_000,
+        updatedAt: 1_700_000_000_500,
+      },
+    });
+    const blob = await buildBundleZip({ picmonic: source, pngBlob: null });
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+    const metaEntry = Object.values(zip.files).find((entry) =>
+      entry.name.endsWith("meta.json"),
+    );
+    expect(metaEntry).toBeDefined();
+    const meta = JSON.parse(await metaEntry!.async("string")) as {
+      sourceVideo?: unknown;
+    };
+    expect(meta.sourceVideo).toMatchObject({
+      provider: "mvs",
+      id: 5,
+      title: "2nd Generation Cephalosporin",
+    });
+
+    const imported = await importBundle(await blob.arrayBuffer());
+    expect(imported.meta.sourceVideo).toMatchObject({
+      provider: "mvs",
+      id: 5,
+      title: "2nd Generation Cephalosporin",
+      confidence: "probable",
+    });
+  });
+
+  it("imports old bundles without sourceVideo metadata", async () => {
+    const source = makeSourcePicmonic();
+    const blob = await makeMalformedZip({
+      "notes.md": source.notes,
+      "canvas.json": JSON.stringify(source.canvas),
+      "meta.json": JSON.stringify({
+        schemaVersion: 1,
+        id: source.id,
+        name: source.meta.name,
+        tags: source.meta.tags,
+        createdAt: source.meta.createdAt,
+        updatedAt: source.meta.updatedAt,
+      }),
+    });
+    const imported = await importBundle(blob);
+    expect(imported.meta.sourceVideo).toBeNull();
+    expect(imported.notes).toBe(source.notes);
+  });
 });
 
 describe("importBundle errors", () => {

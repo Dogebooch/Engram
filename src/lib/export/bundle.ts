@@ -45,6 +45,7 @@ export async function buildBundleZip(input: BundleInput): Promise<Blob> {
         id: picmonic.id,
         name: picmonic.meta.name,
         tags: picmonic.meta.tags ?? [],
+        sourceVideo: picmonic.meta.sourceVideo ?? null,
         createdAt: picmonic.meta.createdAt,
         updatedAt: picmonic.meta.updatedAt,
         exportedAt: Date.now(),

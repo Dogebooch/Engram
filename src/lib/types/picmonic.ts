@@ -1,10 +1,13 @@
 import type { CanvasState } from "./canvas";
+import type { SourceVideoProvenance } from "./source-video";
 
 export type NotesDoc = string;
 
 export interface PicmonicMeta {
   name: string;
   tags: string[];
+  folderId?: string | null;
+  sourceVideo?: SourceVideoProvenance | null;
   createdAt: number;
   updatedAt: number;
 }

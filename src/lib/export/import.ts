@@ -11,6 +11,7 @@ import {
   type CanvasState,
 } from "@/lib/types/canvas";
 import type { Picmonic, PicmonicMeta } from "@/lib/types/picmonic";
+import type { BundleSourceVideo } from "@/lib/types/source-video";
 import { putBlob as putBackdropBlob } from "@/lib/user-assets/blob-store";
 import {
   putBlob,
@@ -57,6 +58,7 @@ interface BundleMeta {
   id?: string;
   name?: string;
   tags?: string[];
+  sourceVideo?: BundleSourceVideo | null;
   createdAt?: number;
   updatedAt?: number;
   exportedAt?: number;
@@ -191,6 +193,8 @@ export async function importBundle(
       ? meta.name.trim()
       : "Imported Picmonic",
     tags: Array.isArray(meta.tags) ? meta.tags.filter((t) => typeof t === "string") : [],
+    folderId: null,
+    sourceVideo: normalizeBundleSourceVideo(meta.sourceVideo, now),
     createdAt: typeof meta.createdAt === "number" ? meta.createdAt : now,
     updatedAt: now,
   };
@@ -200,6 +204,37 @@ export async function importBundle(
     meta: importedMeta,
     notes: notesText,
     canvas: reconciledCanvas,
+  };
+}
+
+function normalizeBundleSourceVideo(
+  sourceVideo: BundleMeta["sourceVideo"],
+  importedAt: number,
+): PicmonicMeta["sourceVideo"] {
+  if (!sourceVideo || typeof sourceVideo !== "object") return null;
+  const title =
+    typeof sourceVideo.title === "string" && sourceVideo.title.trim()
+      ? sourceVideo.title.trim()
+      : null;
+  if (!title) return null;
+  return {
+    provider: "mvs",
+    id: typeof sourceVideo.id === "number" ? sourceVideo.id : undefined,
+    title,
+    path:
+      typeof sourceVideo.path === "string" && sourceVideo.path.trim()
+        ? sourceVideo.path.trim()
+        : undefined,
+    source:
+      typeof sourceVideo.source === "string" && sourceVideo.source.trim()
+        ? sourceVideo.source.trim()
+        : undefined,
+    course:
+      typeof sourceVideo.course === "string" && sourceVideo.course.trim()
+        ? sourceVideo.course.trim()
+        : undefined,
+    importedAt,
+    confidence: "probable",
   };
 }
 

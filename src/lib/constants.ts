@@ -11,6 +11,7 @@ export const IDB_KEYS = {
   uiPrefs: "engram:ui-prefs:v2",
   picmonicPrefix: "engram:picmonic:",
   picmonicIndex: "engram:picmonic-index:v1",
+  folderIndex: "engram:folder-index:v1",
   userAssetsIndex: "engram:user-assets-index:v1",
 } as const;
 

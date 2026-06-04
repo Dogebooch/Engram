@@ -43,7 +43,7 @@ export function FileMenu() {
     onFile: bundleOnFile,
     pick: bundlePick,
     busy: bundleBusy,
-  } = useBundleImport();
+  } = useBundleImport({ openAfterImport: true });
   const exportActions = useExportActions();
 
   const others = React.useMemo(() => {
@@ -198,6 +198,7 @@ export function FileMenu() {
       <input
         ref={bundleInputRef}
         type="file"
+        multiple
         accept=".zip,application/zip"
         className="hidden"
         onChange={bundleOnFile}

@@ -6,7 +6,9 @@ import {
 } from "idb-keyval";
 import { IDB_KEYS, picmonicKey } from "@/lib/constants";
 import {
+  collectDescendantFolderIds,
   entryFromPicmonic,
+  isFolderDescendant,
   useIndexStore,
 } from "./index-store";
 import type { Picmonic } from "@/lib/types/picmonic";
@@ -29,7 +31,7 @@ async function flushDebounce() {
 beforeEach(async () => {
   await idbClear();
   // Reset zustand store between tests
-  useIndexStore.setState({ index: null, loading: false });
+  useIndexStore.setState({ index: null, folders: null, loading: false });
 });
 
 afterEach(async () => {
@@ -52,7 +54,9 @@ describe("useIndexStore", () => {
     ];
     await idbSet(IDB_KEYS.picmonicIndex, seeded);
     await useIndexStore.getState().loadIndex();
-    expect(useIndexStore.getState().index).toEqual(seeded);
+    expect(useIndexStore.getState().index).toEqual([
+      { ...seeded[0], folderId: null, sourceVideo: null },
+    ]);
   });
 
   it("migrates from raw picmonic:* keys when index is missing", async () => {
@@ -105,5 +109,27 @@ describe("useIndexStore", () => {
     });
     useIndexStore.getState().removeIndexEntry("a");
     expect(useIndexStore.getState().index!.map((e) => e.id)).toEqual(["b"]);
+  });
+
+  it("creates, moves, and deletes nested folders without cycles", () => {
+    useIndexStore.setState({ index: [], folders: [], loading: false });
+    const root = useIndexStore.getState().createFolder("Root", null);
+    const child = useIndexStore.getState().createFolder("Child", root);
+    const grandchild = useIndexStore.getState().createFolder("Grandchild", child);
+
+    const folders = useIndexStore.getState().folders!;
+    expect(collectDescendantFolderIds(folders, root).sort()).toEqual(
+      [child, grandchild].sort(),
+    );
+    expect(isFolderDescendant(folders, grandchild, root)).toBe(true);
+    expect(useIndexStore.getState().moveFolder(root, grandchild)).toBe(false);
+
+    expect(useIndexStore.getState().moveFolder(child, null)).toBe(true);
+    expect(useIndexStore.getState().folders!.find((f) => f.id === child)?.parentId).toBeNull();
+
+    useIndexStore.getState().deleteFolderNode(child);
+    const afterDelete = useIndexStore.getState().folders!;
+    expect(afterDelete.some((f) => f.id === child)).toBe(false);
+    expect(afterDelete.find((f) => f.id === grandchild)?.parentId).toBeNull();
   });
 });
