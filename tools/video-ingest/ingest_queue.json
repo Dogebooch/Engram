@@ -1,0 +1,12 @@
+{
+  "skips": {},
+  "flags": {},
+  "ready": {
+    "1": "autopilot ok (smoke test)",
+    "2": "autopilot ok (smoke test)",
+    "3": "autopilot ok (smoke test)",
+    "5": "autopilot ok (smoke test)",
+    "762": "autopilot ok (smoke test)",
+    "767": "autopilot ok (smoke test)"
+  }
+}

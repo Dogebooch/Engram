@@ -116,11 +116,55 @@ def read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+# Some Apple .mov files decode all-black on one backend (FFmpeg/MSMF) but fine on the
+# other -- a swscaler/pixel-format quirk, and which backend works is per-file. Probe and
+# keep the one that yields non-black frames; the default is tried first so a normal .mp4
+# pays only a single open.
+_CAPTURE_BACKENDS = (
+    ("default", cv2.CAP_ANY),
+    ("msmf", cv2.CAP_MSMF),
+    ("ffmpeg", cv2.CAP_FFMPEG),
+)
+_BLACK_MEAN = 8.0
+FRAME_MAX_WIDTH = (
+    1280  # downscale saved frames to cut model image tokens; backdrop stays legible
+)
+
+
+def _probe_brightness(cap: cv2.VideoCapture, total: int) -> float:
+    best = 0.0
+    for frac in (0.25, 0.5, 0.75):
+        cap.set(cv2.CAP_PROP_POS_FRAMES, int(total * frac))
+        ok, frame = cap.read()
+        if ok and frame is not None:
+            best = max(best, float(frame.mean()))
+    return best
+
+
+def open_capture(video: Path) -> tuple[cv2.VideoCapture, str]:
+    """Open the video on a backend that actually decodes it (not all-black)."""
+    for name, backend in _CAPTURE_BACKENDS:
+        cap = cv2.VideoCapture(str(video), backend)
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0) if cap.isOpened() else 0
+        if total > 0 and _probe_brightness(cap, total) >= _BLACK_MEAN:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            return cap, name
+        cap.release()
+    return cv2.VideoCapture(str(video)), "fallback-all-black"
+
+
 def save_frame(cap: cv2.VideoCapture, frame_number: int, out_path: Path) -> bool:
     cap.set(cv2.CAP_PROP_POS_FRAMES, max(frame_number, 0))
     ok, frame = cap.read()
     if not ok:
         return False
+    h, w = frame.shape[:2]
+    if w > FRAME_MAX_WIDTH:
+        frame = cv2.resize(
+            frame,
+            (FRAME_MAX_WIDTH, round(h * FRAME_MAX_WIDTH / w)),
+            interpolation=cv2.INTER_AREA,
+        )
     return bool(cv2.imwrite(str(out_path), frame))
 
 
@@ -132,6 +176,24 @@ def frame_hist(frame: Any) -> Any:
     return hist
 
 
+def frame_saturation(frame: Any) -> float:
+    """Mean HSV saturation: high for colourful illustrations, low for white/text pages."""
+    small = cv2.resize(frame, (160, 90), interpolation=cv2.INTER_AREA)
+    return float(cv2.cvtColor(small, cv2.COLOR_BGR2HSV)[:, :, 1].mean())
+
+
+def _pick_backdrop(saturations: list[float]) -> int:
+    """Latest colourful keyframe -- skips a trailing low-saturation text/review page
+    (Picmonic ends on one). Falls back to the last frame when all are similar."""
+    if not saturations:
+        return 0
+    threshold = 0.6 * max(saturations)
+    for i in range(len(saturations) - 1, -1, -1):
+        if saturations[i] >= threshold:
+            return i
+    return len(saturations) - 1
+
+
 def extract_keyframes(
     video: Path,
     out_dir: Path,
@@ -140,19 +202,29 @@ def extract_keyframes(
     max_keyframes: int,
     context_seconds: float,
     diff_threshold: float,
+    skip_context: bool = False,
 ) -> list[Keyframe]:
     frames_dir = out_dir / "frames"
     ensure_clean_dir(frames_dir)
-    cap = cv2.VideoCapture(str(video))
+    cap, backend = open_capture(video)
     if not cap.isOpened():
         raise RuntimeError(f"Could not open video: {video}")
+    if backend != "default":
+        import sys
+
+        msg = (
+            f"WARNING: every backend decoded {video.name} as black frames -- backdrop unusable"
+            if backend == "fallback-all-black"
+            else f"note: decoded {video.name} via {backend} backend (default produced black)"
+        )
+        print(msg, file=sys.stderr)
     fps = float(cap.get(cv2.CAP_PROP_FPS) or 30)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
     sample_step = max(1, int(round(fps * sample_seconds)))
     min_gap_frames = max(1, int(round(fps * min_gap_seconds)))
     context_frames = max(1, int(round(fps * context_seconds)))
 
-    candidates: list[tuple[int, float]] = []
+    candidates: list[tuple[int, float, float]] = []
     previous_hist = None
     for frame_number in range(0, total_frames, sample_step):
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
@@ -168,7 +240,7 @@ def extract_keyframes(
         previous_hist = hist
         if diff >= diff_threshold or not candidates:
             if not candidates or frame_number - candidates[-1][0] >= min_gap_frames:
-                candidates.append((frame_number, diff))
+                candidates.append((frame_number, diff, frame_saturation(frame)))
 
     if len(candidates) > max_keyframes:
         first = candidates[0]
@@ -177,24 +249,24 @@ def extract_keyframes(
         candidates = sorted(selected, key=lambda x: x[0])
 
     keyframes: list[Keyframe] = []
-    for index, (frame_number, diff) in enumerate(candidates):
+    saturations: list[float] = []
+    for index, (frame_number, diff, sat) in enumerate(candidates):
         ts_ms = int((frame_number / fps) * 1000)
         image_name = f"keyframe_{index:03d}_{ts_ms:09d}.jpg"
         image_path = frames_dir / image_name
         if not save_frame(cap, frame_number, image_path):
             continue
-        before_name = f"keyframe_{index:03d}_{ts_ms:09d}_before.jpg"
-        after_name = f"keyframe_{index:03d}_{ts_ms:09d}_after.jpg"
-        before_path = frames_dir / before_name
-        after_path = frames_dir / after_name
         before: list[str] = []
         after: list[str] = []
-        if save_frame(cap, max(0, frame_number - context_frames), before_path):
-            before.append(str(before_path))
-        if save_frame(
-            cap, min(total_frames - 1, frame_number + context_frames), after_path
-        ):
-            after.append(str(after_path))
+        if not skip_context:
+            before_path = frames_dir / f"keyframe_{index:03d}_{ts_ms:09d}_before.jpg"
+            after_path = frames_dir / f"keyframe_{index:03d}_{ts_ms:09d}_after.jpg"
+            if save_frame(cap, max(0, frame_number - context_frames), before_path):
+                before.append(str(before_path))
+            if save_frame(
+                cap, min(total_frames - 1, frame_number + context_frames), after_path
+            ):
+                after.append(str(after_path))
         keyframes.append(
             Keyframe(
                 index=index,
@@ -206,10 +278,11 @@ def extract_keyframes(
                 context_after=after,
             )
         )
+        saturations.append(sat)
 
     cap.release()
     if keyframes:
-        keyframes[-1].selected_as_backdrop = True
+        keyframes[_pick_backdrop(saturations)].selected_as_backdrop = True
     return keyframes
 
 
@@ -710,6 +783,11 @@ def main() -> int:
     parser.add_argument("--min-gap-seconds", type=float, default=12)
     parser.add_argument("--context-seconds", type=float, default=2)
     parser.add_argument("--diff-threshold", type=float, default=0.08)
+    parser.add_argument(
+        "--no-context",
+        action="store_true",
+        help="Skip before/after context frames (facts-only; they only feed the optional SAM path).",
+    )
     args = parser.parse_args()
 
     video = args.video
@@ -741,6 +819,7 @@ def main() -> int:
                 max_keyframes=args.max_keyframes,
                 context_seconds=args.context_seconds,
                 diff_threshold=args.diff_threshold,
+                skip_context=args.no_context,
             )
         write_json(out_dir / "keyframes.json", [asdict(k) for k in keyframes])
 

@@ -57,6 +57,7 @@ a DB read:
   --run-dir "<out-root>\<slug>" --query "<title words>"
 ```
 An ambiguous `--query` prints candidates (exit 2) — re-run with `--video-id <id>` (or `--path "<exact mvs path>"`).
+This also writes `ocr.json` (MVS's on-screen text) next to `transcript.json` — used as a completeness cross-check in step 3.
 **Not in the MVS library?** Re-run step 1 with `--prefer-captions` (sidecar `<name>.srt/.vtt` or embedded
 track; Whisper otherwise) and skip this step.
 
@@ -65,6 +66,10 @@ track; Whisper otherwise) and skip this step.
 ("that's a pirate… pyruvate dehydrogenase"). List every symbol the narrator names — you cannot miss a
 symbol the narrator names. The transcript is the source of truth for facts; sanity-check the medicine
 and silently fix obvious ASR slips (e.g. "tetrahydrofluoric" → tetrahydrofolate).
+Then `Read` `ocr.json` (MVS's on-screen text — Picmonic's numbered fact sidebar, Sketchy's symbol→meaning
+labels like "Splendid passenger = Splenic vein"). Use it as a **secondary** completeness + accuracy
+cross-check: confirm you captured every symbol/fact it lists and that your meanings agree with its labels.
+It's noisy (watermarks, OCR garble) and is **not** evidence — keep `evidence` grounded in transcript quotes.
 
 ### 4. Pick the backdrop frame — and check its kind
 `Read` candidate keyframes in `frames/`. Note the keyframe `index` and pixel dims, and classify the scene:
