@@ -1,9 +1,11 @@
 # Video Ingest Sandbox
 
 Local-first sandbox for turning medical mnemonic videos into Engram import
-bundles. Python does the mechanical work (frame extraction, transcription, SAM
-segmentation, zip assembly); Claude is the vision model that names/describes/
-locates symbols (see `.claude/skills/ingest-video/SKILL.md`).
+bundles. The canonical Codex path is facts-only and runs through
+`overnight_ingest_runner.py`, which launches one worker per video, verifies each
+bundle with strict lint/import/coverage gates, and writes a ledger. Optional
+SAM/geometry tools remain available as lower-level experiments, but they are not
+the default ingest workflow.
 
 ## Setup
 
@@ -55,9 +57,31 @@ downgrade that runtime under torch and break GPU SAM — don't.
 
 ## Run
 
-The full interactive workflow lives in `.claude/skills/ingest-video/SKILL.md`.
+Use the `$ingest-videos` Codex skill for the canonical autonomous workflow.
 Outputs are written outside the repo (default out-root
 `P:\Python Projects\Engram\video-ingest-runs`).
+
+```powershell
+cd "P:\Python Projects\Engram\engram"
+
+.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\overnight_ingest_runner.py run `
+  --max-videos 10 `
+  --once `
+  --codex-bin "C:\Users\drumm\AppData\Local\OpenAI\Codex\bin\716dda49c14d31a0\codex.exe"
+```
+
+Add `--source`, `--course`, or explicit `--ids` only when scoping is requested.
+After a strict-pass run, finalize queue state:
+
+```powershell
+.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\overnight_ingest_runner.py finalize `
+  --resume "<stateDir>"
+```
+
+The canonical model ladder is `gpt-5.4` medium, escalating to `gpt-5.5` high
+only for validation failures. Do not use `gpt-5.4-mini` for Engram ingest.
+
+### Lower-level extraction / SAM tools
 
 ```powershell
 # 0. Batch-extract a folder overnight (keyframes + transcript), resumable.
@@ -65,7 +89,7 @@ Outputs are written outside the repo (default out-root
   --folder "P:\Medicine Videos\Pixorize\Pixorize Biochemistry" `
   --out-root "P:\Python Projects\Engram\video-ingest-runs" --prefer-captions
 
-# 1. (Claude) author <slug>\draft_symbols.json: bbox (+ point) per symbol.
+# 1. Optional geometry experiment: author <slug>\draft_symbols.json with bbox (+ point) per symbol.
 # 2. SAM outlines + verification overlay (MobileSAM/CPU by default, ~2s).
 .\.venv-video-ingest\Scripts\python.exe tools\video-ingest\sam_segment.py `
   --draft  <run>\draft_symbols.json `
@@ -96,9 +120,68 @@ yt-dlp --write-subs --sub-langs en --convert-subs srt <url>   # sidecar auto-det
 ```
 
 Manual subtitles beat Whisper on mnemonic puns ("transketolase", "Pixorize").
-Claude-as-VLM + SAM is the route: Claude authors `draft_symbols.json` and the
-builder consumes it via `--draft-symbols`. Without that flag a run is
-extract-only (frames + transcript, no symbols).
+The default accuracy-first route is facts-only: Codex authors
+`draft_symbols.json` with no geometry, and the builder emits importable
+placeholder regions for the user to outline in Engram. SAM remains optional for
+bulk auto-outline experiments.
+
+## Facts-only workflow + gold scoring
+
+`ingest_workflow.py` wraps the existing tools and grades generated bundles
+against the read-only gold corpus at
+`P:\Python Projects\Engram\video-ingest-runs`.
+
+```powershell
+# Build a cache of existing <slug>\<slug>.engram.zip gold bundles.
+.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\ingest_workflow.py gold-index --json
+
+# Prepare an experimental run outside the gold folder.
+.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\ingest_workflow.py prepare `
+  --video "P:\Medicine Videos\Pixorize\...\video.mp4"
+
+# After authoring <run>\draft_symbols.json, lint and build the bundle.
+.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\ingest_workflow.py build `
+  --run-dir "P:\Python Projects\Engram\video-ingest-eval-runs\<slug>"
+
+# Score the generated bundle against the matching gold bundle by slug/title.
+.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\ingest_workflow.py score `
+  --run-dir "P:\Python Projects\Engram\video-ingest-eval-runs\<slug>"
+```
+
+Scoring ignores `{sym:UUID}` differences and compares bundle content from
+`notes.md`: fact recall/precision, symbol recall/precision, description
+similarity, meaning similarity, missing/extra facts, and missing/extra symbol
+bullets. `lint_draft.py` still gates generated run scoring before the gold diff.
+
+## Optional geometry (facts-only skill tiers)
+
+The `ingest-video` skill's default is facts-only (no geometry). These two optional tiers
+let a symbol land pre-placed instead of as an un-traced placeholder; they live here rather
+than in the skill so the skill stays lean.
+
+### Optional: rough-box placement
+If the user wants regions pre-positioned (so they reshape instead of drawing from scratch), add a loose
+backdrop-frame `bbox` (top-left origin) per symbol, plus `"vlm_width"`/`"vlm_height"` (the backdrop's
+pixel dims) and `"localized_to_backdrop": true`. `make_bundle` scales the box onto the 1920×1080 stage
+as a `rect`. A symbol with a box that's missing or covers the whole frame, or that isn't localized,
+falls back to a placeholder. Box placement by eye is rough on dense scenes — it's a starting rect, not
+a final outline.
+
+### Optional: auto-outline with SAM (bulk)
+For unattended bulk ingest where loose polygons are acceptable, add `"point": {"x","y"}` (a foreground
+pixel on the object, plus optional `"neg_points"`) alongside a `bbox`, then between steps 5 and 6:
+```
+.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\sam_segment.py `
+  --draft "<out-root>\<slug>\draft_symbols.json" `
+  --backdrop "<out-root>\<slug>\frames\keyframe_<N>_*.jpg" `
+  --out-overlay "<out-root>\<slug>\sam_overlay.jpg"
+```
+This merges a `polygon` + `sam:{...}` block into each symbol; `make_bundle` then emits `shape:"polygon"`
+regions. **Default backend MobileSAM on GPU** (sub-second). `--backend sam2 --model large` is a slower
+(~50s encode, **CPU-only** — SAM2's Hiera encoder is broken on ROCm gfx1100) quality-escalation pass.
+Then **verify**: `Read` `sam_overlay.jpg`, and for any outline that doesn't hug its object edit only that
+symbol's `point`/`neg_points` and re-run with `--only-orders 3,5` (≤3 passes). Build only once every
+outline hugs. Fallback for a hopeless mask: hand-author a `polygon` (≥3 `[x,y]` pairs) and SAM leaves it alone.
 
 ## Tests
 

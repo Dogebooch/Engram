@@ -2,7 +2,7 @@
 
 Pixorize/Sketchy zoom + ring-highlight each symbol as it is introduced. For
 reliable identification, cut the frame nearest each symbol's introduction and
-let Claude read it to NAME/describe the symbol. Coordinates always come from the
+let the agent read it to name/describe the symbol. Coordinates always come from the
 assembled backdrop (intro frames are zoomed -> wrong geometry).
 
 Driven by a draft_symbols.json (the symbol list with order/timestamp_ms and

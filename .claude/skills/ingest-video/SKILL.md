@@ -141,26 +141,8 @@ new entry in your summary and add it only after the user confirms.
 
 ---
 
-## Optional: rough-box placement
-If the user wants regions pre-positioned (so they reshape instead of drawing from scratch), add a loose
-backdrop-frame `bbox` (top-left origin) per symbol, plus `"vlm_width"`/`"vlm_height"` (the backdrop's
-pixel dims) and `"localized_to_backdrop": true`. `make_bundle` scales the box onto the 1920×1080 stage
-as a `rect`. A symbol with a box that's missing or covers the whole frame, or that isn't localized,
-falls back to a placeholder. Box placement by eye is rough on dense scenes — it's a starting rect, not
-a final outline.
-
-## Optional: auto-outline with SAM (bulk)
-For unattended bulk ingest where loose polygons are acceptable, add `"point": {"x","y"}` (a foreground
-pixel on the object, plus optional `"neg_points"`) alongside a `bbox`, then between steps 5 and 6:
-```
-.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\sam_segment.py `
-  --draft "<out-root>\<slug>\draft_symbols.json" `
-  --backdrop "<out-root>\<slug>\frames\keyframe_<N>_*.jpg" `
-  --out-overlay "<out-root>\<slug>\sam_overlay.jpg"
-```
-This merges a `polygon` + `sam:{...}` block into each symbol; `make_bundle` then emits `shape:"polygon"`
-regions. **Default backend MobileSAM on GPU** (sub-second). `--backend sam2 --model large` is a slower
-(~50s encode, **CPU-only** — SAM2's Hiera encoder is broken on ROCm gfx1100) quality-escalation pass.
-Then **verify**: `Read` `sam_overlay.jpg`, and for any outline that doesn't hug its object edit only that
-symbol's `point`/`neg_points` and re-run with `--only-orders 3,5` (≤3 passes). Build only once every
-outline hugs. Fallback for a hopeless mask: hand-author a `polygon` (≥3 `[x,y]` pairs) and SAM leaves it alone.
+## Optional tiers (rough-box, SAM auto-outline)
+Facts-only above is the default. The two optional geometry tiers — **rough-box placement** (loose
+`bbox` per symbol) and **SAM auto-outline** (polygons via `sam_segment.py`) — are documented in
+`tools/video-ingest/README.md` under *Optional geometry (facts-only skill tiers)*. Use them only when
+the user asks for pre-placed regions or unattended bulk auto-outlining.

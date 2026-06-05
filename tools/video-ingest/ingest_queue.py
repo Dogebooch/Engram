@@ -134,6 +134,18 @@ def resolve_one(conn: sqlite3.Connection, video_id: int) -> sqlite3.Row | None:
     ).fetchone()
 
 
+def extraction_status(conn: sqlite3.Connection, video_id: int) -> sqlite3.Row | None:
+    """Pre-extraction record from pre_extract_pending.py, or None if the video has not
+    been pre-extracted (or the engram_extraction table does not exist yet)."""
+    try:
+        return conn.execute(
+            "SELECT frames_ready, run_dir, status FROM engram_extraction WHERE video_id = ?",
+            (video_id,),
+        ).fetchone()
+    except sqlite3.OperationalError:
+        return None
+
+
 # --------------------------------------------------------------------------- #
 def cmd_next(args: argparse.Namespace) -> int:
     conn = connect()
@@ -148,6 +160,8 @@ def cmd_next(args: argparse.Namespace) -> int:
     videos = []
     for r in batch:
         segs = seg_count(conn, int(r["id"]))
+        slug = slugify(Path(r["path"]).stem)
+        ext = extraction_status(conn, int(r["id"]))
         videos.append(
             {
                 "id": int(r["id"]),
@@ -155,7 +169,9 @@ def cmd_next(args: argparse.Namespace) -> int:
                 "course": r["course"],
                 "title": r["title"],
                 "path": r["path"],
-                "slug": slugify(Path(r["path"]).stem),
+                "slug": slug,
+                "runDir": str(root / slug),
+                "framesReady": bool(ext and ext["frames_ready"]),
                 "transcriptSegments": segs,
                 "dense": segs >= DENSE_SEGMENTS,
                 "flagged": str(int(r["id"])) in ledger["flags"],

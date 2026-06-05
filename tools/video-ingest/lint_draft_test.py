@@ -41,9 +41,10 @@ DRAFT = {
             "symbol_key": "abu",
             "symbol_description": "the abducens flag on the wall",
             "meaning": "abducens nerve lateral rectus",
-            "evidence": 'Transcript "abducens nerve controls the lateral rectus" — the pun',
+            "evidence": 'Transcript @0:00 "abducens nerve controls the lateral rectus"',
+            "timestamp_ms": 0,
         }
-    ]
+    ],
 }
 
 
@@ -62,7 +63,8 @@ class OcrCoverageTest(unittest.TestCase):
         self.assertEqual(stats["missing_terms"], ["trochlear"])
         self.assertEqual(stats["ocr_coverage"], 0.8)
 
-    def test_absent_ocr_yields_null_coverage_and_legacy_floor_fires(self) -> None:
+    def test_absent_ocr_yields_null_coverage_and_dense_floor_warns(self) -> None:
+        # Facts-only gate: under-extraction is ADVISORY (a warning, not an error).
         dense_transcript = {"segments": [{"text": "the nerve appears here"}] * 250}
         draft = {
             "symbols": [
@@ -72,9 +74,10 @@ class OcrCoverageTest(unittest.TestCase):
                     "symbol_key": "lone",
                     "symbol_description": "a single thing",
                     "meaning": "one meaning",
-                    "evidence": 'Transcript "the nerve appears here"',
+                    "evidence": 'Transcript @0:00 "the nerve appears here"',
+                    "timestamp_ms": 0,
                 }
-            ]
+            ],
         }
         with tempfile.TemporaryDirectory() as d:
             run_dir = Path(d)
@@ -83,6 +86,49 @@ class OcrCoverageTest(unittest.TestCase):
 
         self.assertIsNone(result["stats"]["ocr_coverage"])
         self.assertEqual(result["stats"]["ocr_terms"], 0)
+        self.assertTrue(result["ok"])
+        self.assertTrue(
+            any(w["code"] == "possible-under-extraction" for w in result["warnings"])
+        )
+
+    def test_ocr_supported_missing_terms_warn(self) -> None:
+        # Facts-only gate: low OCR coverage is ADVISORY (a warning, not an error).
+        transcript = {
+            "segments": [
+                {
+                    "start_ms": 0,
+                    "text": "abducens lateral rectus trochlear facial vagus nerve",
+                }
+            ]
+        }
+        ocr = {
+            "segments": [
+                {
+                    "start_ms": 0,
+                    "text": "abducens lateral rectus trochlear facial vagus nerve",
+                }
+            ]
+        }
+        draft = {
+            "symbols": [
+                {
+                    "order": 0,
+                    "fact": "Abducens lateral rectus",
+                    "symbol_key": "nerves",
+                    "symbol_description": "nerve labels across the board",
+                    "meaning": "Nerve labels represent abducens lateral rectus content",
+                    "evidence": 'Transcript @0:00 "abducens lateral rectus trochlear facial vagus nerve"',
+                    "timestamp_ms": 0,
+                }
+            ],
+        }
+        with tempfile.TemporaryDirectory() as d:
+            run_dir = Path(d)
+            draft_path = write_run(run_dir, transcript, ocr, draft)
+            result = lint(run_dir, draft_path)
+
+        self.assertTrue(result["ok"])
+        self.assertIn("vagus", result["stats"]["missing_terms"])
         self.assertTrue(
             any(w["code"] == "possible-under-extraction" for w in result["warnings"])
         )

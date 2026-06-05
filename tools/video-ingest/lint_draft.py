@@ -152,6 +152,27 @@ def grounding_ratio(quote: str, transcript_tokens: list[str]) -> float:
     return best
 
 
+def load_coverage_targets(run_dir: Path) -> dict[str, dict]:
+    path = run_dir / "workflow" / "coverage_targets.json"
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    targets = data.get("targets", []) if isinstance(data, dict) else []
+    return {
+        clean(target.get("target_id")): target
+        for target in targets
+        if isinstance(target, dict) and clean(target.get("target_id"))
+    }
+
+
+def as_id_list(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [clean(value)] if clean(value) else []
+    if isinstance(value, list):
+        return [clean(item) for item in value if clean(item)]
+    return []
+
+
 def lint(run_dir: Path, draft_path: Path) -> dict:
     errors: list[dict] = []
     warnings: list[dict] = []
@@ -197,6 +218,58 @@ def lint(run_dir: Path, draft_path: Path) -> dict:
         vi = json.loads(vpath.read_text(encoding="utf-8"))
         duration_ms = int(vi.get("duration_ms") or 0)
 
+    coverage_targets = load_coverage_targets(run_dir)
+    required_target_ids = {
+        target_id
+        for target_id, target in coverage_targets.items()
+        if target.get("required", True)
+    }
+    covered_target_ids: set[str] = set()
+    target_symbols: dict[str, list[dict]] = {}
+    omissions = draft.get("omissions", []) if isinstance(draft, dict) else []
+    omitted_target_ids: set[str] = set()
+    if isinstance(omissions, list):
+        for idx, omission in enumerate(omissions):
+            if not isinstance(omission, dict):
+                errors.append(
+                    {
+                        "order": idx,
+                        "code": "bad-omission",
+                        "msg": "omission is not an object",
+                    }
+                )
+                continue
+            target_id = clean(omission.get("target_id"))
+            if not target_id:
+                errors.append(
+                    {
+                        "order": idx,
+                        "code": "missing-target-ids",
+                        "msg": "omission missing target_id",
+                    }
+                )
+                continue
+            if coverage_targets and target_id not in coverage_targets:
+                errors.append(
+                    {
+                        "order": idx,
+                        "code": "unknown-target-id",
+                        "target_id": target_id,
+                        "msg": f"omission references unknown target_id: {target_id}",
+                    }
+                )
+                continue
+            if not clean(omission.get("reason")):
+                errors.append(
+                    {
+                        "order": idx,
+                        "code": "missing-field",
+                        "target_id": target_id,
+                        "msg": "omission missing reason",
+                    }
+                )
+            omitted_target_ids.add(target_id)
+
     grounded = ungrounded = missing_key = 0
     seen_bullets: dict[tuple, object] = {}
 
@@ -223,6 +296,32 @@ def lint(run_dir: Path, draft_path: Path) -> dict:
 
         if not key:
             missing_key += 1
+
+        target_ids = as_id_list(sym.get("target_ids"))
+        if required_target_ids and not target_ids:
+            warnings.append(
+                {
+                    "order": order,
+                    "symbol_key": ref,
+                    "code": "unlinked-symbol",
+                    "msg": "symbol has no target_ids; allowed only as a grounded supplemental symbol beyond generated coverage targets",
+                }
+            )
+        for target_id in target_ids:
+            if coverage_targets and target_id not in coverage_targets:
+                errors.append(
+                    {
+                        "order": order,
+                        "symbol_key": ref,
+                        "code": "unknown-target-id",
+                        "target_id": target_id,
+                        "msg": f"symbol references unknown target_id: {target_id}",
+                    }
+                )
+                continue
+            if target_id in required_target_ids:
+                covered_target_ids.add(target_id)
+                target_symbols.setdefault(target_id, []).append(sym)
 
         ts = sym.get("timestamp_ms")
         if ts is None:
@@ -353,6 +452,54 @@ def lint(run_dir: Path, draft_path: Path) -> dict:
             }
         )
 
+    missing_critical_terms: list[dict] = []
+    for target_id in sorted(covered_target_ids):
+        target = coverage_targets.get(target_id, {})
+        critical_terms = [
+            clean(term)
+            for term in target.get("critical_terms", [])
+            if clean(term)
+        ]
+        if not critical_terms:
+            continue
+        combined = norm(
+            " ".join(
+                clean(sym.get(field))
+                for sym in target_symbols.get(target_id, [])
+                for field in ("fact", "meaning", "evidence", "symbol_description")
+            )
+        )
+        combined_tokens = set(combined.split())
+        missing = [
+            term
+            for term in critical_terms
+            if not set(norm(term).split()).issubset(combined_tokens)
+        ]
+        if missing:
+            missing_critical_terms.append(
+                {"target_id": target_id, "missing_terms": missing}
+            )
+
+    uncovered_target_ids = sorted(
+        required_target_ids - covered_target_ids - omitted_target_ids
+    )
+    if uncovered_target_ids:
+        errors.append(
+            {
+                "code": "uncovered-target",
+                "msg": f"required coverage targets not represented or omitted: {', '.join(uncovered_target_ids[:12])}",
+                "target_ids": uncovered_target_ids[:25],
+            }
+        )
+    if missing_critical_terms:
+        errors.append(
+            {
+                "code": "missing-critical-terms",
+                "msg": "covered high-priority targets are missing critical terms",
+                "targets": missing_critical_terms[:25],
+            }
+        )
+
     return {
         "ok": not errors,
         "errors": errors,
@@ -369,6 +516,12 @@ def lint(run_dir: Path, draft_path: Path) -> dict:
             "ocr_terms": len(ocr_terms),
             "ocr_coverage": ocr_coverage,
             "missing_terms": missing_terms[:25],
+            "coverage_targets": len(required_target_ids),
+            "coverage_covered": len(covered_target_ids),
+            "coverage_omitted": len(omitted_target_ids & required_target_ids),
+            "coverage_uncovered": len(uncovered_target_ids),
+            "uncovered_targets": uncovered_target_ids[:25],
+            "missing_critical_terms": missing_critical_terms[:25],
         },
     }
 

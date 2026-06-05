@@ -1,6 +1,6 @@
 """SAM-assisted symbol outlines for the video pipeline.
 
-Claude authors a rough prompt per symbol (the required bbox, plus an optional
+An agent authors a rough prompt per symbol (the required bbox, plus an optional
 foreground point / negative points) in backdrop-frame pixel space. This helper
 runs a SAM image predictor, turns each mask into a simplified polygon in the
 SAME backdrop-frame pixel space, and merges it back into draft_symbols.json as
@@ -129,7 +129,7 @@ def render_overlay(
     show_bbox: bool = True,
 ) -> Path:
     """Draw every merged polygon (+ prompt point/box + label) onto the backdrop
-    so Claude can read it and confirm each outline hugs its object."""
+    so an agent can read it and confirm each outline hugs its object."""
     image = cv2.imread(str(backdrop_path))
     palette = [
         (0, 255, 0),

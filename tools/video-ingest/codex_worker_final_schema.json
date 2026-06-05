@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Engram Codex Worker Final",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "videoId",
+    "slug",
+    "model",
+    "built",
+    "backdropUsable",
+    "zipPath",
+    "backdropIndex",
+    "symbolCount",
+    "factCount",
+    "sceneKind",
+    "caveats",
+    "lint",
+    "notes"
+  ],
+  "properties": {
+    "videoId": { "type": "integer" },
+    "slug": { "type": "string" },
+    "model": { "type": "string" },
+    "built": { "type": "boolean" },
+    "backdropUsable": { "type": "boolean" },
+    "zipPath": { "type": ["string", "null"] },
+    "backdropIndex": { "type": ["integer", "null"] },
+    "symbolCount": { "type": "integer", "minimum": 0 },
+    "factCount": { "type": "integer", "minimum": 0 },
+    "sceneKind": {
+      "type": "string",
+      "enum": ["tableau", "picmonic", "pan", "unknown"]
+    },
+    "caveats": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "lint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok", "errorCodes", "warningCodes", "symbols", "segments"],
+      "properties": {
+        "ok": { "type": "boolean" },
+        "errorCodes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "warningCodes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "symbols": { "type": "integer", "minimum": 0 },
+        "segments": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

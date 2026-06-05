@@ -790,7 +790,7 @@ def main() -> int:
         "--draft-symbols",
         type=Path,
         default=None,
-        help="Load this Claude-authored draft JSON ({model, symbols:[...]}) to build the bundle.",
+        help="Load this agent-authored draft JSON ({model, symbols:[...]}) to build the bundle.",
     )
     parser.add_argument(
         "--reuse-run",
@@ -867,7 +867,7 @@ def main() -> int:
         if args.draft_symbols is not None:
             draft = read_json(args.draft_symbols)
         else:
-            # Claude is the vision model: without an authored draft this is an
+            # The agent is the judgment layer: without an authored draft this is an
             # extract-only run (frames + transcript), no symbols.
             draft = {"model": "claude-as-vlm", "symbols": []}
     with timer.time("bundle"):
