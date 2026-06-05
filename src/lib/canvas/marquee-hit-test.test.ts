@@ -62,6 +62,35 @@ describe("symbolAabb", () => {
     expect(aabb.width).toBeCloseTo(Math.SQRT2 * 100, 5);
     expect(aabb.height).toBeCloseTo(Math.SQRT2 * 100, 5);
   });
+
+  it("unions extra outline rings beyond the primary bbox", () => {
+    const layer: SymbolLayer = {
+      ...makeLayer({ x: 0, y: 0, width: 50, height: 50 }),
+      kind: "region",
+      ref: null,
+      shape: "polygon",
+      points: [
+        { x: 0, y: 0 },
+        { x: 50, y: 0 },
+        { x: 25, y: 50 },
+      ],
+      // Ring offset well outside the 50×50 primary bbox.
+      extraOutlines: [
+        {
+          x: 100,
+          y: 120,
+          width: 30,
+          height: 20,
+          points: [
+            { x: 0, y: 0 },
+            { x: 30, y: 0 },
+            { x: 15, y: 20 },
+          ],
+        },
+      ],
+    } as SymbolLayer;
+    expect(symbolAabb(layer)).toEqual({ x: 0, y: 0, width: 130, height: 140 });
+  });
 });
 
 describe("rectsIntersect", () => {

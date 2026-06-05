@@ -6,6 +6,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { Transformer } from "react-konva";
 import { useStore } from "@/lib/store";
 import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
+import { scaleRing } from "@/lib/canvas/scale-region";
 import { isRegionSymbolLayer } from "@/lib/types/canvas";
 
 const ACCENT_FALLBACK = "oklch(0.68 0.095 52)";
@@ -14,7 +15,9 @@ const STAGE_FALLBACK = "oklch(0.255 0.025 188)";
 interface CanvasTransformerProps {
   selectedIds: string[];
   symbolsKey: string;
-  getNode: (id: string) => Konva.Image | Konva.Rect | Konva.Line | null;
+  getNode: (
+    id: string,
+  ) => Konva.Image | Konva.Rect | Konva.Line | Konva.Group | null;
 }
 
 const ANCHOR_SIZE = 9;
@@ -51,7 +54,10 @@ export function CanvasTransformer({
     if (!tr) return;
     const nodes = selectedIds
       .map((id) => getNode(id))
-      .filter((n): n is Konva.Image | Konva.Rect | Konva.Line => n !== null);
+      .filter(
+        (n): n is Konva.Image | Konva.Rect | Konva.Line | Konva.Group =>
+          n !== null,
+      );
     tr.nodes(nodes);
     tr.getLayer()?.batchDraw();
   }, [selectedIds, symbolsKey, getNode]);
@@ -73,7 +79,11 @@ export function CanvasTransformer({
 
   const handleTransformEnd = React.useCallback(
     (e: KonvaEventObject<Event>) => {
-      const node = e.target as Konva.Image | Konva.Rect | Konva.Line;
+      const node = e.target as
+        | Konva.Image
+        | Konva.Rect
+        | Konva.Line
+        | Konva.Group;
       const id = node.id();
       if (!id) return;
       const sx = node.scaleX();
@@ -90,6 +100,11 @@ export function CanvasTransformer({
           x: p.x * sx,
           y: p.y * sy,
         }));
+        // Multi-ring symbols render as a Group; bake the group scale into every
+        // extra ring (offsets, dimensions, and points) so they stay in sync.
+        const extraOutlines = existing.extraOutlines?.map((ring) =>
+          scaleRing(ring, sx, sy),
+        );
         node.scaleX(1);
         node.scaleY(1);
         updateSymbol(id, {
@@ -99,6 +114,7 @@ export function CanvasTransformer({
           height: newHeight,
           rotation: node.rotation(),
           points,
+          ...(extraOutlines ? { extraOutlines } : {}),
         });
         return;
       }

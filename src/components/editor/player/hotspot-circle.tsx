@@ -15,6 +15,64 @@ const RADIUS = 18;
 const HALO_RADIUS = 20;
 const OVERRIDE_RADIUS = 6;
 
+/**
+ * Presentational numbered disc — outer ring + inner fill + centered ordinal.
+ * Shared by the player's {@link HotspotCircle} and the editor's
+ * `SymbolNumberCircle`. No fact/pulse/selection semantics; the caller owns the
+ * surrounding Group, hit handlers, and any halo. `filled` flips it to the
+ * active/solid look; `radius` scales the disc and its number together.
+ */
+export function NumberBadge({
+  ordinal,
+  accent,
+  stageFill,
+  accentForeground,
+  radius = RADIUS,
+  filled = false,
+  hover = false,
+}: {
+  ordinal: number;
+  accent: string;
+  stageFill: string;
+  accentForeground: string;
+  radius?: number;
+  filled?: boolean;
+  hover?: boolean;
+}) {
+  return (
+    <>
+      <Circle
+        radius={radius}
+        stroke={accent}
+        strokeWidth={hover ? 2.5 : 2}
+        fill={filled ? accent : stageFill}
+        fillEnabled
+        shadowColor="oklch(0.18 0.018 188)"
+        shadowBlur={hover ? 14 : 10}
+        shadowOpacity={0.4}
+        shadowOffsetY={2}
+        opacity={filled ? 1 : 0.96}
+      />
+      {/* Number — Konva Text needs a centered box; the offsets here are
+          hand-tuned to pixel-snap on the dot grid given Geist Mono metrics. */}
+      <Text
+        text={String(ordinal)}
+        fontFamily='"Geist Mono", ui-monospace, SFMono-Regular, monospace'
+        fontStyle="500"
+        fontSize={Math.round(radius * 0.72)}
+        fill={filled ? accentForeground : accent}
+        align="center"
+        verticalAlign="middle"
+        x={-radius}
+        y={-radius}
+        width={radius * 2}
+        height={radius * 2}
+        listening={false}
+      />
+    </>
+  );
+}
+
 export interface HotspotCircleProps {
   factId: string;
   ordinal: number; // 1-indexed
@@ -166,34 +224,15 @@ export const HotspotCircle = React.memo(function HotspotCircle({
         opacity={0}
         listening={false}
       />
-      {/* Outer ring + inner fill */}
-      <Circle
+      {/* Outer ring + inner fill + number */}
+      <NumberBadge
+        ordinal={ordinal}
+        accent={accent}
+        stageFill={stageFill}
+        accentForeground={accentForeground}
         radius={RADIUS}
-        stroke={accent}
-        strokeWidth={hover ? 2.5 : 2}
-        fill={isActive ? accent : stageFill}
-        fillEnabled
-        shadowColor="oklch(0.18 0.018 188)"
-        shadowBlur={hover ? 14 : 10}
-        shadowOpacity={0.4}
-        shadowOffsetY={2}
-        opacity={isActive ? 1 : 0.96}
-      />
-      {/* Number — Konva Text needs a centered box; the offsets here are
-          hand-tuned to pixel-snap on the dot grid given Geist Mono metrics. */}
-      <Text
-        text={String(ordinal)}
-        fontFamily='"Geist Mono", ui-monospace, SFMono-Regular, monospace'
-        fontStyle="500"
-        fontSize={13}
-        fill={isActive ? accentForeground : accent}
-        align="center"
-        verticalAlign="middle"
-        x={-RADIUS}
-        y={-RADIUS}
-        width={RADIUS * 2}
-        height={RADIUS * 2}
-        listening={false}
+        filled={isActive}
+        hover={hover}
       />
       {/* Override indicator (locked-position tick) */}
       {isOverride && !isActive && (

@@ -15,10 +15,12 @@ import {
 import type { Picmonic } from "@/lib/types/picmonic";
 import {
   emptyBackdrop,
+  isRegionSymbolLayer,
   type Backdrop,
   type CanvasState,
   type FactHotspots,
   type ImageSymbolLayer,
+  type OutlineRing,
   type RegionPoint,
   type RegionShape,
   type RegionSymbolLayer,
@@ -48,6 +50,12 @@ export interface SetSymbolOutlineInput {
   shape: RegionShape;
   points?: RegionPoint[];
   rotation?: number;
+  /**
+   * When true and the symbol already has a polygon outline, add this as an
+   * extra ring on the same symbol instead of replacing the primary outline
+   * (the "hold Shift while tracing" path). Ignored for the first/only outline.
+   */
+  append?: boolean;
 }
 
 type SymbolLayerPatch =
@@ -260,6 +268,45 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
 
     const existing =
       picmonic.canvas.symbols.find((sy) => sy.id === id) ?? null;
+
+    // Append path: add an extra ring to an existing polygon outline (Shift-trace).
+    if (
+      input.append &&
+      input.shape === "polygon" &&
+      input.points &&
+      existing &&
+      isRegionSymbolLayer(existing) &&
+      existing.shape === "polygon"
+    ) {
+      const ring: OutlineRing = {
+        x: input.x - existing.x,
+        y: input.y - existing.y,
+        width: input.width,
+        height: input.height,
+        points: input.points,
+      };
+      const appended: RegionSymbolLayer = {
+        ...existing,
+        extraOutlines: [...(existing.extraOutlines ?? []), ring],
+      };
+      set((s) => {
+        const p = s.picmonics[cid];
+        if (!p) return s;
+        const symbols = p.canvas.symbols.slice();
+        const at = symbols.findIndex((sy) => sy.id === id);
+        if (at === -1) return s;
+        symbols[at] = appended;
+        return {
+          picmonics: {
+            ...s.picmonics,
+            [cid]: patchCanvas(p, { symbols }),
+          },
+          selectedSymbolIds: [id],
+        };
+      });
+      return true;
+    }
+
     const layer: RegionSymbolLayer = {
       id,
       kind: "region",

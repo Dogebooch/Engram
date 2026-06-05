@@ -9,6 +9,24 @@ export interface RegionPoint {
   y: number;
 }
 
+/**
+ * An additional traced polygon belonging to the same symbol (e.g. two almonds
+ * that share one bullet). `x`/`y` are offsets from the owning layer's origin
+ * (`layer.x`/`layer.y`) in the layer's unrotated frame; `points` are relative to
+ * the ring's own bounding box. Storing offsets (not absolute coords) lets a
+ * move/rotate of the symbol carry every ring for free — only resize rescales
+ * them. Render/hit-test/transform additions only; the primary ring
+ * (`points` + bbox) stays the source of truth for anchor/number/transform.
+ * Deleting an individual ring is not supported (re-trace via delete-symbol).
+ */
+export interface OutlineRing {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  points: RegionPoint[];
+}
+
 export interface Backdrop {
   /** Reserved for v2 built-in backdrop gallery; unused in v1. */
   ref: SymbolRef | null;
@@ -44,6 +62,8 @@ export interface RegionSymbolLayer extends BaseSymbolLayer {
   ref: null;
   shape: RegionShape;
   points?: RegionPoint[];
+  /** Extra traced polygons sharing this symbol. See {@link OutlineRing}. */
+  extraOutlines?: OutlineRing[];
 }
 
 export type SymbolLayer = ImageSymbolLayer | RegionSymbolLayer;
@@ -143,6 +163,7 @@ type UnknownSymbolLayer = Partial<BaseSymbolLayer> & {
   ref?: SymbolRef | null;
   shape?: unknown;
   points?: unknown;
+  extraOutlines?: unknown;
 };
 
 function normalizeSymbolLayers(
@@ -154,17 +175,21 @@ function normalizeSymbolLayers(
       const rawShape = isRegionShape(layer.shape) ? layer.shape : "rect";
       const points = normalizeRegionPoints(layer.points);
       const shape = rawShape === "polygon" && points ? "polygon" : "rect";
+      const extraOutlines = normalizeOutlineRings(layer.extraOutlines);
       const next = {
         ...layer,
         kind: "region",
         ref: null,
         shape,
         points: shape === "polygon" ? points : undefined,
+        ...(extraOutlines ? { extraOutlines } : {}),
       } as RegionSymbolLayer;
+      if (!extraOutlines) delete (next as { extraOutlines?: unknown }).extraOutlines;
       if (
         layer.ref !== null ||
         layer.shape !== next.shape ||
-        layer.points !== next.points
+        layer.points !== next.points ||
+        layer.extraOutlines !== next.extraOutlines
       ) {
         changed = true;
       }
@@ -184,6 +209,33 @@ function normalizeSymbolLayers(
 
 function isRegionShape(shape: unknown): shape is RegionShape {
   return shape === "rect" || shape === "polygon";
+}
+
+function normalizeOutlineRings(rings: unknown): OutlineRing[] | null {
+  if (!Array.isArray(rings)) return null;
+  const out: OutlineRing[] = [];
+  for (const ring of rings) {
+    if (typeof ring !== "object" || ring === null) continue;
+    const r = ring as Partial<OutlineRing>;
+    const points = normalizeRegionPoints(r.points);
+    if (
+      !points ||
+      !Number.isFinite(r.x) ||
+      !Number.isFinite(r.y) ||
+      !Number.isFinite(r.width) ||
+      !Number.isFinite(r.height)
+    ) {
+      continue;
+    }
+    out.push({
+      x: r.x as number,
+      y: r.y as number,
+      width: r.width as number,
+      height: r.height as number,
+      points,
+    });
+  }
+  return out.length > 0 ? out : null;
 }
 
 function normalizeRegionPoints(points: unknown): RegionPoint[] | null {

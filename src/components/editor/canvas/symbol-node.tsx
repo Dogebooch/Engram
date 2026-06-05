@@ -22,7 +22,10 @@ interface SymbolNodeProps {
   layer: SymbolLayer;
   selected: boolean;
   glowing: boolean;
-  onMount: (id: string, node: Konva.Image | Konva.Rect | Konva.Line | null) => void;
+  onMount: (
+    id: string,
+    node: Konva.Image | Konva.Rect | Konva.Line | Konva.Group | null,
+  ) => void;
   /**
    * When false, disables drag/click/contextMenu/tagDrag handlers. Used by the
    * Player view to render symbols read-only.
@@ -33,6 +36,12 @@ interface SymbolNodeProps {
    * Sequential mode to dim symbols not linked to the current fact.
    */
   dimFactor?: number;
+  /**
+   * Editor only: when true, region symbols render as nothing unless active
+   * (selected/glowing/hovered) — a sibling numbered circle stands in for the
+   * outline to keep the canvas quiet over a backdrop.
+   */
+  numbersEnabled?: boolean;
 }
 
 export const SymbolNode = React.memo(function SymbolNode({
@@ -42,6 +51,7 @@ export const SymbolNode = React.memo(function SymbolNode({
   onMount,
   interactive = true,
   dimFactor = 1,
+  numbersEnabled = false,
 }: SymbolNodeProps) {
   const symbolsReady = useSymbolsReady();
   const isRegion = isRegionSymbolLayer(layer);
@@ -73,7 +83,9 @@ export const SymbolNode = React.memo(function SymbolNode({
     PLACEHOLDER_FILL_STRONG_FALLBACK;
 
   const imageRef = React.useRef<Konva.Image | null>(null);
-  const regionRef = React.useRef<Konva.Rect | Konva.Line | null>(null);
+  const regionRef = React.useRef<Konva.Rect | Konva.Line | Konva.Group | null>(
+    null,
+  );
 
   const handleRef = React.useCallback(
     (node: Konva.Image | null) => {
@@ -84,7 +96,7 @@ export const SymbolNode = React.memo(function SymbolNode({
   );
 
   const handleRegionRef = React.useCallback(
-    (node: Konva.Rect | Konva.Line | null) => {
+    (node: Konva.Rect | Konva.Line | Konva.Group | null) => {
       regionRef.current = node;
       onMount(layer.id, node);
     },
@@ -163,6 +175,10 @@ export const SymbolNode = React.memo(function SymbolNode({
     const visible = interactive || selected || glowing;
     if (!visible) return null;
     const active = selected || glowing || regionHover;
+    // With numbers on, an inactive region is represented by its sibling number
+    // circle (rendered in the canvas-stage number layer), not its outline. The
+    // full outline returns the moment it's selected/hovered.
+    if (numbersEnabled && !active) return null;
     const strokeWidth = active ? 3.25 : 1.25;
     const strokeOpacity = active ? 1 : 0.56;
     const fillOpacity = glowing ? 0.2 : selected ? 0.14 : regionHover ? 0.1 : 0;
@@ -194,6 +210,89 @@ export const SymbolNode = React.memo(function SymbolNode({
     };
     if (layer.shape === "polygon" && layer.points && layer.points.length >= 3) {
       const points = layer.points.flatMap((p) => [p.x, p.y]);
+      const extras = layer.extraOutlines ?? [];
+      // Multi-ring symbol: wrap every ring in one Group so move/rotate/resize
+      // act on the whole symbol. Rings store offsets relative to the layer
+      // origin, so they're laid out as children at those offsets and follow the
+      // group transform for free; resize bakes the group scale into each ring.
+      if (extras.length > 0) {
+        const rings = [
+          { x: 0, y: 0, pts: points },
+          ...extras.map((r) => ({
+            x: r.x,
+            y: r.y,
+            pts: r.points.flatMap((p) => [p.x, p.y]),
+          })),
+        ];
+        return (
+          <Group
+            ref={handleRegionRef}
+            id={layer.id}
+            name="export-chrome"
+            x={layer.x}
+            y={layer.y}
+            rotation={layer.rotation}
+            draggable={interactive}
+            listening={interactive}
+            onClick={interactive ? handleClick : undefined}
+            onContextMenu={interactive ? handleContextMenu : undefined}
+            onMouseEnter={interactive ? handleRegionMouseEnter : undefined}
+            onMouseLeave={interactive ? handleRegionMouseLeave : undefined}
+            onDragStart={interactive ? tagDrag.onDragStart : undefined}
+            onDragEnd={interactive ? tagDrag.onDragEnd : undefined}
+          >
+            {rings.map((r, i) => (
+              <React.Fragment key={`ring-${i}`}>
+                {fillOpacity > 0 && (
+                  <Line
+                    name="export-chrome"
+                    x={r.x}
+                    y={r.y}
+                    points={r.pts}
+                    closed
+                    fill={accent}
+                    opacity={fillOpacity * dimFactor}
+                    listening={false}
+                    perfectDrawEnabled={false}
+                  />
+                )}
+                {contrastOpacity > 0 && (
+                  <Line
+                    name="export-chrome"
+                    x={r.x}
+                    y={r.y}
+                    points={r.pts}
+                    closed
+                    stroke={foreground}
+                    strokeWidth={contrastStrokeWidth}
+                    opacity={contrastOpacity}
+                    listening={false}
+                    perfectDrawEnabled={false}
+                  />
+                )}
+                <Line
+                  name="export-chrome"
+                  x={r.x}
+                  y={r.y}
+                  points={r.pts}
+                  closed
+                  stroke={accent}
+                  strokeWidth={strokeWidth}
+                  dash={active ? undefined : [8, 5]}
+                  opacity={strokeOpacity * dimFactor}
+                  shadowEnabled={active}
+                  shadowColor={accent}
+                  shadowBlur={active ? 18 : 0}
+                  shadowOpacity={active ? 0.55 : 0}
+                  fillEnabled={false}
+                  hitStrokeWidth={12}
+                  perfectDrawEnabled={false}
+                />
+              </React.Fragment>
+            ))}
+          </Group>
+        );
+      }
       return (
         <>
           {fillOpacity > 0 && (

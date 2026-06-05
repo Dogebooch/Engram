@@ -100,6 +100,74 @@ describe("setSymbolOutline", () => {
     expect(useStore.getState().picmonics[pid].canvas.symbols).toHaveLength(before);
   });
 
+  it("append adds an extra ring without replacing the primary outline", () => {
+    const pid = useStore.getState().createPicmonic("test");
+    const layerId = addSymbolWithNoteSync({ ref: "openmoji:1F436", x: 100, y: 100 })!;
+
+    // First outline establishes the primary polygon.
+    useStore.getState().setSymbolOutline(layerId, {
+      x: 5,
+      y: 6,
+      width: 40,
+      height: 30,
+      shape: "polygon",
+      points: TRI,
+    });
+
+    const SECOND = [
+      { x: 0, y: 0 },
+      { x: 12, y: 0 },
+      { x: 6, y: 9 },
+    ];
+    const ok = useStore.getState().setSymbolOutline(layerId, {
+      x: 80,
+      y: 70,
+      width: 20,
+      height: 20,
+      shape: "polygon",
+      points: SECOND,
+      append: true,
+    });
+
+    expect(ok).toBe(true);
+    const symbols = useStore.getState().picmonics[pid].canvas.symbols;
+    expect(symbols).toHaveLength(1);
+    const layer = symbols[0];
+    if (!isRegionSymbolLayer(layer)) throw new Error("expected region");
+    // Primary outline is untouched...
+    expect(layer.points).toEqual(TRI);
+    // ...and the extra ring is stored relative to the layer origin.
+    expect(layer.extraOutlines).toHaveLength(1);
+    expect(layer.extraOutlines![0]).toEqual({
+      x: 80 - 5,
+      y: 70 - 6,
+      width: 20,
+      height: 20,
+      points: SECOND,
+    });
+  });
+
+  it("append on a symbol with no primary outline falls back to creating it", () => {
+    const pid = useStore.getState().createPicmonic("test");
+    const layerId = addSymbolWithNoteSync({ ref: "openmoji:1F436", x: 100, y: 100 })!;
+
+    const ok = useStore.getState().setSymbolOutline(layerId, {
+      x: 5,
+      y: 6,
+      width: 40,
+      height: 30,
+      shape: "polygon",
+      points: TRI,
+      append: true,
+    });
+
+    expect(ok).toBe(true);
+    const layer = useStore.getState().picmonics[pid].canvas.symbols[0];
+    if (!isRegionSymbolLayer(layer)) throw new Error("expected region");
+    expect(layer.points).toEqual(TRI);
+    expect(layer.extraOutlines).toBeUndefined();
+  });
+
   it("binds as a single undoable history entry", () => {
     useStore.getState().createPicmonic("test");
     const layerId = addSymbolWithNoteSync({ ref: "openmoji:1F436", x: 100, y: 100 })!;

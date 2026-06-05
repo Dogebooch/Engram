@@ -35,6 +35,13 @@ export interface UiState {
    */
   traceOnAdd: boolean;
   /**
+   * Persisted preference: when true, the editor canvas shows a small numbered
+   * circle for each symbol (its chronological fact number) instead of the full
+   * muted outline, which is quieter over a backdrop. The full outline still
+   * appears for the hovered/selected symbol. On by default.
+   */
+  showSymbolNumbers: boolean;
+  /**
    * Transient (non-persisted): becomes true the first time we auto-open
    * the right panel for the active picmonic, so re-collapsing the panel
    * isn't fought by subsequent symbol adds. Resets on picmonic switch.
@@ -61,6 +68,7 @@ export interface UiSlice {
   setStorageQuota: (next: StorageQuotaState) => void;
   setConfirmSymbolDelete: (value: boolean) => void;
   toggleTraceOnAdd: () => void;
+  toggleSymbolNumbers: () => void;
   /**
    * Open the right panel and mark it auto-opened, but only on the first
    * trigger per active picmonic. Subsequent calls are no-ops, so the user
@@ -82,6 +90,7 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
     storageQuota: { percent: null, lastWarned: null },
     confirmSymbolDelete: true,
     traceOnAdd: false,
+    showSymbolNumbers: true,
     autoOpenedRightForActivePicmonic: false,
     justCreatedPicmonicId: null,
   },
@@ -115,6 +124,8 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
     set((s) => ({ ui: { ...s.ui, confirmSymbolDelete: value } })),
   toggleTraceOnAdd: () =>
     set((s) => ({ ui: { ...s.ui, traceOnAdd: !s.ui.traceOnAdd } })),
+  toggleSymbolNumbers: () =>
+    set((s) => ({ ui: { ...s.ui, showSymbolNumbers: !s.ui.showSymbolNumbers } })),
   ensureRightPanelOpenedOnce: () =>
     set((s) => {
       if (s.ui.autoOpenedRightForActivePicmonic) return s;

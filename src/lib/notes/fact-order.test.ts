@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { getOrderedFacts } from "./fact-order";
+import { getOrderedFacts, symbolOrdinals } from "./fact-order";
 import { parseNotes } from "./parse";
 
 const A = "11111111-1111-1111-1111-111111111111";
 const B = "22222222-2222-2222-2222-222222222222";
+const C = "33333333-3333-3333-3333-333333333333";
 
 describe("getOrderedFacts", () => {
   it("preserves document order across root facts and sections", () => {
@@ -71,5 +72,45 @@ describe("getOrderedFacts", () => {
   it("returns empty array when no facts qualify", () => {
     const parsed = parseNotes("# Just a section heading");
     expect(getOrderedFacts(parsed)).toEqual([]);
+  });
+});
+
+describe("symbolOrdinals", () => {
+  it("numbers symbols by their fact's chronological position", () => {
+    const notes = `## Alpha
+* {sym:${A}} a
+
+# Section
+## Beta
+* {sym:${B}} b
+`;
+    const ords = symbolOrdinals(parseNotes(notes));
+    expect(ords.get(A)).toBe(1);
+    expect(ords.get(B)).toBe(2);
+  });
+
+  it("shares one number across multiple symbols in the same fact", () => {
+    const notes = `## Alpha
+* {sym:${A}} a
+
+## Beta
+* {sym:${B}} b
+* {sym:${C}} c
+`;
+    const ords = symbolOrdinals(parseNotes(notes));
+    expect(ords.get(A)).toBe(1);
+    expect(ords.get(B)).toBe(2);
+    expect(ords.get(C)).toBe(2);
+  });
+
+  it("uses the earliest fact when a symbol appears in several", () => {
+    const notes = `## Alpha
+* {sym:${A}} a
+
+## Beta
+* {sym:${A}} again
+`;
+    const ords = symbolOrdinals(parseNotes(notes));
+    expect(ords.get(A)).toBe(1);
   });
 });

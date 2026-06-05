@@ -16,12 +16,14 @@ import { toast } from "sonner";
 import { addRegionWithNoteSync } from "@/lib/canvas/add-symbol-with-note-sync";
 import { describeSymbol } from "@/lib/canvas/missing-outlines";
 import { parseNotes } from "@/lib/notes/parse";
+import { symbolOrdinals } from "@/lib/notes/fact-order";
 import { useStore } from "@/lib/store";
 import { usePicmonic } from "@/lib/store/hooks";
 import type { OutlineWalkthroughState } from "@/lib/store/slices/interactions-slice";
 import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
-import type { RegionPoint } from "@/lib/types/canvas";
+import { isRegionSymbolLayer, type RegionPoint, type SymbolLayer } from "@/lib/types/canvas";
 import { BackdropLayer } from "./backdrop-layer";
+import { SymbolNumberCircle } from "./symbol-number-circle";
 import { CanvasTransformer } from "./canvas-transformer";
 import { DescribePopover } from "./describe-popover";
 import { setCurrentStage } from "./canvas-stage-ref";
@@ -41,6 +43,31 @@ const STAGE_PAPER_FALLBACK = "oklch(0.255 0.025 188)";
 const MARQUEE_DRAG_THRESHOLD = 4;
 const REGION_DRAG_THRESHOLD = 4;
 const REGION_SAMPLE_DISTANCE = 8;
+
+// Pencil cursor for active tracing — tip hotspot at the bottom-left so the nib
+// sits on the pointer. Black halo + white body so it reads on any backdrop.
+const PENCIL_CURSOR_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24">' +
+  '<g stroke="black" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none">' +
+  '<path d="M16.5 3.5l4 4L8 20l-4 1 1-4z"/><path d="M14 6l4 4"/>' +
+  "</g>" +
+  '<g stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none">' +
+  '<path d="M16.5 3.5l4 4L8 20l-4 1 1-4z"/><path d="M14 6l4 4"/>' +
+  "</g>" +
+  "</svg>";
+const PENCIL_CURSOR = `url("data:image/svg+xml;utf8,${encodeURIComponent(
+  PENCIL_CURSOR_SVG,
+)}") 3 25, crosshair`;
+
+/** Top-right corner of a symbol's (rotated) bounding box — where its number
+ * circle attaches so it reads as a tag on the outline rather than over it. */
+function symbolNumberAnchor(layer: SymbolLayer): { x: number; y: number } {
+  const theta = (layer.rotation * Math.PI) / 180;
+  const cos = Math.cos(theta);
+  const sin = Math.sin(theta);
+  const lx = layer.width;
+  return { x: layer.x + lx * cos, y: layer.y + lx * sin };
+}
 
 interface FitBox {
   width: number;
@@ -138,7 +165,7 @@ export function CanvasStage() {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const stageRef = React.useRef<Konva.Stage | null>(null);
   const symbolRefs = React.useRef<
-    Map<string, Konva.Image | Konva.Rect | Konva.Line>
+    Map<string, Konva.Image | Konva.Rect | Konva.Line | Konva.Group>
   >(new Map());
   const [box, setBox] = React.useState<FitBox>(ZERO_BOX);
 
@@ -155,6 +182,11 @@ export function CanvasStage() {
   const clearSelection = useStore((s) => s.clearSelection);
   const setSelectedSymbolIds = useStore((s) => s.setSelectedSymbolIds);
   const setLibraryDrawerOpen = useStore((s) => s.setLibraryDrawerOpen);
+  const showSymbolNumbers = useStore((s) => s.ui.showSymbolNumbers);
+  const toggleSymbolNumbers = useStore((s) => s.toggleSymbolNumbers);
+  const selectGroupAware = useStore((s) => s.selectGroupAware);
+  const openDescribePopover = useStore((s) => s.openDescribePopover);
+  const setHoveredSymbol = useStore((s) => s.setHoveredSymbol);
   const selectedSet = React.useMemo(() => new Set(selectedIds), [selectedIds]);
   const hoveredSymbolId = useStore((s) => s.hoveredSymbolId);
   const glowSet = React.useMemo(() => {
@@ -240,7 +272,10 @@ export function CanvasStage() {
   }, []);
 
   const handleSymbolMount = React.useCallback(
-    (id: string, node: Konva.Image | Konva.Rect | Konva.Line | null) => {
+    (
+      id: string,
+      node: Konva.Image | Konva.Rect | Konva.Line | Konva.Group | null,
+    ) => {
       if (node) {
         symbolRefs.current.set(id, node);
       } else {
@@ -320,7 +355,7 @@ export function CanvasStage() {
     return status;
   }, []);
 
-  const closeRegionDraft = React.useCallback(() => {
+  const closeRegionDraft = React.useCallback((append = false) => {
     const draft = regionDraftRef.current;
     if (draft.kind !== "active") return false;
     const region = closePolygonPoints(draft.points);
@@ -329,8 +364,14 @@ export function CanvasStage() {
     const targetId = s.outlineTargetSymbolId;
     if (targetId) {
       // Bind the outline to the existing bullet's symbol — no new bullet.
-      if (!s.setSymbolOutline(targetId, { ...region, shape: "polygon" })) {
+      if (!s.setSymbolOutline(targetId, { ...region, shape: "polygon", append })) {
         return false;
+      }
+      if (append) {
+        // Shift-trace: leave the same target armed (and stay in annotation
+        // mode) so the next ring also binds to this symbol.
+        setRegionDraft(IDLE_REGION_DRAFT);
+        return true;
       }
       const wt = s.outlineWalkthrough;
       if (wt && wt.queue[wt.index] === targetId) {
@@ -415,7 +456,7 @@ export function CanvasStage() {
       if (e.target !== e.target.getStage()) return;
       if (!annotationMode || !backdrop?.uploadedBlobId) return;
       e.evt.preventDefault();
-      closeRegionDraft();
+      closeRegionDraft(e.evt.shiftKey);
     },
     [annotationMode, backdrop?.uploadedBlobId, closeRegionDraft],
   );
@@ -520,10 +561,28 @@ export function CanvasStage() {
   }, [outlineTargetId, backdrop?.uploadedBlobId, annotationMode]);
 
   const notes = picmonic?.notes ?? "";
+  const parsed = React.useMemo(() => parseNotes(notes), [notes]);
+  const ordinals = React.useMemo(() => symbolOrdinals(parsed), [parsed]);
   const outlineLabel = React.useMemo(() => {
     if (!outlineTargetId) return null;
-    return describeSymbol(notes, parseNotes(notes), outlineTargetId);
-  }, [outlineTargetId, notes]);
+    return describeSymbol(notes, parsed, outlineTargetId);
+  }, [outlineTargetId, notes, parsed]);
+
+  const selectNumberCircle = React.useCallback(
+    (symbolId: string) => {
+      useStore.getState().setLastSyncSource("editor");
+      selectGroupAware(symbolId);
+      openDescribePopover(symbolId);
+    },
+    [selectGroupAware, openDescribePopover],
+  );
+
+  const hoverNumberCircle = React.useCallback(
+    (symbolId: string, hovering: boolean) => {
+      setHoveredSymbol(hovering ? symbolId : null);
+    },
+    [setHoveredSymbol],
+  );
 
   const handleOutlineDone = React.useCallback(() => {
     const s = useStore.getState();
@@ -560,11 +619,11 @@ export function CanvasStage() {
       });
     };
 
-    const onUp = () => {
+    const onUp = (e: MouseEvent) => {
       const drag = regionDragRef.current;
       regionDragRef.current = null;
       if (!drag?.drawing) return;
-      const closed = closeRegionDraft();
+      const closed = closeRegionDraft(e.shiftKey);
       if (!closed) cancelRegionDraft();
     };
 
@@ -572,7 +631,7 @@ export function CanvasStage() {
       if (e.key === "Enter") {
         e.preventDefault();
         e.stopImmediatePropagation();
-        closeRegionDraft();
+        closeRegionDraft(e.shiftKey);
       }
       if (e.key === "Escape") {
         e.preventDefault();
@@ -654,6 +713,21 @@ export function CanvasStage() {
       ? regionDraftPreview.flatMap((p) => [p.x, p.y])
       : null;
   const canAnnotate = annotationMode && !!backdrop?.uploadedBlobId;
+  const numbersEnabled = showSymbolNumbers && !canAnnotate;
+
+  // Per-symbol number circles: region symbols carrying a fact ordinal, shown
+  // unless the symbol is selected (its outline shows instead). The circle stays
+  // mounted while merely hovered/glowing so its own mouseleave still fires to
+  // clear the hover — otherwise a self-unmounting circle would leave the symbol
+  // stuck glowing. The outline simply renders on top of the small corner circle
+  // while hovered.
+  const numberCircles = React.useMemo<SymbolLayer[]>(() => {
+    if (!numbersEnabled) return [];
+    return symbols.filter(
+      (s) =>
+        isRegionSymbolLayer(s) && ordinals.has(s.id) && !selectedSet.has(s.id),
+    );
+  }, [numbersEnabled, symbols, ordinals, selectedSet]);
 
   return (
     <div
@@ -664,7 +738,7 @@ export function CanvasStage() {
       style={{
         backgroundImage:
           "radial-gradient(ellipse at center, var(--stage-vignette-inner) 0%, var(--stage-vignette-outer) 70%)",
-        cursor: canAnnotate ? "crosshair" : undefined,
+        cursor: canAnnotate ? PENCIL_CURSOR : undefined,
       }}
       onContextMenu={(e) => {
         // Suppress browser default context menu over the canvas area; the
@@ -707,35 +781,58 @@ export function CanvasStage() {
             {backdrop && backdrop.uploadedBlobId && (
               <BackdropLayer backdrop={backdrop} />
             )}
-            <Layer>
-              {symbols.map((layer) => (
-                <SymbolNode
-                  key={layer.id}
-                  layer={layer}
-                  selected={selectedSet.has(layer.id)}
-                  glowing={glowSet.has(layer.id)}
-                  onMount={handleSymbolMount}
-                />
-              ))}
-            </Layer>
-            <Layer name="export-chrome" listening={false}>
-              {groupOutlineSymbols.map((sy) => (
-                <Rect
-                  key={`group-outline-${sy.id}`}
-                  x={sy.x - 4}
-                  y={sy.y - 4}
-                  width={sy.width + 8}
-                  height={sy.height + 8}
-                  rotation={sy.rotation}
-                  stroke={accent}
-                  strokeWidth={1}
-                  dash={[4, 4]}
-                  opacity={0.45}
-                  cornerRadius={4}
-                  fill={undefined}
-                />
-              ))}
-            </Layer>
+            {!canAnnotate && (
+              <Layer>
+                {symbols.map((layer) => (
+                  <SymbolNode
+                    key={layer.id}
+                    layer={layer}
+                    selected={selectedSet.has(layer.id)}
+                    glowing={glowSet.has(layer.id)}
+                    onMount={handleSymbolMount}
+                    numbersEnabled={numbersEnabled}
+                  />
+                ))}
+              </Layer>
+            )}
+            {!canAnnotate && (
+              <Layer name="export-chrome">
+                {numberCircles.map((layer) => {
+                  const anchor = symbolNumberAnchor(layer);
+                  return (
+                    <SymbolNumberCircle
+                      key={`num-${layer.id}`}
+                      symbolId={layer.id}
+                      ordinal={ordinals.get(layer.id) ?? 0}
+                      x={anchor.x}
+                      y={anchor.y}
+                      onSelect={selectNumberCircle}
+                      onHoverChange={hoverNumberCircle}
+                    />
+                  );
+                })}
+              </Layer>
+            )}
+            {!canAnnotate && (
+              <Layer name="export-chrome" listening={false}>
+                {groupOutlineSymbols.map((sy) => (
+                  <Rect
+                    key={`group-outline-${sy.id}`}
+                    x={sy.x - 4}
+                    y={sy.y - 4}
+                    width={sy.width + 8}
+                    height={sy.height + 8}
+                    rotation={sy.rotation}
+                    stroke={accent}
+                    strokeWidth={1}
+                    dash={[4, 4]}
+                    opacity={0.45}
+                    cornerRadius={4}
+                    fill={undefined}
+                  />
+                ))}
+              </Layer>
+            )}
             <Layer name="region-draft" listening={false}>
               {regionDraft.kind === "active" && (
                 <>
@@ -754,8 +851,8 @@ export function CanvasStage() {
                     <Line
                       points={regionDraftPreviewPoints}
                       stroke={accent}
-                      strokeWidth={1.5 / box.scale}
-                      dash={[6 / box.scale, 4 / box.scale]}
+                      strokeWidth={1 / box.scale}
+                      dash={[5 / box.scale, 3 / box.scale]}
                       lineCap="round"
                       lineJoin="round"
                       opacity={0.95}
@@ -765,10 +862,10 @@ export function CanvasStage() {
                   {regionDraft.points.map((p, i) => (
                     <Rect
                       key={`region-point-${i}`}
-                      x={p.x - 3 / box.scale}
-                      y={p.y - 3 / box.scale}
-                      width={6 / box.scale}
-                      height={6 / box.scale}
+                      x={p.x - 2.5 / box.scale}
+                      y={p.y - 2.5 / box.scale}
+                      width={5 / box.scale}
+                      height={5 / box.scale}
                       fill={accent}
                       cornerRadius={1 / box.scale}
                       opacity={0.95}
@@ -777,13 +874,15 @@ export function CanvasStage() {
                 </>
               )}
             </Layer>
-            <Layer name="export-chrome">
-              <CanvasTransformer
-                selectedIds={selectedIds}
-                symbolsKey={symbolsKey}
-                getNode={(id) => symbolRefs.current.get(id) ?? null}
-              />
-            </Layer>
+            {!canAnnotate && (
+              <Layer name="export-chrome">
+                <CanvasTransformer
+                  selectedIds={selectedIds}
+                  symbolsKey={symbolsKey}
+                  getNode={(id) => symbolRefs.current.get(id) ?? null}
+                />
+              </Layer>
+            )}
             <Layer name="marquee" listening={false}>
               {marqueeRect && (
                 <>
@@ -843,6 +942,13 @@ export function CanvasStage() {
           <CanvasEmptyState onAddSymbol={() => setLibraryDrawerOpen(true)} />
         )}
       <CornerReadout scale={box.scale} />
+      {!canAnnotate &&
+        symbols.some((s) => isRegionSymbolLayer(s) && ordinals.has(s.id)) && (
+          <NumbersToggle
+            on={showSymbolNumbers}
+            onToggle={toggleSymbolNumbers}
+          />
+        )}
       <SymbolContextMenu />
       <StageContextMenu />
       <ReplaceSymbolPopover />
@@ -883,6 +989,35 @@ function CanvasEmptyState({ onAddSymbol }: { onAddSymbol: () => void }) {
   );
 }
 
+function NumbersToggle({
+  on,
+  onToggle,
+}: {
+  on: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={on}
+      title="Show a numbered circle for each symbol instead of its full outline"
+      className={`absolute bottom-2 left-3 z-20 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.16em] transition-colors ${
+        on
+          ? "border-accent/55 bg-accent/15 text-accent"
+          : "border-border/70 text-muted-foreground/55 hover:text-muted-foreground"
+      }`}
+    >
+      <span
+        className={`size-[5px] rounded-full ${
+          on ? "bg-accent" : "bg-muted-foreground/40"
+        }`}
+      />
+      numbers
+    </button>
+  );
+}
+
 function CornerReadout({ scale }: { scale: number }) {
   const pct = scale > 0 ? Math.round(scale * 100) : null;
   return (
@@ -917,10 +1052,15 @@ function AnnotationModeBadge({
       ? `Outline: ${outlineLabel}`
       : "Click to outline a symbol";
   return (
-    <div className="pointer-events-none absolute left-1/2 top-3 z-20 flex max-w-[28rem] -translate-x-1/2 items-center gap-2 rounded-md border border-border/70 bg-card/90 px-2.5 py-1.5 shadow-lg backdrop-blur">
+    <div className="pointer-events-none absolute left-1/2 top-3 z-20 flex max-w-[30rem] -translate-x-1/2 items-center gap-2 rounded-md border border-border/70 bg-card/90 px-2.5 py-1.5 shadow-lg backdrop-blur">
       <span className="max-w-[18rem] truncate font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
         {label}
       </span>
+      {canAnnotate && outlineLabel && (
+        <span className="hidden shrink-0 font-mono text-[10px] tracking-[0.12em] text-muted-foreground/55 sm:inline">
+          ⇧ for another outline
+        </span>
+      )}
       {walkthrough && (
         <span className="shrink-0 font-mono text-[10px] tracking-[0.12em] text-foreground/70">
           {walkthrough.index + 1} / {walkthrough.queue.length}

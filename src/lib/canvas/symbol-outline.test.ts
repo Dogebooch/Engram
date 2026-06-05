@@ -62,4 +62,32 @@ describe("symbolHasOutline", () => {
       ),
     ).toBe(true);
   });
+
+  it("stays true for a polygon region carrying extra outline rings", () => {
+    expect(
+      symbolHasOutline(
+        region({
+          shape: "polygon",
+          points: [
+            { x: 0, y: 0 },
+            { x: 10, y: 0 },
+            { x: 5, y: 8 },
+          ],
+          extraOutlines: [
+            {
+              x: 20,
+              y: 20,
+              width: 10,
+              height: 10,
+              points: [
+                { x: 0, y: 0 },
+                { x: 6, y: 0 },
+                { x: 3, y: 5 },
+              ],
+            },
+          ],
+        }),
+      ),
+    ).toBe(true);
+  });
 });

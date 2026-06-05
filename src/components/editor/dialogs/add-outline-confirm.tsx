@@ -72,7 +72,7 @@ export function AddOutlineConfirm() {
           <DialogTitle>Add an outline?</DialogTitle>
           <DialogDescription>
             {hasBackdrop
-              ? `Draw a highlight over "${label}" on the background image.`
+              ? `Draw a highlight over "${label}" on the background image. To add multiple outlines, hold Shift while tracing.`
               : `Outlines are drawn over a background image. Choose one to start outlining "${label}".`}
           </DialogDescription>
         </DialogHeader>

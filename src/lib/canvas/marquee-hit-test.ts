@@ -42,6 +42,18 @@ export function symbolAabb(layer: SymbolLayer): Rect {
     [0, h],
     [w, h],
   ];
+  // Extra outline rings live at offsets from the layer origin; include their
+  // corners so a marquee over a ring outside the primary bbox still selects it.
+  if (layer.kind === "region" && layer.extraOutlines) {
+    for (const r of layer.extraOutlines) {
+      corners.push(
+        [r.x, r.y],
+        [r.x + r.width, r.y],
+        [r.x, r.y + r.height],
+        [r.x + r.width, r.y + r.height],
+      );
+    }
+  }
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;

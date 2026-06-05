@@ -165,6 +165,87 @@ describe("normalizeCanvas backdrop backfill", () => {
     });
   });
 
+  it("preserves valid extraOutlines on a polygon region", () => {
+    const ring = {
+      x: 30,
+      y: 40,
+      width: 20,
+      height: 20,
+      points: [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 5, y: 8 },
+      ],
+    };
+    const c = {
+      ...emptyCanvas(),
+      symbols: [
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          kind: "region",
+          ref: null,
+          shape: "polygon",
+          points: [
+            { x: 0, y: 0 },
+            { x: 80, y: 10 },
+            { x: 20, y: 60 },
+          ],
+          extraOutlines: [ring],
+          x: 10,
+          y: 20,
+          width: 80,
+          height: 60,
+          rotation: 0,
+          layerIndex: 0,
+          groupId: null,
+          animation: null,
+          animationDelay: null,
+          animationDuration: null,
+        },
+      ],
+    } as unknown as CanvasState;
+
+    const out = normalizeCanvas(c);
+    const layer = out.symbols[0] as { extraOutlines?: unknown[] };
+    expect(layer.extraOutlines).toEqual([ring]);
+  });
+
+  it("drops malformed extra rings and omits the field when none remain", () => {
+    const c = {
+      ...emptyCanvas(),
+      symbols: [
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          kind: "region",
+          ref: null,
+          shape: "polygon",
+          points: [
+            { x: 0, y: 0 },
+            { x: 80, y: 10 },
+            { x: 20, y: 60 },
+          ],
+          // Too few points → invalid → dropped.
+          extraOutlines: [
+            { x: 1, y: 2, width: 5, height: 5, points: [{ x: 0, y: 0 }] },
+          ],
+          x: 10,
+          y: 20,
+          width: 80,
+          height: 60,
+          rotation: 0,
+          layerIndex: 0,
+          groupId: null,
+          animation: null,
+          animationDelay: null,
+          animationDuration: null,
+        },
+      ],
+    } as unknown as CanvasState;
+
+    const out = normalizeCanvas(c);
+    expect(out.symbols[0]).not.toHaveProperty("extraOutlines");
+  });
+
   it("falls malformed polygon regions back to rect", () => {
     const regionSymbol = {
       id: "22222222-2222-4222-8222-222222222222",

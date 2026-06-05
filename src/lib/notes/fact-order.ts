@@ -40,3 +40,20 @@ export function getOrderedFacts(
   }
   return out;
 }
+
+/**
+ * Map each symbol id to its chronological fact number — the 1-based ordinal of
+ * the first ordered fact that references it. Symbols tagged in several facts get
+ * the earliest fact's number; multiple symbols in one fact share that number.
+ * Used by the editor canvas to label per-symbol number circles.
+ */
+export function symbolOrdinals(parsed: ParsedNotes): Map<string, number> {
+  const out = new Map<string, number>();
+  const ordered = getOrderedFacts(parsed);
+  for (let i = 0; i < ordered.length; i++) {
+    for (const ref of ordered[i].symbolRefs) {
+      if (!out.has(ref.symbolId)) out.set(ref.symbolId, i + 1);
+    }
+  }
+  return out;
+}

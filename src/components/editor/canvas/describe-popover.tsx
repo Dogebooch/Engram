@@ -14,10 +14,10 @@ import {
   type AnchorFitBox,
 } from "./describe-popover-anchor";
 
-const POPOVER_WIDTH = 300;
+const POPOVER_WIDTH = 360;
 // Estimate used only to decide below/above placement; the rendered card sizes
 // to its content. A region near the bottom edge flips above.
-const POPOVER_EST_HEIGHT = 176;
+const POPOVER_EST_HEIGHT = 220;
 
 interface DraftParts {
   description: string;
@@ -217,8 +217,8 @@ function DescribePopoverInner({
   const displayName = entry?.displayName ?? (layerRef ? layerRef : "region");
   const imageUrl = entry?.imageUrl ?? null;
 
-  const descRef = React.useRef<HTMLInputElement>(null);
-  const meanRef = React.useRef<HTMLInputElement>(null);
+  const descRef = React.useRef<HTMLTextAreaElement>(null);
+  const meanRef = React.useRef<HTMLTextAreaElement>(null);
   const whyRef = React.useRef<HTMLTextAreaElement>(null);
 
   // Esc dismisses the popover (selection stays). Writes are already saved.
@@ -260,7 +260,7 @@ function DescribePopoverInner({
 
   return (
     <div
-      className="eng-describe-popover absolute z-40 flex w-[300px] flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-[0_12px_44px_-14px_color-mix(in_oklch,var(--background)_85%,transparent)] ring-1 ring-border"
+      className="eng-describe-popover absolute z-40 flex w-[360px] flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-[0_12px_44px_-14px_color-mix(in_oklch,var(--background)_85%,transparent)] ring-1 ring-border"
       style={{ left, top }}
       data-eng-describe-popover
       onKeyDown={handleKeyDown}
@@ -321,41 +321,43 @@ function DescribePopoverInner({
       )}
 
       {/* Fields */}
-      <FieldRow label="DESC">
-        <input
+      <FieldRow label="DESC" align="top">
+        <textarea
           ref={descRef}
-          type="text"
           value={draft.description}
           onChange={(e) => setField("description", e.target.value)}
           onKeyDown={onAdvanceField("desc")}
           placeholder="visual description"
           aria-required
+          rows={1}
           className={cn(
-            "h-7 w-full bg-transparent font-mono text-[12.5px] text-foreground/95 outline-none placeholder:italic placeholder:text-muted-foreground/40",
+            "field-sizing-content min-h-7 w-full resize-none bg-transparent py-1 font-mono text-[12.5px] leading-snug text-foreground/95 outline-none placeholder:italic placeholder:text-muted-foreground/40",
             "border-b border-transparent focus:border-foreground/45",
             descEmpty && "border-dashed border-destructive/55",
           )}
+          style={{ maxHeight: "7em" }}
         />
         {descEmpty && (
-          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[9px] uppercase tracking-[0.22em] text-destructive/70">
+          <span className="pointer-events-none absolute right-2 top-2 font-mono text-[9px] uppercase tracking-[0.22em] text-destructive/70">
             · required
           </span>
         )}
       </FieldRow>
       <Connector glyph="↓" />
-      <FieldRow label="MEAN">
-        <input
+      <FieldRow label="MEAN" align="top">
+        <textarea
           ref={meanRef}
-          type="text"
           value={draft.meaning}
           onChange={(e) => setField("meaning", e.target.value)}
           onKeyDown={onAdvanceField("mean")}
           placeholder="meaning…"
+          rows={1}
           className={cn(
-            "h-7 w-full bg-transparent font-mono text-[12.5px] text-foreground/95 outline-none placeholder:italic placeholder:text-muted-foreground/40",
+            "field-sizing-content min-h-7 w-full resize-none bg-transparent py-1 font-mono text-[12.5px] leading-snug text-foreground/95 outline-none placeholder:italic placeholder:text-muted-foreground/40",
             "border-b border-transparent focus:border-foreground/45",
             meanEmpty && "border-dashed border-foreground/15",
           )}
+          style={{ maxHeight: "7em" }}
         />
       </FieldRow>
       <Connector glyph=";" />
@@ -372,7 +374,7 @@ function DescribePopoverInner({
             "border-b border-transparent focus:border-foreground/45",
             whyEmpty && "border-dashed border-foreground/15",
           )}
-          style={{ maxHeight: "5.5em" }}
+          style={{ maxHeight: "10em" }}
         />
       </FieldRow>
     </div>
