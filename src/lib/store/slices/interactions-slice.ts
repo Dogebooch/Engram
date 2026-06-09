@@ -51,6 +51,13 @@ export interface OutlineWalkthroughState {
 export interface InteractionsSlice {
   factPicker: FactPickerState | null;
   addSymbolTargetFactId: string | null;
+  /**
+   * The existing symbol id awaiting an image assignment from the library
+   * drawer (set by the "Pick from library" path of the outline dialog). When
+   * set, a library pick replaces this symbol's visual via `assignSymbolImage`
+   * instead of adding a new bullet. Transient.
+   */
+  imageTargetSymbolId: string | null;
   contextMenu: SymbolContextMenuState | null;
   stageContextMenu: StageContextMenuState | null;
   replacePicker: ReplacePickerState | null;
@@ -88,6 +95,9 @@ export interface InteractionsSlice {
   closeFactPicker: () => void;
   setAddSymbolTargetFact: (factId: string | null) => void;
   clearAddSymbolTargetFact: () => void;
+  /** Arm the library drawer to assign the next pick as `id`'s image (or clear). */
+  setImageTarget: (id: string | null) => void;
+  clearImageTarget: () => void;
   openSymbolContextMenu: (
     x: number,
     y: number,
@@ -160,6 +170,7 @@ export const createInteractionsSlice: StateCreator<
 > = (set, get) => ({
   factPicker: null,
   addSymbolTargetFactId: null,
+  imageTargetSymbolId: null,
   contextMenu: null,
   stageContextMenu: null,
   replacePicker: null,
@@ -190,6 +201,8 @@ export const createInteractionsSlice: StateCreator<
   closeFactPicker: () => set({ factPicker: null }),
   setAddSymbolTargetFact: (factId) => set({ addSymbolTargetFactId: factId }),
   clearAddSymbolTargetFact: () => set({ addSymbolTargetFactId: null }),
+  setImageTarget: (id) => set({ imageTargetSymbolId: id }),
+  clearImageTarget: () => set({ imageTargetSymbolId: null }),
   openSymbolContextMenu: (x, y, symbolId) =>
     set({ contextMenu: { x, y, symbolId } }),
   closeSymbolContextMenu: () => set({ contextMenu: null }),

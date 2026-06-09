@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import { useCurrentPicmonicId } from "@/lib/store/hooks";
 import { addSymbolWithNoteSync } from "@/lib/canvas/add-symbol-with-note-sync";
+import { describeSymbol } from "@/lib/canvas/missing-outlines";
 import { parseNotes } from "@/lib/notes/parse";
 import {
   getCachedSymbols,
@@ -45,6 +46,8 @@ export function SymbolLibrary() {
   const recentIds = useStore((s) => s.ui.recentSymbolIds);
   const addTargetFactId = useStore((s) => s.addSymbolTargetFactId);
   const clearAddTarget = useStore((s) => s.clearAddSymbolTargetFact);
+  const imageTargetSymbolId = useStore((s) => s.imageTargetSymbolId);
+  const clearImageTarget = useStore((s) => s.clearImageTarget);
   const traceOnAdd = useStore((s) => s.ui.traceOnAdd);
   const toggleTraceOnAdd = useStore((s) => s.toggleTraceOnAdd);
   const currentPicmonicId = useCurrentPicmonicId();
@@ -109,12 +112,27 @@ export function SymbolLibrary() {
     return parseNotes(notes).factsById.get(addTargetFactId)?.name ?? null;
   }, [addTargetFactId, notes]);
 
+  const imageTargetName = React.useMemo(() => {
+    if (!imageTargetSymbolId) return null;
+    return describeSymbol(notes, parseNotes(notes), imageTargetSymbolId);
+  }, [imageTargetSymbolId, notes]);
+
   const handleActivate = React.useCallback(
     (entry: SymbolEntry) => {
       if (!currentPicmonicId) {
         toast.error("Create a Picmonic first", {
           description: "⌘/Ctrl+N or the + button up top.",
         });
+        return;
+      }
+      // "Pick from library" path: give an existing placeholder symbol its image
+      // instead of minting a new bullet.
+      if (imageTargetSymbolId) {
+        const st = useStore.getState();
+        st.assignSymbolImage(imageTargetSymbolId, entry.id);
+        st.clearImageTarget();
+        st.setLibraryDrawerOpen(false);
+        toast("Picture set", { description: entry.displayName, duration: 1200 });
         return;
       }
       const id = addSymbolWithNoteSync({
@@ -127,7 +145,7 @@ export function SymbolLibrary() {
         useStore.getState().armSymbolForBuild(id);
       }
     },
-    [addTargetFactId, currentPicmonicId],
+    [addTargetFactId, currentPicmonicId, imageTargetSymbolId],
   );
 
   const totalLabel =
@@ -176,20 +194,42 @@ export function SymbolLibrary() {
 
       <AddRow />
 
-      {addTargetName && (
+      {imageTargetSymbolId ? (
         <div className="eng-library-add-target">
-          <span className="eng-library-add-target__label">add to</span>
-          <span className="eng-library-add-target__name" title={addTargetName}>
-            {addTargetName}
+          <span className="eng-library-add-target__label">picture for</span>
+          <span
+            className="eng-library-add-target__name"
+            title={imageTargetName ?? undefined}
+          >
+            {imageTargetName ?? "this symbol"}
           </span>
           <button
             type="button"
-            onClick={clearAddTarget}
+            onClick={clearImageTarget}
             className="eng-library-add-target__clear"
           >
             cancel
           </button>
         </div>
+      ) : (
+        addTargetName && (
+          <div className="eng-library-add-target">
+            <span className="eng-library-add-target__label">add to</span>
+            <span
+              className="eng-library-add-target__name"
+              title={addTargetName}
+            >
+              {addTargetName}
+            </span>
+            <button
+              type="button"
+              onClick={clearAddTarget}
+              className="eng-library-add-target__clear"
+            >
+              cancel
+            </button>
+          </div>
+        )
       )}
 
       <div className="border-b border-border p-2">

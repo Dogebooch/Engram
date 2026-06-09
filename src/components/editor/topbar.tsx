@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { PanelRightIcon, PlayIcon, PlusIcon, ShapesIcon } from "lucide-react";
+import { PanelRightIcon, PlayIcon, PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -14,9 +14,6 @@ import { EditMenu } from "./edit-menu";
 import { FileMenu } from "./file-menu";
 import { PicmonicName } from "./picmonic-name";
 import { SaveStatus } from "./save-status";
-import { SymbolLibraryDrawer } from "./panels/symbol-library/symbol-library-drawer";
-
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
 
 export function Topbar() {
   const ui = useUiPrefs();
@@ -45,15 +42,6 @@ export function Topbar() {
         "backdrop-blur supports-[backdrop-filter]:bg-card/30",
       )}
     >
-      {inEditor ? (
-        <SymbolLibraryDrawer>
-          <Button variant="ghost" size="sm" aria-label="Insert symbol">
-            <ShapesIcon />
-            <span className="hidden md:inline">Insert symbol</span>
-          </Button>
-        </SymbolLibraryDrawer>
-      ) : null}
-
       <Brand canGoHome={inEditor} onHome={() => void goHome()} />
 
       {inEditor ? (
@@ -64,14 +52,7 @@ export function Topbar() {
           <div className="mx-1 h-4 w-px bg-border/80" aria-hidden="true" />
           <PicmonicName />
         </>
-      ) : (
-        <span
-          aria-hidden
-          className="ml-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70"
-        >
-          library
-        </span>
-      )}
+      ) : null}
 
       <div className="ml-auto flex items-center gap-2">
         <QuotaBadge onJumpHome={() => void goHome()} />
@@ -148,24 +129,28 @@ export function Topbar() {
 function Brand({ canGoHome, onHome }: { canGoHome: boolean; onHome: () => void }) {
   const inner = (
     <>
-      <span aria-hidden="true" className="relative inline-flex size-2.5 items-center justify-center">
-        <span className="absolute inset-0 rounded-full bg-accent/30 blur-[3px]" />
-        <span className="relative size-1.5 rounded-full bg-accent" />
-      </span>
-      <span className="font-mono text-[12px] font-medium tracking-[0.18em] text-foreground/85">
-        engram
-      </span>
       <span
-        aria-label={`version ${APP_VERSION}`}
-        className="font-mono text-[10px] tracking-[0.12em] text-muted-foreground/45"
+        aria-hidden="true"
+        className="relative inline-flex size-8 items-center justify-center rounded-lg border border-border/70 bg-background/70 shadow-sm"
       >
-        v{APP_VERSION}
+        <span className="absolute size-3 rounded-full bg-accent/20 blur-[4px]" />
+        <span className="relative size-2 rounded-full bg-accent" />
       </span>
     </>
   );
 
   if (!canGoHome) {
-    return <div className="flex select-none items-center gap-2 px-1.5">{inner}</div>;
+    return (
+      <div className="flex select-none items-center gap-2">
+        {inner}
+        <span
+          aria-hidden
+          className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70"
+        >
+          library
+        </span>
+      </div>
+    );
   }
 
   return (
@@ -175,9 +160,9 @@ function Brand({ canGoHome, onHome }: { canGoHome: boolean; onHome: () => void }
           <button
             type="button"
             onClick={onHome}
-            aria-label="Back to home"
+            aria-label="Back to library"
             className={cn(
-              "flex select-none items-center gap-2 rounded-md px-1.5 py-1 -mx-0.5",
+              "flex size-8 select-none items-center justify-center rounded-lg",
               "transition-colors hover:bg-muted/60",
               "focus-visible:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
             )}
@@ -186,7 +171,7 @@ function Brand({ canGoHome, onHome }: { canGoHome: boolean; onHome: () => void }
       >
         {inner}
       </TooltipTrigger>
-      <TooltipContent>Back to home</TooltipContent>
+      <TooltipContent>Library</TooltipContent>
     </Tooltip>
   );
 }

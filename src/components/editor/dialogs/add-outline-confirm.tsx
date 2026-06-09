@@ -46,6 +46,14 @@ export function AddOutlineConfirm() {
     dismiss();
   };
 
+  const handlePickImage = () => {
+    if (!symbolId) return;
+    const s = useStore.getState();
+    s.setImageTarget(symbolId);
+    s.setLibraryDrawerOpen(true);
+    dismiss();
+  };
+
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -69,16 +77,19 @@ export function AddOutlineConfirm() {
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add an outline?</DialogTitle>
+          <DialogTitle>Add a picture</DialogTitle>
           <DialogDescription>
             {hasBackdrop
-              ? `Draw a highlight over "${label}" on the background image. To add multiple outlines, hold Shift while tracing.`
-              : `Outlines are drawn over a background image. Choose one to start outlining "${label}".`}
+              ? `Draw a highlight over "${label}" on the background image (hold Shift while tracing for multiple), or pick an image from the library instead.`
+              : `Draw "${label}" over a background image, or pick an image from the library instead.`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="ghost" onClick={dismiss}>
             Cancel
+          </Button>
+          <Button variant="outline" onClick={handlePickImage}>
+            Pick from library
           </Button>
           {hasBackdrop ? (
             <Button onClick={handleDraw}>Draw outline</Button>

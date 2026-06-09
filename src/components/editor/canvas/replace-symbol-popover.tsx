@@ -5,25 +5,25 @@ import { Popover } from "@base-ui/react/popover";
 import { toast } from "sonner";
 import { LibraryGrid } from "@/components/editor/panels/symbol-library/library-grid";
 import { LibrarySearch } from "@/components/editor/panels/symbol-library/library-search";
+import { RecentStrip } from "@/components/editor/panels/symbol-library/recent-strip";
+import { UploadsSection } from "@/components/editor/panels/symbol-library/uploads-section";
 import { useStore } from "@/lib/store";
 import { useCurrentPicmonicId } from "@/lib/store/hooks";
 import {
+  getCachedSymbols,
   loadSymbols,
   searchSymbols,
+  useSymbolsVersion,
   type SymbolEntry,
 } from "@/lib/symbols";
+import { loadUserAssets, useUserAssets } from "@/lib/user-assets";
 import { isImageSymbolLayer } from "@/lib/types/canvas";
 import { cn } from "@/lib/utils";
 
 const RESULT_LIMIT = 250;
 const EMPTY: SymbolEntry[] = [];
 
-type LoadStatus =
-  | { kind: "loading" }
-  | { kind: "loaded"; symbols: SymbolEntry[] }
-  | { kind: "missing" };
-
-let cache: SymbolEntry[] | null = null;
+type LoadStatus = "loading" | "loaded" | "missing";
 
 export function ReplaceSymbolPopover() {
   const replacePicker = useStore((s) => s.replacePicker);
@@ -34,9 +34,11 @@ export function ReplaceSymbolPopover() {
 function ReplaceSymbolPopoverInner() {
   const replacePicker = useStore((s) => s.replacePicker)!;
   const closeReplacePicker = useStore((s) => s.closeReplacePicker);
-  const updateSymbol = useStore((s) => s.updateSymbol);
-  const pushRecentSymbol = useStore((s) => s.pushRecentSymbol);
+  const assignSymbolImage = useStore((s) => s.assignSymbolImage);
+  const recentIds = useStore((s) => s.ui.recentSymbolIds);
   const currentPicmonicId = useCurrentPicmonicId();
+  const symbolsVersion = useSymbolsVersion();
+  const userAssets = useUserAssets();
   const currentRef = useStore((s) => {
     if (!s.currentPicmonicId) return null;
     const p = s.picmonics[s.currentPicmonicId];
@@ -48,32 +50,54 @@ function ReplaceSymbolPopoverInner() {
   });
 
   const [status, setStatus] = React.useState<LoadStatus>(() =>
-    cache ? { kind: "loaded", symbols: cache } : { kind: "loading" },
+    getCachedSymbols() ? "loaded" : "loading",
   );
   const [query, setQuery] = React.useState("");
 
   React.useEffect(() => {
-    if (cache) return;
     let cancelled = false;
     loadSymbols()
-      .then((symbols) => {
+      .then(async (symbols) => {
         if (cancelled) return;
         if (symbols.length === 0) {
-          setStatus({ kind: "missing" });
-        } else {
-          cache = symbols;
-          setStatus({ kind: "loaded", symbols });
+          setStatus("missing");
+          return;
+        }
+        setStatus("loaded");
+        try {
+          await loadUserAssets();
+        } catch (err) {
+          console.warn("[engram] user assets failed to load", err);
         }
       })
       .catch(() => {
-        if (!cancelled) setStatus({ kind: "missing" });
+        if (!cancelled) setStatus("missing");
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const symbols = status.kind === "loaded" ? status.symbols : EMPTY;
+  const symbols = React.useMemo(() => {
+    void symbolsVersion;
+    return getCachedSymbols() ?? EMPTY;
+  }, [symbolsVersion]);
+
+  const byId = React.useMemo(() => {
+    const m = new Map<string, SymbolEntry>();
+    for (const s of symbols) m.set(s.id, s);
+    return m;
+  }, [symbols]);
+
+  const recents = React.useMemo(() => {
+    if (query.trim() !== "") return EMPTY;
+    const out: SymbolEntry[] = [];
+    for (const id of recentIds) {
+      const e = byId.get(id);
+      if (e) out.push(e);
+    }
+    return out;
+  }, [recentIds, byId, query]);
 
   const filtered = React.useMemo(
     () => searchSymbols(symbols, query, { limit: RESULT_LIMIT }),
@@ -82,8 +106,8 @@ function ReplaceSymbolPopoverInner() {
 
   const currentEntry = React.useMemo(() => {
     if (!currentRef) return null;
-    return symbols.find((s) => s.id === currentRef) ?? null;
-  }, [symbols, currentRef]);
+    return byId.get(currentRef) ?? null;
+  }, [byId, currentRef]);
 
   const handlePick = React.useCallback(
     (entry: SymbolEntry) => {
@@ -95,8 +119,7 @@ function ReplaceSymbolPopoverInner() {
         closeReplacePicker();
         return;
       }
-      updateSymbol(replacePicker.symbolId, { ref: entry.id });
-      pushRecentSymbol(entry.id);
+      assignSymbolImage(replacePicker.symbolId, entry.id);
       closeReplacePicker();
       toast("Symbol replaced", {
         description: entry.displayName,
@@ -108,17 +131,18 @@ function ReplaceSymbolPopoverInner() {
       currentPicmonicId,
       currentRef,
       replacePicker.symbolId,
-      updateSymbol,
-      pushRecentSymbol,
+      assignSymbolImage,
     ],
   );
 
   const totalLabel =
-    status.kind === "loaded"
+    status === "loaded"
       ? query.trim() === ""
         ? `${symbols.length}`
         : `${filtered.length} / ${symbols.length}`
       : null;
+
+  const showStrips = status === "loaded" && query.trim() === "";
 
   // Virtual anchor that positions the popover at exact cursor coords.
   const virtualAnchor = React.useMemo(
@@ -203,14 +227,14 @@ function ReplaceSymbolPopoverInner() {
               <LibrarySearch value={query} onChange={setQuery} />
             </div>
 
-            {status.kind === "loading" && (
+            {status === "loading" && (
               <div className="flex flex-1 items-center justify-center">
                 <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
                   Loading…
                 </span>
               </div>
             )}
-            {status.kind === "missing" && (
+            {status === "missing" && (
               <div className="flex flex-1 items-center justify-center px-6 text-center">
                 <span className="text-xs text-muted-foreground">
                   Symbol index missing. Run{" "}
@@ -218,8 +242,14 @@ function ReplaceSymbolPopoverInner() {
                 </span>
               </div>
             )}
-            {status.kind === "loaded" && (
+            {status === "loaded" && (
               <div className="flex min-h-0 flex-1 flex-col">
+                {showStrips && (
+                  <>
+                    <RecentStrip entries={recents} onActivate={handlePick} />
+                    <UploadsSection assets={userAssets} onActivate={handlePick} />
+                  </>
+                )}
                 {filtered.length === 0 ? (
                   <div className="flex flex-1 items-center justify-center px-6 text-center">
                     <span className="text-xs text-muted-foreground">
@@ -230,8 +260,18 @@ function ReplaceSymbolPopoverInner() {
                     </span>
                   </div>
                 ) : (
-                  <div className="min-h-0 flex-1">
-                    <LibraryGrid entries={filtered} onActivate={handlePick} />
+                  <div className="flex min-h-0 flex-1 flex-col">
+                    {showStrips &&
+                      (recents.length > 0 || userAssets.length > 0) && (
+                        <div className="px-3 pb-1 pt-2.5">
+                          <span className="font-mono text-[9px] font-medium uppercase tracking-[0.18em] text-muted-foreground/60">
+                            All
+                          </span>
+                        </div>
+                      )}
+                    <div className="min-h-0 flex-1">
+                      <LibraryGrid entries={filtered} onActivate={handlePick} />
+                    </div>
                   </div>
                 )}
               </div>

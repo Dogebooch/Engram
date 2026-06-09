@@ -19,8 +19,8 @@ const base = {
   animationDuration: null,
 } as const;
 
-function image(): ImageSymbolLayer {
-  return { ...base, kind: "image", ref: "openmoji:1F982" };
+function image(ref = "openmoji:1F982"): ImageSymbolLayer {
+  return { ...base, kind: "image", ref };
 }
 
 function region(patch: Partial<RegionSymbolLayer>): RegionSymbolLayer {
@@ -32,8 +32,12 @@ describe("symbolHasOutline", () => {
     expect(symbolHasOutline(undefined)).toBe(false);
   });
 
-  it("is false for image layers", () => {
-    expect(symbolHasOutline(image())).toBe(false);
+  it("is true for an image layer with a ref (a picture counts as done)", () => {
+    expect(symbolHasOutline(image())).toBe(true);
+  });
+
+  it("is false for an image layer with an empty ref", () => {
+    expect(symbolHasOutline(image(""))).toBe(false);
   });
 
   it("is false for plain-rect regions", () => {

@@ -1,6 +1,8 @@
 import type { StateCreator } from "zustand";
 import {
   RECENT_SYMBOLS_MAX,
+  STAGE_HEIGHT,
+  STAGE_WIDTH,
   SYMBOL_DEFAULT_SIZE,
   SYMBOL_DUPLICATE_OFFSET,
 } from "@/lib/constants";
@@ -15,6 +17,7 @@ import {
 import type { Picmonic } from "@/lib/types/picmonic";
 import {
   emptyBackdrop,
+  isImageSymbolLayer,
   isRegionSymbolLayer,
   type Backdrop,
   type CanvasState,
@@ -25,6 +28,7 @@ import {
   type RegionShape,
   type RegionSymbolLayer,
   type SymbolLayer,
+  type SymbolRef,
   type Group,
 } from "@/lib/types/canvas";
 import {
@@ -77,6 +81,16 @@ export interface CanvasSlice {
    * which mints a fresh id and inserts a new bullet.
    */
   setSymbolOutline: (id: string, input: SetSymbolOutlineInput) => boolean;
+  /**
+   * Create-or-replace the layer with `id` as an image pointing at `ref`,
+   * WITHOUT touching notes (the bullet already exists). When a layer with `id`
+   * is present (region OR image) it is replaced by an image of the same id,
+   * preserving x/y/width/height/rotation/layerIndex/groupId/animation; when
+   * absent a new centered image is appended so the bullet resolves. Selects the
+   * layer, pushes `ref` to recents. Single history entry. The companion to
+   * `setSymbolOutline`: gives an existing symbol a picture instead of an outline.
+   */
+  assignSymbolImage: (id: string, ref: SymbolRef) => void;
   deleteSymbols: (ids: readonly string[]) => void;
   duplicateSymbols: (ids: readonly string[]) => string[];
   reorderSymbol: (id: string, mode: ReorderMode) => void;
@@ -341,6 +355,56 @@ export const createCanvasSlice: StateCreator<RootState, [], [], CanvasSlice> = (
       };
     });
     return true;
+  },
+
+  assignSymbolImage: (id, ref) => {
+    if (!id || !ref) return;
+    const cid = get().currentPicmonicId;
+    if (!cid) return;
+    const picmonic = get().picmonics[cid];
+    if (!picmonic) return;
+
+    const existing =
+      picmonic.canvas.symbols.find((sy) => sy.id === id) ?? null;
+    // No-op: already an image pointing at this ref.
+    if (existing && isImageSymbolLayer(existing) && existing.ref === ref) return;
+
+    const layer: ImageSymbolLayer = {
+      id,
+      kind: "image",
+      ref,
+      x: existing?.x ?? STAGE_WIDTH / 2 - SYMBOL_DEFAULT_SIZE / 2,
+      y: existing?.y ?? STAGE_HEIGHT / 2 - SYMBOL_DEFAULT_SIZE / 2,
+      width: existing?.width ?? SYMBOL_DEFAULT_SIZE,
+      height: existing?.height ?? SYMBOL_DEFAULT_SIZE,
+      rotation: existing?.rotation ?? 0,
+      layerIndex: existing?.layerIndex ?? 0,
+      groupId: existing?.groupId ?? null,
+      animation: existing?.animation ?? null,
+      animationDelay: existing?.animationDelay ?? null,
+      animationDuration: existing?.animationDuration ?? null,
+    };
+
+    set((s) => {
+      const p = s.picmonics[cid];
+      if (!p) return s;
+      const symbols = p.canvas.symbols.slice();
+      const at = symbols.findIndex((sy) => sy.id === id);
+      if (at === -1) symbols.push(layer);
+      else symbols[at] = layer;
+      const recent = [
+        ref,
+        ...s.ui.recentSymbolIds.filter((r) => r !== ref),
+      ].slice(0, RECENT_SYMBOLS_MAX);
+      return {
+        picmonics: {
+          ...s.picmonics,
+          [cid]: patchCanvas(p, { symbols }),
+        },
+        ui: { ...s.ui, recentSymbolIds: recent },
+        selectedSymbolIds: [id],
+      };
+    });
   },
 
   deleteSymbols: (ids) => {

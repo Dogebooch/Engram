@@ -4,6 +4,9 @@ import type { RootState } from "../types";
 
 export type PlayerMode = "hotspot" | "sequential";
 
+/** Active notes-panel surface: structured Fact cards, or raw markdown. */
+export type NotesView = "form" | "source";
+
 export type QuotaThreshold = "80" | "95";
 
 export interface StorageQuotaState {
@@ -42,6 +45,12 @@ export interface UiState {
    */
   showSymbolNumbers: boolean;
   /**
+   * Which notes-panel surface is active. "form" = the structured Fact-card
+   * editor (the primary authoring surface); "source" = the raw CodeMirror
+   * markdown escape hatch. Persisted across sessions.
+   */
+  notesView: NotesView;
+  /**
    * Transient (non-persisted): becomes true the first time we auto-open
    * the right panel for the active picmonic, so re-collapsing the panel
    * isn't fought by subsequent symbol adds. Resets on picmonic switch.
@@ -69,6 +78,7 @@ export interface UiSlice {
   setConfirmSymbolDelete: (value: boolean) => void;
   toggleTraceOnAdd: () => void;
   toggleSymbolNumbers: () => void;
+  setNotesView: (view: NotesView) => void;
   /**
    * Open the right panel and mark it auto-opened, but only on the first
    * trigger per active picmonic. Subsequent calls are no-ops, so the user
@@ -91,6 +101,7 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
     confirmSymbolDelete: true,
     traceOnAdd: false,
     showSymbolNumbers: true,
+    notesView: "form",
     autoOpenedRightForActivePicmonic: false,
     justCreatedPicmonicId: null,
   },
@@ -126,6 +137,7 @@ export const createUiSlice: StateCreator<RootState, [], [], UiSlice> = (set) => 
     set((s) => ({ ui: { ...s.ui, traceOnAdd: !s.ui.traceOnAdd } })),
   toggleSymbolNumbers: () =>
     set((s) => ({ ui: { ...s.ui, showSymbolNumbers: !s.ui.showSymbolNumbers } })),
+  setNotesView: (view) => set((s) => ({ ui: { ...s.ui, notesView: view } })),
   ensureRightPanelOpenedOnce: () =>
     set((s) => {
       if (s.ui.autoOpenedRightForActivePicmonic) return s;

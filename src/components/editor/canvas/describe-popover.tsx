@@ -6,9 +6,9 @@ import { useStore } from "@/lib/store";
 import { useCurrentPicmonicId, usePicmonic } from "@/lib/store/hooks";
 import { getSymbolById } from "@/lib/symbols";
 import { parseNotes } from "@/lib/notes/parse";
-import { parseBullet, updateBulletParts } from "@/lib/notes/bullet";
 import type { ParsedNotes } from "@/lib/notes/types";
 import { cn } from "@/lib/utils";
+import { BulletFields } from "@/components/editor/panels/notes-panel/bullet-fields";
 import {
   computePopoverAnchor,
   type AnchorFitBox,
@@ -18,12 +18,6 @@ const POPOVER_WIDTH = 360;
 // Estimate used only to decide below/above placement; the rendered card sizes
 // to its content. A region near the bottom edge flips above.
 const POPOVER_EST_HEIGHT = 220;
-
-interface DraftParts {
-  description: string;
-  meaning: string;
-  encoding: string;
-}
 
 /**
  * Canvas-anchored editor for a symbol/region's bullet: Description → Meaning →
@@ -41,6 +35,8 @@ export function DescribePopover({ box }: { box: AnchorFitBox }) {
   const describePopover = useStore((s) => s.describePopover);
   const openDescribePopover = useStore((s) => s.openDescribePopover);
   const closeDescribePopover = useStore((s) => s.closeDescribePopover);
+
+  const notesView = useStore((s) => s.ui.notesView);
 
   const notes = picmonic?.notes ?? "";
   const parsed = React.useMemo(() => parseNotes(notes), [notes]);
@@ -71,6 +67,9 @@ export function DescribePopover({ box }: { box: AnchorFitBox }) {
   if (!id || !layer || factIds.length === 0) return null;
   if (describePopover?.symbolId !== id) return null;
   if (box.scale <= 0) return null;
+  // The Form view edits the bullet inline in its Fact card, so the canvas
+  // popover would be a duplicate. It only serves the raw "source" view.
+  if (notesView === "form") return null;
 
   const container = {
     width: box.width + box.offsetX * 2,
@@ -138,88 +137,9 @@ function DescribePopoverInner({
       ? chosenFactId
       : factIds[0];
 
-  const fact = parsed.factsById.get(activeFactId) ?? null;
-
-  // Locate the active bullet line (for repopulation on external edits).
-  const lineText = React.useMemo(() => {
-    if (!fact) return "";
-    const ref = fact.symbolRefs.find((r) => r.symbolId === symbolId);
-    if (!ref) return "";
-    let lineStart = ref.start;
-    while (lineStart > 0 && notes.charCodeAt(lineStart - 1) !== 10) lineStart--;
-    let lineEnd = notes.indexOf("\n", ref.end);
-    if (lineEnd === -1) lineEnd = notes.length;
-    return notes.slice(lineStart, lineEnd);
-  }, [fact, notes, symbolId]);
-
-  const parsedBullet = React.useMemo(() => parseBullet(lineText), [lineText]);
-
-  // Local draft — synced from parsed only when the bullet identity changes, or
-  // when notes diverge from what we last wrote (external CodeMirror edit).
-  const lastWriteRef = React.useRef<string | null>(null);
-  const [draft, setDraft] = React.useState<DraftParts>({
-    description: parsedBullet.description,
-    meaning: parsedBullet.meaning ?? "",
-    encoding: parsedBullet.encoding ?? "",
-  });
-
-  const identityKey = `${symbolId}::${activeFactId}`;
-  const prevIdentityRef = React.useRef(identityKey);
-
-  React.useEffect(() => {
-    if (prevIdentityRef.current !== identityKey) {
-      prevIdentityRef.current = identityKey;
-      setDraft({
-        description: parsedBullet.description,
-        meaning: parsedBullet.meaning ?? "",
-        encoding: parsedBullet.encoding ?? "",
-      });
-      lastWriteRef.current = null;
-      return;
-    }
-    if (lastWriteRef.current !== null && lastWriteRef.current === notes) return;
-    if (lastWriteRef.current !== null && lastWriteRef.current !== notes) {
-      lastWriteRef.current = null;
-      setDraft({
-        description: parsedBullet.description,
-        meaning: parsedBullet.meaning ?? "",
-        encoding: parsedBullet.encoding ?? "",
-      });
-    }
-  }, [identityKey, notes, parsedBullet]);
-
-  const commit = React.useCallback(
-    (next: DraftParts) => {
-      if (!currentId) return;
-      const result = updateBulletParts(notes, parsed, activeFactId, symbolId, {
-        description: next.description,
-        meaning: next.meaning === "" ? null : next.meaning,
-        encoding: next.encoding === "" ? null : next.encoding,
-      });
-      if (!result.ok || result.newNotes === notes) return;
-      lastWriteRef.current = result.newNotes;
-      setLastSyncSource("editor");
-      setNotes(currentId, result.newNotes);
-    },
-    [activeFactId, currentId, notes, parsed, setLastSyncSource, setNotes, symbolId],
-  );
-
-  const setField = React.useCallback(
-    (field: keyof DraftParts, value: string) => {
-      const next = { ...draft, [field]: value };
-      setDraft(next);
-      commit(next);
-    },
-    [commit, draft],
-  );
-
   const entry = layerRef ? getSymbolById(layerRef) : null;
   const displayName = entry?.displayName ?? (layerRef ? layerRef : "region");
   const imageUrl = entry?.imageUrl ?? null;
-
-  const descRef = React.useRef<HTMLTextAreaElement>(null);
-  const meanRef = React.useRef<HTMLTextAreaElement>(null);
-  const whyRef = React.useRef<HTMLTextAreaElement>(null);
 
   // Esc dismisses the popover (selection stays). Writes are already saved.
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -229,32 +149,6 @@ function DescribePopoverInner({
       close();
     }
   };
-
-  const onAdvanceField = (current: "desc" | "mean") => (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      if (current === "desc") meanRef.current?.focus();
-      else whyRef.current?.focus();
-    }
-  };
-
-  // On the Why textarea, plain Enter closes; Shift+Enter inserts a newline.
-  const onWhyKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      close();
-    }
-  };
-
-  // Focus the description on open.
-  React.useEffect(() => {
-    descRef.current?.focus();
-    descRef.current?.select();
-  }, []);
-
-  const descEmpty = draft.description.trim().length === 0;
-  const meanEmpty = draft.meaning.trim().length === 0;
-  const whyEmpty = draft.encoding.trim().length === 0;
 
   const showSelector = factIds.length > 1;
 
@@ -320,101 +214,18 @@ function DescribePopoverInner({
         </div>
       )}
 
-      {/* Fields */}
-      <FieldRow label="DESC" align="top">
-        <textarea
-          ref={descRef}
-          value={draft.description}
-          onChange={(e) => setField("description", e.target.value)}
-          onKeyDown={onAdvanceField("desc")}
-          placeholder="visual description"
-          aria-required
-          rows={1}
-          className={cn(
-            "field-sizing-content min-h-7 w-full resize-none bg-transparent py-1 font-mono text-[12.5px] leading-snug text-foreground/95 outline-none placeholder:italic placeholder:text-muted-foreground/40",
-            "border-b border-transparent focus:border-foreground/45",
-            descEmpty && "border-dashed border-destructive/55",
-          )}
-          style={{ maxHeight: "7em" }}
+      <div className="py-0.5">
+        <BulletFields
+          symbolId={symbolId}
+          factId={activeFactId}
+          parsed={parsed}
+          notes={notes}
+          currentId={currentId}
+          setNotes={setNotes}
+          setLastSyncSource={setLastSyncSource}
+          autoFocus
+          onRequestClose={close}
         />
-        {descEmpty && (
-          <span className="pointer-events-none absolute right-2 top-2 font-mono text-[9px] uppercase tracking-[0.22em] text-destructive/70">
-            · required
-          </span>
-        )}
-      </FieldRow>
-      <Connector glyph="↓" />
-      <FieldRow label="MEAN" align="top">
-        <textarea
-          ref={meanRef}
-          value={draft.meaning}
-          onChange={(e) => setField("meaning", e.target.value)}
-          onKeyDown={onAdvanceField("mean")}
-          placeholder="meaning…"
-          rows={1}
-          className={cn(
-            "field-sizing-content min-h-7 w-full resize-none bg-transparent py-1 font-mono text-[12.5px] leading-snug text-foreground/95 outline-none placeholder:italic placeholder:text-muted-foreground/40",
-            "border-b border-transparent focus:border-foreground/45",
-            meanEmpty && "border-dashed border-foreground/15",
-          )}
-          style={{ maxHeight: "7em" }}
-        />
-      </FieldRow>
-      <Connector glyph=";" />
-      <FieldRow label="WHY" align="top">
-        <textarea
-          ref={whyRef}
-          value={draft.encoding}
-          onChange={(e) => setField("encoding", e.target.value)}
-          onKeyDown={onWhyKeyDown}
-          placeholder="why this image…"
-          rows={1}
-          className={cn(
-            "field-sizing-content min-h-7 w-full resize-none bg-transparent py-1 font-mono text-[12.5px] leading-snug text-foreground/95 outline-none placeholder:italic placeholder:text-muted-foreground/40",
-            "border-b border-transparent focus:border-foreground/45",
-            whyEmpty && "border-dashed border-foreground/15",
-          )}
-          style={{ maxHeight: "10em" }}
-        />
-      </FieldRow>
-    </div>
-  );
-}
-
-interface FieldRowProps {
-  label: string;
-  align?: "center" | "top";
-  children: React.ReactNode;
-}
-
-function FieldRow({ label, align = "center", children }: FieldRowProps) {
-  return (
-    <div
-      className={cn(
-        "relative flex gap-0 px-3",
-        align === "top" ? "items-start py-0.5" : "items-center",
-      )}
-    >
-      <div
-        className={cn(
-          "flex h-7 w-[56px] shrink-0 select-none border-r border-border/40 pr-2 font-mono text-[9.5px] font-medium uppercase tracking-[0.22em] text-muted-foreground/70",
-          align === "top" ? "items-start pt-2" : "items-center",
-        )}
-      >
-        {label}
-      </div>
-      <div className="relative flex flex-1 items-center pl-2.5">{children}</div>
-    </div>
-  );
-}
-
-function Connector({ glyph }: { glyph: string }) {
-  return (
-    <div className="flex h-2 items-center px-3">
-      <div className="flex w-[56px] shrink-0 justify-center border-r border-border/40 pr-2">
-        <span className="font-mono text-[10px] leading-none text-muted-foreground/40">
-          {glyph}
-        </span>
       </div>
     </div>
   );

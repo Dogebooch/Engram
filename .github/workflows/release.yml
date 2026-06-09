@@ -58,5 +58,9 @@ jobs:
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
-          updaterJsonPreferNsis: false
+          # The app ships as an NSIS per-user install. Point the generic
+          # `windows-x86_64` updater key at the NSIS setup so updates resolve
+          # correctly even when the binary's bundle-type marker is unset and
+          # the updater falls back from the `-nsis` key to the generic one.
+          updaterJsonPreferNsis: true
           args: ${{ matrix.args }}

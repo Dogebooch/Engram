@@ -21,6 +21,7 @@ import { useUpdaterCheck } from "@/lib/updater";
 import { CanvasErrorBoundary } from "./error-boundary";
 import { CommandPalette } from "./command-palette";
 import { AddOutlineConfirm } from "./dialogs/add-outline-confirm";
+import { EditorToolRail } from "./editor-tool-rail";
 import { FactPicker } from "./dialogs/fact-picker";
 import { SymbolDeleteConfirm } from "./dialogs/symbol-delete-confirm";
 import { HelpDialog } from "./help-dialog";
@@ -93,7 +94,8 @@ export function EditorShell() {
       >
         <Topbar />
         <div className="flex flex-1 overflow-hidden">
-          <ResizablePanelGroup orientation="horizontal" className="flex-1">
+          <EditorToolRail />
+          <ResizablePanelGroup orientation="horizontal" className="min-w-0 flex-1">
             <ResizablePanel
               id="canvas"
               minSize={`${PANEL_DEFAULTS.centerMin}%`}

@@ -22,11 +22,14 @@ import { useCodeMirror } from "./use-codemirror";
 import { useSymbolResolver } from "./use-symbol-resolver";
 import { useSyncCanvasToEditor } from "./use-sync-canvas-to-editor";
 import { useEditorToCanvasSync } from "./use-sync-editor-to-canvas";
+import { OutlineView } from "./outline/outline-view";
 
 export function NotesPanel() {
   const picmonic = usePicmonic();
   const currentId = useCurrentPicmonicId();
   const setNotes = useStore((s) => s.setNotes);
+  const notesView = useStore((s) => s.ui.notesView);
+  const setNotesView = useStore((s) => s.setNotesView);
 
   const value = picmonic?.notes ?? "";
   const parsed = React.useMemo(() => parseNotes(value), [value]);
@@ -137,9 +140,27 @@ export function NotesPanel() {
         <span className="font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground/80">
           outline
         </span>
-        {/* One quiet status row: the outline CTA is primary (the bulk path for
-            traced scenes), lint issues are a secondary indicator. */}
+        {/* One quiet status row: the view toggle is primary; the outline CTA is
+            the bulk path for traced scenes; lint issues are a secondary indicator. */}
         <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-0.5 rounded-full border border-border/70 p-0.5">
+            {(["form", "source"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setNotesView(v)}
+                aria-pressed={notesView === v}
+                className={cn(
+                  "rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors",
+                  notesView === v
+                    ? "bg-accent/20 text-accent"
+                    : "text-muted-foreground/60 hover:text-foreground/80",
+                )}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
           {missingOutlines.length > 0 && (
             <button
               type="button"
@@ -175,14 +196,20 @@ export function NotesPanel() {
           )}
         </div>
       </div>
-      <NotesBreadcrumb breadcrumb={breadcrumb} />
+      {notesView === "source" && <NotesBreadcrumb breadcrumb={breadcrumb} />}
       <div className="relative flex flex-1 flex-col overflow-hidden">
-        <div
-          ref={setHostRef}
-          className="eng-notes-host h-full w-full overflow-hidden"
-          data-eng-notes-editor
-        />
-        {isEmpty && <NotesEmptyOverlay />}
+        {notesView === "form" ? (
+          <OutlineView />
+        ) : (
+          <>
+            <div
+              ref={setHostRef}
+              className="eng-notes-host h-full w-full overflow-hidden"
+              data-eng-notes-editor
+            />
+            {isEmpty && <NotesEmptyOverlay />}
+          </>
+        )}
       </div>
     </div>
   );

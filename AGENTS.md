@@ -20,12 +20,12 @@ When unsure about Next.js, React, or App Router APIs, consult `node_modules/next
 ## Architecture invariants
 
 - Markdown is the source of truth. `notes.md` owns Sections, Facts, and symbol bullets. `canvas.json` stores machine state only: positions, transforms, layer order, groups, backdrop refs, hotspot overrides, and v2 scaffolding.
-- Do not introduce parallel structured content state, a third properties panel, or a separate bullet-content form. Structured bullet editing belongs in the notes panel via CodeMirror lint plus the selection-bound mini-form.
+- Do not introduce a parallel structured content **store**, or put bullet content in `canvas.json`. The structured Form view (Fact cards with inline DESC/MEAN/WHY fields) is the primary notes surface, but it must stay a pure projection of `parseNotes(notes)` that writes back through the `src/lib/notes/` helpers — never a second source of truth for content.
 - Do not tighten the freeform bullet parser. Only `{sym:UUID}` is structurally required; `Visual description -> meaning; encoding-note` is parsed for display and lint guidance.
 - Preserve schema/version behavior. Loaded canvas records pass through `normalizeCanvas()`, and serialization must preserve v2 fields and unknown compatible data.
 - Do not strip v2 scaffolding as unused: `SymbolLayer.animation`, `animationDelay`, `animationDuration`, `canvas.factMeta[factId].audioRef`, and `canvas.timeline[]`.
 - Hotspot recompute must respect `userOverride: true`.
-- Do not relitigate rejected stack choices from `docs/SPEC.md`: tldraw, Polotno, Redux/Jotai, localStorage, or a parallel structured panel.
+- Do not relitigate rejected stack choices from `docs/SPEC.md`: tldraw, Polotno, Redux/Jotai, or localStorage. (The notes panel deliberately pivoted to a Form-first structured surface; that is settled — see the notes-panel rule below.)
 
 ## State, storage, and sync
 
@@ -47,7 +47,7 @@ When unsure about Next.js, React, or App Router APIs, consult `node_modules/next
 - shadcn/ui components are owned in `src/components/ui/`; edit them directly instead of re-pulling via CLI.
 - Use the `@/*` alias for `src/*`.
 - Keep Konva-specific rendering under `src/components/editor/canvas/`; pure canvas helpers belong in `src/lib/canvas/` and must stay framework-free.
-- CodeMirror 6 owns notes editing and lint display. Lint behavior is derived from `docs/PIPELINE-SCHEMA.md`.
+- The notes panel has two surfaces, toggled via `ui.notesView`: a structured **Form view** (default — Fact cards with inline fields under `panels/notes-panel/outline/`, the primary editor) and a **CodeMirror 6 Source view** (raw markdown + lint, the escape hatch). Both read from and write to the same canonical markdown; the Form view goes through the pure `src/lib/notes/` helpers (`remove-fact`, `remove-section`, `remove-bullet-from-fact`, `insert-heading`, `set-heading-text`, `bullet`). Lint behavior is derived from `docs/PIPELINE-SCHEMA.md`.
 - Keep symbol-grid virtualization with `@tanstack/react-virtual`; do not render large symbol sets flat.
 
 ## Symbols and assets

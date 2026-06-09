@@ -8,7 +8,7 @@ Next.js 16 (App Router) + TS · Konva.js + react-konva · Zustand (+ persist) ·
 - **Markdown-as-source** over relational tables: matches Obsidian workflow, single source of truth, free Markdown export.
 - **IndexedDB** over localStorage: blobs + quota.
 - **Zustand** over Redux/Jotai: scope.
-- **Linted Markdown editor** over a parallel structured panel: bullet structure is enforced in CodeMirror with linting and symbol chips — never by promoting bullet content into `canvas.json` or by building a parallel right-column properties panel. Markdown stays canonical and remains the only text editing surface.
+- **Markdown stays canonical** behind two interchangeable notes surfaces: a structured **Form view** (Fact cards with inline fields — the default/primary editor) and a **CodeMirror Source view** (raw markdown + lint). Bullet content is never promoted into `canvas.json`, and the Form view keeps no parallel content store — it projects from `parseNotes(notes)` and writes back through the `src/lib/notes/` helpers.
 
 ## Data model
 
@@ -60,18 +60,17 @@ Stored as one IDB record per Picmonic with these fields (named so future export-
 Source ranks: user-uploaded (0) > OpenMoji (1) > Game-Icons (2) > Twemoji (3, optional).
 
 ## Bullet validation & structured editing
-Downstream animation/video pipeline needs uniform bullet output, but markdown stays canonical. Resolution: **CodeMirror linting plus inline symbol chips** inside notes-panel. No parallel structured state, no third panel, no bullet content in `canvas.json`.
+Downstream animation/video pipeline needs uniform bullet output, but markdown stays canonical. Resolution: a structured **Form view** as the primary surface, with a **CodeMirror Source view** for raw editing + lint. No parallel content store, no bullet content in `canvas.json`.
 
 - **Pipeline export schema** ([docs/PIPELINE-SCHEMA.md](PIPELINE-SCHEMA.md)) defines the JSON shape one exported mnemonic produces and which fields are mandatory; drives the lint rule list. Authoring rule: prose-shaped → bullet; machine-state (timing, animation cues, scene roles, narration refs) → `canvas.json` alongside `animation*` / `factMeta` / `timeline`.
-- **CodeMirror linter** validates each bullet on edit: malformed `{sym:UUID}`, empty description, missing `→`, unknown symbol UUIDs, untagged symbols. Surfaces as gutter markers and a header issue count without blocking the editing row.
-- **Guided note rows** keep Markdown editable but visually group the right column as Fact → symbol row → description / meaning / why.
-- **Symbol chips** replace raw `{sym:UUID}` tokens in the editor and select the matching canvas symbol. Selecting a symbol scrolls to and highlights its existing bullet line; users edit that Markdown line directly.
-- **Fact actions** add `+ add` on each Fact heading and `move` on each symbol row. `+ add` arms that Fact as the next library-add target. `move` reuses FactPicker to move the whole bullet line, preserving description / meaning / why text.
+- **Form view** (`panels/notes-panel/outline/`, default) renders each `#` Section and `## Fact` as an interactive box: editable titles, an ✕ to delete a fact/section (untag-only — symbols stay on the canvas), per-symbol rows with inline DESC/MEAN/WHY fields and per-field clear, a per-symbol ✕ untag, `+ section`/`+ fact`/`+ symbol` affordances, and grip handles for drag-and-drop reordering (rows within/between facts, facts across sections, sections). It is a pure projection of `parseNotes(notes)` writing through the `src/lib/notes/` helpers; markdown stays canonical.
+- **Source view** (CodeMirror) is the raw-markdown escape hatch and lint substrate. Its linter validates each bullet on edit: malformed `{sym:UUID}`, empty description, missing `→`, unknown symbol UUIDs, untagged symbols (gutter markers + header issue count). Symbol chips replace `{sym:UUID}` tokens and select the matching canvas symbol.
+- **Canvas ↔ notes sync** holds across both surfaces: selecting/hovering a symbol highlights its row (Form) or bullet (Source); deleting a `* {sym:id}` line/row untags from that Fact only (the layer remains). Adding a symbol arms the active Fact as the next library-add target.
 
 ## Editor UX
 
 ### Layout
-Three resizable panels: **Left** (~280px, collapsible) symbol library + layer tree (tabbed) · **Center** Konva stage (zoom/pan, fixed 16:9 authoring) · **Right** (~360px, collapsible) CodeMirror notes.
+Three resizable panels: **Left** (~280px, collapsible) symbol library + layer tree (tabbed) · **Center** Konva stage (zoom/pan, fixed 16:9 authoring) · **Right** (~360px, collapsible) notes — structured Form view by default, CodeMirror Source view via the header toggle.
 
 ### Keyboard shortcuts
 See `src/lib/keybindings.ts` (live table); press `?` in-app for the help overlay. SPEC doesn't duplicate — it drifts.
