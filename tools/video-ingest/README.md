@@ -1,11 +1,18 @@
 # Video Ingest Sandbox
 
 Local-first sandbox for turning medical mnemonic videos into Engram import
-bundles. The canonical Codex path is facts-only and runs through
-`overnight_ingest_runner.py`, which launches one worker per video, verifies each
-bundle with strict lint/import/coverage gates, and writes a ledger. Optional
-SAM/geometry tools remain available as lower-level experiments, but they are not
-the default ingest workflow.
+bundles. The canonical path is **facts-only** and runs through the `ingest-library`
+Workflow (`.claude/workflows/ingest-library.mjs`): one fresh Claude subagent per
+video acts as the vision model, authors `draft_symbols.json` from the transcript
+plus on-screen OCR, gates on `lint_draft.py`, and builds the `.engram.zip` — a
+Haiku floor with a Sonnet→Opus escalation ladder. It builds steps 1–6 only;
+importing the zip into the dev app stays manual. The Python here is just the
+extract / transcribe / lint / build / queue plumbing the agent calls; optional
+SAM/geometry tools remain available as lower-level experiments, not the default.
+
+Drive it from the skills: `ingest-videos` (launch the autopilot on a batch),
+`ingest-video` (one video with manual control + the optional geometry tiers), or
+`ingest-next` (resumable batch wrapper).
 
 ## Setup
 
@@ -57,29 +64,44 @@ downgrade that runtime under torch and break GPU SAM — don't.
 
 ## Run
 
-Use the `$ingest-videos` Codex skill for the canonical autonomous workflow.
-Outputs are written outside the repo (default out-root
-`P:\Python Projects\Engram\video-ingest-runs`).
+Launch the autopilot via the `ingest-videos` skill (or run the `ingest-library`
+Workflow directly), passing either an explicit `{videos:[...]}` set or
+`{batch:{count,source,course}}` to pull from the queue. Outputs are written
+outside the repo (default out-root `P:\Python Projects\Engram\video-ingest-runs`).
+Per video, the agent runs these live scripts in order:
 
 ```powershell
 cd "P:\Python Projects\Engram\engram"
 
-.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\overnight_ingest_runner.py run `
-  --max-videos 10 `
-  --once `
-  --codex-bin "C:\Users\drumm\AppData\Local\OpenAI\Codex\bin\716dda49c14d31a0\codex.exe"
+# 1. Extract frames (no transcript, no context frames).
+.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\ingest_video.py `
+  --video "<path.mp4>" --out-root "P:\Python Projects\Engram\video-ingest-runs" `
+  --skip-transcript --no-context
+
+# 2. Transcript + OCR from the MVS index (writes transcript.json AND ocr.json).
+.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\mvs_transcript.py `
+  --run-dir "<run>" --video-id <mvsId>
+
+# 3. (the agent authors <run>\draft_symbols.json facts-only — no geometry)
+
+# 4. Lint gate (free; transcript-grounded + OCR completeness).
+.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\lint_draft.py --run-dir "<run>"
+
+# 5. Build the bundle only if the lint is ok:true.
+.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\ingest_video.py `
+  --video "<path.mp4>" --out-root "P:\Python Projects\Engram\video-ingest-runs" `
+  --reuse-run --draft-symbols "<run>\draft_symbols.json" --backdrop-index <N>
 ```
 
-Add `--source`, `--course`, or explicit `--ids` only when scoping is requested.
-After a strict-pass run, finalize queue state:
+The queue/ledger is managed with `ingest_queue.py` — `next` pulls pending videos,
+`ready`/`flag` record per-video outcomes, and `ready-list --write` regenerates the
+study-ready list:
 
 ```powershell
-.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\overnight_ingest_runner.py finalize `
-  --resume "<stateDir>"
+.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\ingest_queue.py next --count 10
+.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\ingest_queue.py ready <mvsId> --note "..."
+.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\ingest_queue.py ready-list --write
 ```
-
-The canonical model ladder is `gpt-5.4` medium, escalating to `gpt-5.5` high
-only for validation failures. Do not use `gpt-5.4-mini` for Engram ingest.
 
 ### Lower-level extraction / SAM tools
 
@@ -103,8 +125,8 @@ only for validation failures. Do not use `gpt-5.4-mini` for Engram ingest.
   --reuse-run --draft-symbols <run>\draft_symbols.json [--backdrop-index N]
 ```
 
-Outputs per run: `transcript.json`/`.srt`, `keyframes.json`, `intro_frames.json`
-(optional), `timing.json`, `draft_symbols.json`, `sam_overlay.jpg`, `review.md`,
+Outputs per run: `transcript.json`/`.srt`, `keyframes.json`, `ocr.json`,
+`timing.json`, `draft_symbols.json`, `sam_overlay.jpg` (optional), `review.md`,
 and `<slug>.engram.zip`. Import the zip with the Import button in the local dev
 server.
 
@@ -120,38 +142,10 @@ yt-dlp --write-subs --sub-langs en --convert-subs srt <url>   # sidecar auto-det
 ```
 
 Manual subtitles beat Whisper on mnemonic puns ("transketolase", "Pixorize").
-The default accuracy-first route is facts-only: Codex authors
+The default accuracy-first route is facts-only: the agent authors
 `draft_symbols.json` with no geometry, and the builder emits importable
 placeholder regions for the user to outline in Engram. SAM remains optional for
 bulk auto-outline experiments.
-
-## Facts-only workflow + gold scoring
-
-`ingest_workflow.py` wraps the existing tools and grades generated bundles
-against the read-only gold corpus at
-`P:\Python Projects\Engram\video-ingest-runs`.
-
-```powershell
-# Build a cache of existing <slug>\<slug>.engram.zip gold bundles.
-.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\ingest_workflow.py gold-index --json
-
-# Prepare an experimental run outside the gold folder.
-.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\ingest_workflow.py prepare `
-  --video "P:\Medicine Videos\Pixorize\...\video.mp4"
-
-# After authoring <run>\draft_symbols.json, lint and build the bundle.
-.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\ingest_workflow.py build `
-  --run-dir "P:\Python Projects\Engram\video-ingest-eval-runs\<slug>"
-
-# Score the generated bundle against the matching gold bundle by slug/title.
-.\.venv-video-ingest\Scripts\python.exe tools\video-ingest\ingest_workflow.py score `
-  --run-dir "P:\Python Projects\Engram\video-ingest-eval-runs\<slug>"
-```
-
-Scoring ignores `{sym:UUID}` differences and compares bundle content from
-`notes.md`: fact recall/precision, symbol recall/precision, description
-similarity, meaning similarity, missing/extra facts, and missing/extra symbol
-bullets. `lint_draft.py` still gates generated run scoring before the gold diff.
 
 ## Optional geometry (facts-only skill tiers)
 

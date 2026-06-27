@@ -32,7 +32,6 @@ export interface PicmonicSlice {
   createPicmonic: (initialName?: string, folderId?: string | null) => string;
   setCurrentPicmonic: (id: string | null) => void;
   renamePicmonic: (id: string, name: string) => void;
-  setPicmonicTags: (id: string, tags: string[]) => void;
   setPicmonicFolder: (id: string, folderId: string | null) => Promise<boolean>;
   deletePicmonic: (id: string) => Promise<void>;
   duplicatePicmonic: (id: string) => Promise<string | null>;
@@ -52,20 +51,6 @@ function makePicmonic(name: string, folderId: string | null = null): Picmonic {
     notes: "",
     canvas: emptyCanvas(),
   };
-}
-
-function dedupTags(tags: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const t of tags) {
-    const trimmed = t.trim();
-    if (!trimmed) continue;
-    const key = trimmed.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(trimmed);
-  }
-  return out;
 }
 
 export const createPicmonicSlice: StateCreator<RootState, [], [], PicmonicSlice> = (set, get) => ({
@@ -92,14 +77,6 @@ export const createPicmonicSlice: StateCreator<RootState, [], [], PicmonicSlice>
     void updatePicmonicMeta(get, set, id, (meta) => ({
       ...meta,
       name: trimmed,
-      updatedAt: Date.now(),
-    }));
-  },
-  setPicmonicTags: (id, tags) => {
-    const next = dedupTags(tags);
-    void updatePicmonicMeta(get, set, id, (meta) => ({
-      ...meta,
-      tags: next,
       updatedAt: Date.now(),
     }));
   },

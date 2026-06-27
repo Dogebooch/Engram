@@ -15,10 +15,8 @@ import {
 import { useStore } from "@/lib/store";
 import { usePicmonic } from "@/lib/store/hooks";
 import { pauseHistory, resumeHistory } from "@/lib/store/temporal";
-import {
-  getBlob,
-  type BackdropUploadResult,
-} from "@/lib/user-assets";
+import { type BackdropUploadResult } from "@/lib/user-assets";
+import { useBlobObjectUrl } from "@/lib/user-assets/use-blob-object-url";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -48,7 +46,7 @@ export function BackdropCard({ compact = false }: BackdropCardProps = {}) {
   const [busy, setBusy] = React.useState(false);
   const hasBackdrop = !!backdrop?.uploadedBlobId;
 
-  const previewUrl = useBackdropPreviewUrl(backdrop?.uploadedBlobId ?? null);
+  const previewUrl = useBlobObjectUrl(backdrop?.uploadedBlobId ?? null);
 
   const reportResult = React.useCallback(
     (result: BackdropUploadResult, isReplace: boolean) => {
@@ -346,32 +344,6 @@ function ActionButton({
       </TooltipContent>
     </Tooltip>
   );
-}
-
-/** Resolve the backdrop blob into an object URL for the preview thumbnail. */
-function useBackdropPreviewUrl(blobId: string | null): string | null {
-  const [entry, setEntry] = React.useState<{
-    blobId: string;
-    url: string;
-  } | null>(null);
-
-  React.useEffect(() => {
-    if (!blobId) return;
-    let cancelled = false;
-    let createdUrl: string | null = null;
-    void getBlob(blobId).then((blob) => {
-      if (cancelled || !blob) return;
-      createdUrl = URL.createObjectURL(blob);
-      setEntry({ blobId, url: createdUrl });
-    });
-    return () => {
-      cancelled = true;
-      if (createdUrl) URL.revokeObjectURL(createdUrl);
-    };
-  }, [blobId]);
-
-  if (!entry || entry.blobId !== blobId) return null;
-  return entry.url;
 }
 
 function rejectMessage(reason: string): string {

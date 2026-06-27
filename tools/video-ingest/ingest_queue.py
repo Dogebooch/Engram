@@ -135,8 +135,8 @@ def resolve_one(conn: sqlite3.Connection, video_id: int) -> sqlite3.Row | None:
 
 
 def extraction_status(conn: sqlite3.Connection, video_id: int) -> sqlite3.Row | None:
-    """Pre-extraction record from pre_extract_pending.py, or None if the video has not
-    been pre-extracted (or the engram_extraction table does not exist yet)."""
+    """Pre-extraction record from the engram_extraction table, or None if the video
+    has not been pre-extracted (or the engram_extraction table does not exist yet)."""
     try:
         return conn.execute(
             "SELECT frames_ready, run_dir, status FROM engram_extraction WHERE video_id = ?",

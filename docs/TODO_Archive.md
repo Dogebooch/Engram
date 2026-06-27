@@ -175,3 +175,10 @@
 
 - [x] Verify editor → home round-trip is clean. Brand button → home, re-open a picmonic; canvas + notes survive the round-trip.
 - [x] Theme toggle: light / dark / system. `next-themes` + `<ThemeProvider>` already wired; light tokens already in [globals.css](src/app/globals.css). Remaining: topbar UI + themed Konva colors (stage paper, dot grid, radial backdrop currently hardcoded dark).
+
+---
+
+## Notes panel — Form-first redesign (shipped v1.3.0)
+
+- [x] **Phase 1 — Form view (primary surface).** Structured Fact cards with inline DESC/MEAN/WHY fields, editable titles, ✕ delete on facts/sections/rows (untag-only), per-field clear, `+ section`/`+ fact`/`+ symbol`, button-driven empty state, Form/Source toggle (`ui.notesView`). Components under `src/components/editor/panels/notes-panel/outline/`; pure helpers `remove-fact`, `remove-section`, `remove-bullet-from-fact`, `insert-heading`, `set-heading-text` (co-located tests). Markdown stays canonical; CodeMirror retained as the Source view.
+- [x] **Phase 2 — Drag-and-drop organization.** Grip handles on rows/facts/sections; pointer-drag with a drop-indicator (`outline/outline-drag.ts`, modeled on `symbol-row-drag.ts`) reorders symbol rows within/between facts, reorders fact cards + moves them between sections, and reorders sections. Pure helpers `reorder-bullet.ts` (`moveBulletToIndex`), `move-fact.ts`, `move-section.ts` (co-located tests). All rewrite canonical markdown.
