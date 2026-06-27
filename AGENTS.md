@@ -64,7 +64,7 @@ When unsure about Next.js, React, or App Router APIs, consult `node_modules/next
 - Keep scope tight. Do only the requested work; no adjacent cleanup.
 - Validate at boundaries only: user input, external APIs, and file imports. Do not add defensive code for impossible internal states.
 - Avoid premature abstractions and one-off helpers.
-- Add comments only when the reason is non-obvious.
+- Add comments only when the reason is non-obvious; don't add docstrings, comments, or type annotations to code you didn't change.
 - Tests are co-located `*.test.ts` files. Test non-trivial logic only: parsers, serialization, atomic updates, centroid math, import/export behavior.
 
 ## Performance budgets

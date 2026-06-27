@@ -35,23 +35,4 @@ Run a single test file: `npx vitest run src/lib/notes/parse.test.ts`. Tests use 
 
 - **Keybindings are a single source of truth.** [src/lib/keybindings.ts](src/lib/keybindings.ts) drives both runtime handlers and the in-app `?` help overlay. SPEC deliberately doesn't duplicate the table — update this file, not the docs.
 
-## Conventions specific to this repo
-
-- Path alias: `@/*` → `src/*` (see [tsconfig.json](tsconfig.json)).
-- shadcn/ui components live under `src/components/ui/` and are owned in-tree (don't re-pull them — edit them).
-- Tailwind v4 (CSS-first config in [src/app/globals.css](src/app/globals.css), no `tailwind.config.*`).
-- IDs are `crypto.randomUUID()` everywhere — see [src/lib/id.ts](src/lib/id.ts). Don't introduce nanoid/uuid deps.
-- Tests are co-located with source (`*.test.ts` next to the file under test), not in a separate tree.
-
-## Things to leave alone unless asked
-
-- `factMeta`, `timeline`, and `SymbolLayer.animation*` fields (v2 scaffolding — see SPEC §"Architecture-only fields").
-- The markdown bullet format `Visual description → meaning; encoding-note (why)` — only `{sym:UUID}` is structurally required, the rest is freeform on purpose.
-- Rejected stack alternatives in SPEC §"Stack decisions made" — don't relitigate without cause.
-
-## General Coding Practices
-
-Scope — only do what was asked. A bug fix doesn't get surrounding cleanup. A simple feature doesn't get extra config knobs. No "improvements" that weren't requested.
-Documentation — don't add docstrings, comments, or type annotations to code you didn't change. Comments only where logic isn't self-evident.
-Defensive coding — no error handling, fallbacks, or validation for situations that can't actually occur. Trust internal code and framework guarantees. Validate only at system boundaries (user input, external APIs).
-Abstractions — no helpers or utilities for one-time operations. No designing for hypothetical future needs. Minimum complexity for the current task.
+> Repo conventions, "things to leave alone," and coding standards live in [AGENTS.md](AGENTS.md) (included above) — the single source for those rules. This file adds only the commands and the cross-file architecture map.

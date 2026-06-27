@@ -2,17 +2,9 @@
 
 ---
 
-## Notes panel — Form-first redesign
-
-- [x] **Phase 1 — Form view (primary surface).** Structured Fact cards with inline DESC/MEAN/WHY fields, editable titles, ✕ delete on facts/sections/rows (untag-only), per-field clear, `+ section`/`+ fact`/`+ symbol`, button-driven empty state, Form/Source toggle (`ui.notesView`). Components under `src/components/editor/panels/notes-panel/outline/`; pure helpers `remove-fact`, `remove-section`, `remove-bullet-from-fact`, `insert-heading`, `set-heading-text` (co-located tests). Markdown stays canonical; CodeMirror retained as the Source view.
-- [x] **Phase 2 — Drag-and-drop organization.** Grip handles on rows/facts/sections; pointer-drag with a drop-indicator (`outline/outline-drag.ts`, modeled on `symbol-row-drag.ts`) reorders symbol rows within/between facts, reorders fact cards + moves them between sections, and reorders sections. Pure helpers `reorder-bullet.ts` (`moveBulletToIndex`), `move-fact.ts`, `move-section.ts` (co-located tests). All rewrite canonical markdown.
-
----
-
 ## Final — Desktop wrap (skeleton; detail when Phase 8 lands)
 
-- [ ] **Pick wrapper: Tauri** (recommended; ~5MB installer, system webview, Rust process) unless a Chromium-only feature blocks it.
-- [ ] Audit for `localhost:3001` assumptions — search hardcoded URLs; wrapped app serves from `tauri://` or `app://`.
+- [x] **Pick wrapper: Tauri** — shipped in v1.0.0 (Windows MSI + NSIS, system WebView2, auto-update, `release.yml` CI). See CHANGELOG.
 - [ ] Confirm no server calls — no analytics, fonts, or CDN deps sneaking in via Next.js defaults.
 - [ ] Strip dev-only globals — `window.__engramStore`, stray console logs.
 - [ ] **Vault folder mode** — one `.json` per picmonic at `<vault>/<slug>.json`; index = directory listing; thumbnails at `<vault>/.thumbs/<id>.jpg`. Tauri main process: `fs::write`, `fs::read_dir`, atomic temp-file-rename.

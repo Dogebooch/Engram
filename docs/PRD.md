@@ -34,7 +34,7 @@ Solo medical learner (the builder of this app). Heavy Anki + Obsidian user. Want
 - [x] Symbols are independently positioned and freely tagged with one or more Facts
 - [x] Notes panel renders in user's Sketchy markdown format; edits sync bidirectionally
 - [x] Click-reveal study mode works in both numbered-hotspot and sequential-timeline modes
-- [ ] Exports: PNG (rasterized scene), Markdown notes file, Anki-compatible CSV
+- [x] Exports: PNG (rasterized scene), Markdown notes file, Anki-compatible CSV
 
 ## Out of scope (v1)
 
