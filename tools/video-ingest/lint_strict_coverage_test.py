@@ -13,14 +13,6 @@ rewrite once clobbered it and false-failed a whole batch). It does not implement
 any of the above, so as written these assertions describe a draft-level strict
 gate that has never been built.
 
-The strict-coverage layer that DOES exist is **file-based**, not a draft linter:
-  - `ingest_workflow.build_coverage_targets` / `write_coverage_targets` produce
-    `workflow/coverage_targets.json` (the recall contract), and
-  - `codex_ingest_batch.coverage_contract_from_file` consumes that file.
-Both are exercised by `ingest_workflow_test.py` and `codex_ingest_batch_test.py`
-(the latter injects a synthetic lint dict and tests the file fallback — it never
-runs the real facts-only `lint_draft.py` through the strict assertions).
-
 These classes are therefore skipped, not deleted: they remain the spec should a
 draft-level strict gate ever be built (a deliberate decision, since it would
 change the facts-only gate's contract). Until then they must not gate the suite.
@@ -59,8 +51,7 @@ def write_run(
 
 _SKIP = (
     "Specifies an unbuilt draft-level strict-coverage gate; the canonical "
-    "lint_draft.py is facts-only. Live coverage contract is file-based in "
-    "ingest_workflow.build_coverage_targets + codex_ingest_batch.coverage_contract_from_file."
+    "lint_draft.py is facts-only by design."
 )
 
 
