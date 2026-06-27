@@ -964,7 +964,7 @@ const EMPTY_SYMBOLS = [] as const;
 function CanvasEmptyState({ onAddSymbol }: { onAddSymbol: () => void }) {
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
-      <div className="pointer-events-auto flex w-[min(30rem,86%)] flex-col items-center gap-5 rounded-xl border border-border/60 bg-card/70 px-8 py-9 text-center shadow-xl backdrop-blur-sm">
+      <div className="pointer-events-none flex w-[min(30rem,86%)] flex-col items-center gap-5 rounded-xl border border-border/60 bg-card/70 px-8 py-9 text-center shadow-xl backdrop-blur-sm">
         <div className="flex flex-col items-center gap-1.5">
           <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
             New scene
@@ -976,7 +976,12 @@ function CanvasEmptyState({ onAddSymbol }: { onAddSymbol: () => void }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <Button onClick={onAddSymbol} size="sm" aria-label="Add a symbol">
+          <Button
+            onClick={onAddSymbol}
+            size="sm"
+            aria-label="Add a symbol"
+            className="pointer-events-auto"
+          >
             <ShapesIcon />
             Add a symbol
           </Button>

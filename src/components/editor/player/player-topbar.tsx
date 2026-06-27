@@ -40,7 +40,7 @@ export function PlayerTopbar({ totalFacts, sequentialIndex }: PlayerTopbarProps)
         )}
 
         <div
-          className="eng-player-mode-toggle"
+          className="eng-segmented-toggle"
           role="radiogroup"
           aria-label="Study display mode"
         >
@@ -50,7 +50,7 @@ export function PlayerTopbar({ totalFacts, sequentialIndex }: PlayerTopbarProps)
             aria-checked={mode === "hotspot"}
             data-active={mode === "hotspot"}
             onClick={onSelect("hotspot")}
-            className="eng-player-mode-toggle__option"
+            className="eng-segmented-toggle__option"
           >
             hotspot
           </button>
@@ -60,7 +60,7 @@ export function PlayerTopbar({ totalFacts, sequentialIndex }: PlayerTopbarProps)
             aria-checked={mode === "sequential"}
             data-active={mode === "sequential"}
             onClick={onSelect("sequential")}
-            className="eng-player-mode-toggle__option"
+            className="eng-segmented-toggle__option"
           >
             sequential
           </button>

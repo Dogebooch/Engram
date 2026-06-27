@@ -143,19 +143,20 @@ export function NotesPanel() {
         {/* One quiet status row: the view toggle is primary; the outline CTA is
             the bulk path for traced scenes; lint issues are a secondary indicator. */}
         <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-0.5 rounded-full border border-border/70 p-0.5">
+          <div
+            className="eng-segmented-toggle"
+            role="radiogroup"
+            aria-label="Notes view"
+          >
             {(["form", "source"] as const).map((v) => (
               <button
                 key={v}
                 type="button"
+                role="radio"
+                aria-checked={notesView === v}
+                data-active={notesView === v}
                 onClick={() => setNotesView(v)}
-                aria-pressed={notesView === v}
-                className={cn(
-                  "rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors",
-                  notesView === v
-                    ? "bg-accent/20 text-accent"
-                    : "text-muted-foreground/60 hover:text-foreground/80",
-                )}
+                className="eng-segmented-toggle__option"
               >
                 {v}
               </button>

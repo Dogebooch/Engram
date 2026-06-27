@@ -1335,7 +1335,7 @@ body[data-engram-tag-dragging]
 
 /* Segmented mode toggle */
 
-.eng-player-mode-toggle {
+.eng-segmented-toggle {
   display: inline-flex;
   align-items: center;
   padding: 2px;
@@ -1344,7 +1344,7 @@ body[data-engram-tag-dragging]
   border: 1px solid color-mix(in oklch, var(--border) 90%, transparent);
 }
 
-.eng-player-mode-toggle__option {
+.eng-segmented-toggle__option {
   appearance: none;
   border: 0;
   background: transparent;
@@ -1362,12 +1362,12 @@ body[data-engram-tag-dragging]
     box-shadow 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.eng-player-mode-toggle__option:hover {
+.eng-segmented-toggle__option:hover {
   background: color-mix(in oklch, var(--muted) 80%, transparent);
   color: color-mix(in oklch, var(--foreground) 82%, transparent);
 }
 
-.eng-player-mode-toggle__option[data-active="true"] {
+.eng-segmented-toggle__option[data-active="true"] {
   background: color-mix(in oklch, var(--accent) 12%, transparent);
   color: color-mix(in oklch, var(--accent) 84%, var(--foreground));
   box-shadow:
