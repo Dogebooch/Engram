@@ -775,21 +775,6 @@ body:not([data-engram-tag-dragging]) .eng-notes-host .cm-line.eng-bullet-glow::a
   text-transform: uppercase;
 }
 
-.eng-notes-empty__kbd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 4px;
-  border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
-  border-radius: 2px;
-  background: color-mix(in oklch, var(--background) 30%, transparent);
-  color: color-mix(in oklch, var(--foreground) 55%, transparent);
-  font-size: 9px;
-  letter-spacing: 0;
-}
-
 /* ============================================================
  * Notes Form view — structured Fact cards (the primary surface).
  * Reuses the source view's accent/highlight language.
@@ -923,14 +908,6 @@ body[data-engram-outline-dragging] * {
   letter-spacing: 0;
   text-transform: none;
   font-size: 11px;
-}
-
-.eng-notes-breadcrumb__placeholder {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
 }
 
 /* ---- CodeMirror token tweaks ---- */
@@ -1679,19 +1656,6 @@ body[data-engram-tag-dragging]
   height: 44px;
   object-fit: contain;
   filter: saturate(0.92);
-}
-
-.eng-player-rail__tile-img-missing {
-  width: 44px;
-  height: 44px;
-  border-radius: 4px;
-  border: 1px dashed color-mix(in oklch, var(--destructive) 50%, transparent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: color-mix(in oklch, var(--destructive) 75%, transparent);
-  font-family: var(--font-mono);
-  font-size: 11px;
 }
 
 .eng-player-rail__tile-caption {

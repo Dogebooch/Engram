@@ -3,6 +3,7 @@ import { parseNotes } from "@/lib/notes/parse";
 import { moveBulletToIndex } from "@/lib/notes/reorder-bullet";
 import { moveFact, type MoveFactAnchor } from "@/lib/notes/move-fact";
 import { moveSection, type MoveSectionAnchor } from "@/lib/notes/move-section";
+import { createDragGhost } from "../drag-ghost";
 
 /**
  * Pointer-drag reordering for the Form view, modeled on `symbol-row-drag.ts`:
@@ -175,18 +176,11 @@ export function beginOutlineDrag(payload: Payload, event: PointerEvent): void {
   const start = () => {
     dragging = true;
     document.body.setAttribute(BODY_DRAGGING_ATTR, "");
-    ghost = document.createElement("div");
-    ghost.className = "eng-row-drag-ghost";
+    ghost = createDragGhost(
+      payload.label,
+      payload.kind === "row" ? payload.imageUrl : null,
+    );
     ghost.style.pointerEvents = "none";
-    if (payload.kind === "row" && payload.imageUrl) {
-      const img = document.createElement("img");
-      img.src = payload.imageUrl;
-      img.alt = "";
-      ghost.appendChild(img);
-    }
-    const text = document.createElement("span");
-    text.textContent = payload.label;
-    ghost.appendChild(text);
     document.body.appendChild(ghost);
 
     indicator = document.createElement("div");

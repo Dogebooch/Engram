@@ -22,6 +22,7 @@ import { usePicmonic } from "@/lib/store/hooks";
 import type { OutlineWalkthroughState } from "@/lib/store/slices/interactions-slice";
 import { useThemedCssVar } from "@/lib/theme/use-themed-css-var";
 import { isRegionSymbolLayer, type RegionPoint, type SymbolLayer } from "@/lib/types/canvas";
+import { useFitBox } from "./use-fit-box";
 import { BackdropLayer } from "./backdrop-layer";
 import { SymbolNumberCircle } from "./symbol-number-circle";
 import { CanvasTransformer } from "./canvas-transformer";
@@ -68,16 +69,6 @@ function symbolNumberAnchor(layer: SymbolLayer): { x: number; y: number } {
   const lx = layer.width;
   return { x: layer.x + lx * cos, y: layer.y + lx * sin };
 }
-
-interface FitBox {
-  width: number;
-  height: number;
-  scale: number;
-  offsetX: number;
-  offsetY: number;
-}
-
-const ZERO_BOX: FitBox = { width: 0, height: 0, scale: 0, offsetX: 0, offsetY: 0 };
 
 type MarqueeState =
   | { kind: "idle" }
@@ -167,7 +158,7 @@ export function CanvasStage() {
   const symbolRefs = React.useRef<
     Map<string, Konva.Image | Konva.Rect | Konva.Line | Konva.Group>
   >(new Map());
-  const [box, setBox] = React.useState<FitBox>(ZERO_BOX);
+  const box = useFitBox(containerRef);
 
   const picmonic = usePicmonic();
   const symbols = picmonic?.canvas.symbols ?? EMPTY_SYMBOLS;
@@ -228,47 +219,6 @@ export function CanvasStage() {
   const handleStageRef = React.useCallback((node: Konva.Stage | null) => {
     stageRef.current = node;
     setCurrentStage(node);
-  }, []);
-
-  React.useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const compute = (cw: number, ch: number) => {
-      if (cw <= 0 || ch <= 0) return ZERO_BOX;
-      const scaleX = cw / STAGE_WIDTH;
-      const scaleY = ch / STAGE_HEIGHT;
-      const scale = Math.min(scaleX, scaleY);
-      const width = STAGE_WIDTH * scale;
-      const height = STAGE_HEIGHT * scale;
-      const offsetX = Math.round((cw - width) / 2);
-      const offsetY = Math.round((ch - height) / 2);
-      return { width, height, scale, offsetX, offsetY };
-    };
-
-    const apply = (cw: number, ch: number) => {
-      const next = compute(cw, ch);
-      setBox((prev) => {
-        if (
-          Math.abs(prev.width - next.width) < 0.5 &&
-          Math.abs(prev.height - next.height) < 0.5
-        ) {
-          return prev;
-        }
-        return next;
-      });
-    };
-
-    const rect = el.getBoundingClientRect();
-    apply(rect.width, rect.height);
-
-    const obs = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      apply(entry.contentRect.width, entry.contentRect.height);
-    });
-    obs.observe(el);
-    return () => obs.disconnect();
   }, []);
 
   const handleSymbolMount = React.useCallback(

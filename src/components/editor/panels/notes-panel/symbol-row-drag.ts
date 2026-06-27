@@ -1,5 +1,6 @@
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
+import { createDragGhost } from "./drag-ghost";
 
 /**
  * Pointer-drag a symbol bullet row onto another `## Fact` card to re-home it.
@@ -55,17 +56,7 @@ export function beginSymbolRowDragOrSelect(opts: SymbolRowDragOptions): void {
   const startDrag = () => {
     dragging = true;
     document.body.setAttribute(BODY_DRAGGING_ATTR, "");
-    ghost = document.createElement("div");
-    ghost.className = "eng-row-drag-ghost";
-    if (imageUrl) {
-      const img = document.createElement("img");
-      img.src = imageUrl;
-      img.alt = "";
-      ghost.appendChild(img);
-    }
-    const text = document.createElement("span");
-    text.textContent = label;
-    ghost.appendChild(text);
+    ghost = createDragGhost(label, imageUrl);
     document.body.appendChild(ghost);
   };
 

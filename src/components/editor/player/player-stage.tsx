@@ -12,6 +12,7 @@ import { getFactAnchor } from "@/lib/canvas/centroid";
 import { parseNotes } from "@/lib/notes/parse";
 import { getOrderedFacts } from "@/lib/notes/fact-order";
 import type { FactHotspots, SymbolLayer } from "@/lib/types/canvas";
+import { useFitBox } from "../canvas/use-fit-box";
 import { BackdropLayer } from "../canvas/backdrop-layer";
 import { DotGrid } from "../canvas/dot-grid";
 import { SymbolNode } from "../canvas/symbol-node";
@@ -26,14 +27,6 @@ const STAGE_FALLBACK = "oklch(0.255 0.025 188)";
 const HOTSPOT_OVERLAP_THRESHOLD = 34;
 const HOTSPOT_SPREAD = 88;
 
-interface FitBox {
-  width: number;
-  height: number;
-  scale: number;
-  offsetX: number;
-  offsetY: number;
-}
-
 export interface PlayerHotspot {
   factId: string;
   ordinal: number;
@@ -41,13 +34,22 @@ export interface PlayerHotspot {
   y: number;
 }
 
-const ZERO_BOX: FitBox = { width: 0, height: 0, scale: 0, offsetX: 0, offsetY: 0 };
-
 export function PlayerStage() {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const stageRef = React.useRef<Konva.Stage | null>(null);
-  const [box, setBox] = React.useState<FitBox>(ZERO_BOX);
   const [containerSize, setContainerSize] = React.useState({ width: 0, height: 0 });
+  const handleContainerSize = React.useCallback(
+    (size: { width: number; height: number }) => {
+      setContainerSize((prev) =>
+        Math.abs(prev.width - size.width) < 0.5 &&
+        Math.abs(prev.height - size.height) < 0.5
+          ? prev
+          : size,
+      );
+    },
+    [],
+  );
+  const box = useFitBox(containerRef, handleContainerSize);
   const stageFill = useThemedCssVar("--stage", STAGE_FALLBACK) ?? STAGE_FALLBACK;
 
   const picmonic = usePicmonic();
@@ -101,57 +103,6 @@ export function PlayerStage() {
 
   const [contextMenu, setContextMenu] =
     React.useState<HotspotContextMenuState | null>(null);
-
-  // Fit-to-viewport observer — mirrors canvas-stage.tsx
-  React.useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const compute = (cw: number, ch: number) => {
-      if (cw <= 0 || ch <= 0) return ZERO_BOX;
-      const scaleX = cw / STAGE_WIDTH;
-      const scaleY = ch / STAGE_HEIGHT;
-      const scale = Math.min(scaleX, scaleY);
-      const width = STAGE_WIDTH * scale;
-      const height = STAGE_HEIGHT * scale;
-      const offsetX = Math.round((cw - width) / 2);
-      const offsetY = Math.round((ch - height) / 2);
-      return { width, height, scale, offsetX, offsetY };
-    };
-    const apply = (cw: number, ch: number) => {
-      const next = compute(cw, ch);
-      setBox((prev) => {
-        if (
-          Math.abs(prev.width - next.width) < 0.5 &&
-          Math.abs(prev.height - next.height) < 0.5
-        ) {
-          return prev;
-        }
-        return next;
-      });
-      // clientWidth/Height = padding box (matches CSS absolute-positioning
-      // containing block). The reveal card uses this for smart-flip clamping.
-      const innerW = el.clientWidth;
-      const innerH = el.clientHeight;
-      setContainerSize((prev) => {
-        if (
-          Math.abs(prev.width - innerW) < 0.5 &&
-          Math.abs(prev.height - innerH) < 0.5
-        ) {
-          return prev;
-        }
-        return { width: innerW, height: innerH };
-      });
-    };
-    const rect = el.getBoundingClientRect();
-    apply(rect.width, rect.height);
-    const obs = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      apply(entry.contentRect.width, entry.contentRect.height);
-    });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
 
   const noopMount = React.useCallback(() => {
     /* PlayerStage doesn't need refs to symbol nodes */
