@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Engram (aka "Mnemonic Editor") — a single-user, local-only desktop web app for authoring Picmonic/Sketchy-style mnemonic scenes. Authoritative spec lives in [docs/PRD.md](docs/PRD.md) (vision, scope, v1 done-criteria) and [docs/SPEC.md](docs/SPEC.md) (stack decisions, data model, edge-case behaviors). **Read both before non-trivial changes.** Active work and recently completed items: [docs/TODO.md](docs/TODO.md).
+Engram (aka "Mnemonic Editor") — a single-user, local-only desktop web app for authoring Picmonic/Sketchy-style mnemonic scenes. Authoritative spec lives in [docs/PRD.md](docs/PRD.md) (vision, scope, v1 done-criteria) and [docs/SPEC.md](docs/SPEC.md) (stack decisions, data model, edge-case behaviors). **Read both before non-trivial changes.** Plan, phases and backlog: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Commands
 

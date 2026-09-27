@@ -1,6 +1,6 @@
 # PIPELINE-SCHEMA — Pipeline Export
 
-Single-file JSON contract for one exported mnemonic, consumed by the downstream animation/video exporter. This document is the authoritative shape; the lint rules in [TODO §8.1b](TODO.md) and any future `exportPipelineJson()` implementation are derived from it.
+Single-file JSON contract for one exported mnemonic, consumed by the downstream animation/video exporter. This document is the authoritative shape; the lint rules in [src/lib/notes/lint.ts](../src/lib/notes/lint.ts) and any future `exportPipelineJson()` implementation are derived from it.
 
 ## Purpose & scope
 

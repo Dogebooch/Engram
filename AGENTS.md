@@ -12,7 +12,7 @@ Before any non-trivial change, read:
 
 - `docs/PRD.md` — product vision and v1 done criteria
 - `docs/SPEC.md` — stack, data model, edge cases, and accepted decisions
-- `docs/TODO.md` — active work
+- `docs/ROADMAP.md` — phases, backlog, and what's not being built
 - `docs/PIPELINE-SCHEMA.md` — pipeline export contract and lint rules
 
 When unsure about Next.js, React, or App Router APIs, consult `node_modules/next/dist/docs/` before writing code.
