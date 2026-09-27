@@ -11,7 +11,7 @@ Engram (aka "Mnemonic Editor") — a single-user, local-only desktop web app for
 ## Commands
 
 ```bash
-npm run dev          # next dev — localhost:3000
+npm run dev          # next dev (preview_start "engram" runs it on localhost:3001)
 npm run build        # next build (typechecks)
 npm run lint         # eslint (uses eslint.config.mjs, flat config)
 npm test             # vitest run (one-shot)
@@ -20,6 +20,12 @@ npm run symbols:build  # regenerate /public/symbols/openmoji/ (also runs postins
 ```
 
 Run a single test file: `npx vitest run src/lib/notes/parse.test.ts`. Tests use `fake-indexeddb` via [vitest.setup.ts](vitest.setup.ts) — IDB code works in tests.
+
+## Verifying changes
+
+- **Test against the dev server** (`preview_start` "engram", HMR). Run `npm run build` only when the change touches build output, config, or production-only behavior, or before calling a phase done.
+- **Check cheapest first:** vitest for pure logic → `window.__engramStore.getState()` via the browser JS tool (query only the slice you need) → console/network logs → `get_page_text`. Avoid a full `read_page` of the editor; it's larger than a screenshot.
+- **Screenshot only to judge visuals** (canvas rendering, layout, outlines), at scale 0.5, zooming a region for detail. A hidden browser pane renders the Konva canvas at 0x0, so never trust a canvas screenshot for state.
 
 ## Architecture (the parts that span files)
 
